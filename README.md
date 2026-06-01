@@ -16,7 +16,7 @@ Sistema web para gestão operacional e financeira de lavanderia: pedidos, client
 ## Instalação
 
 ```bash
-git clone https://github.com/<seu-usuario>/LavanderiaSystem.git
+git clone https://github.com/Ramonpp/LavanderiaSystem.git
 cd LavanderiaSystem
 npm install
 cp .env.example .env.local
