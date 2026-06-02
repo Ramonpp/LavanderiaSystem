@@ -170,7 +170,7 @@ export function AppShell() {
       <aside className={sidebarClass} aria-label="Menu lateral">
         {/* Brand */}
         <div className={styles.brand}>
-          <div className={styles.logoMark} aria-hidden="true">CN</div>
+          <img src="/logo.png" alt="Ciclo Novo Logo" className={styles.logoMark} style={{ objectFit: 'contain', width: 36, height: 36, padding: 0, background: 'transparent' }} />
           <div className={styles.brandText}>
             <div className={styles.title}>Ciclo Novo</div>
             <div className={styles.subtitle}>Gestão de lavanderia</div>

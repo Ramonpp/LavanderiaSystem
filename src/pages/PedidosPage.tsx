@@ -79,7 +79,7 @@ export function PedidosPage() {
 
   type PricingMode = 'kg' | 'fixo'
   const [modoPreco, setModoPreco] = useState<PricingMode>('kg')
-  const [precoKg, setPrecoKg] = useState('20')
+  const [precoKg, setPrecoKg] = useState('17')
   const [precoFixo, setPrecoFixo] = useState('')
 
   const [observacoes, setObservacoes] = useState('')
@@ -87,7 +87,7 @@ export function PedidosPage() {
   const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
 
   const primeiraPecaDisponível = useMemo(() => tipos[0]?.id ?? '', [tipos])
-  const DEFAULT_PRECO_POR_KG_48H = '20'
+  const DEFAULT_PRECO_POR_KG_48H = '17'
 
   async function reloadAll() {
     setErro(null)
@@ -133,7 +133,7 @@ export function PedidosPage() {
     setPagamentoStatus('devendo')
     setPesoKg('')
     setModoPreco('kg')
-    setPrecoKg('20')
+    setPrecoKg('17')
     setPrecoFixo('')
     setObservacoes('')
     setItensLinhas(gerarLinhasPadrao(tipos))
@@ -373,7 +373,7 @@ export function PedidosPage() {
       <header>
         <h1 style={{ fontSize: 22, letterSpacing: -0.2 }}>Pedidos</h1>
         <div className="hint">
-          Padrão sugerido: <strong>R$ 20/kg</strong> com entrega em <strong>48h</strong>. Ajuste por pedido quando necessário.
+          Padrão sugerido: <strong>R$ 17/kg</strong> com entrega em <strong>48h</strong>. Ajuste por pedido quando necessário.
         </div>
       </header>
 
@@ -442,25 +442,34 @@ export function PedidosPage() {
               <input id="peso" inputMode="decimal" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} />
             </div>
             <div className="field" style={{ alignSelf: 'end' }}>
-              <div style={{ display: 'grid', gap: 8 }}>
-                <label style={{ display: 'flex', gap: 10, alignItems: 'center', color: 'var(--text-h)', marginBottom: 0 }}>
-                  <input
-                    type="radio"
-                    name="modoPreco"
-                    checked={modoPreco === 'kg'}
-                    onChange={() => setModoPreco('kg')}
-                  />
-                  Cobrança por kg
-                </label>
-                <label style={{ display: 'flex', gap: 10, alignItems: 'center', color: 'var(--text-h)', marginBottom: 0 }}>
-                  <input
-                    type="radio"
-                    name="modoPreco"
-                    checked={modoPreco === 'fixo'}
-                    onChange={() => setModoPreco('fixo')}
-                  />
-                  Cobrança fixa
-                </label>
+              <label>Forma de cobrança</label>
+              <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 10, padding: 4, border: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setModoPreco('kg')}
+                  style={{
+                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: modoPreco === 'kg' ? 'var(--panel)' : 'transparent',
+                    color: modoPreco === 'kg' ? 'var(--text-h)' : 'var(--muted)',
+                    boxShadow: modoPreco === 'kg' ? 'var(--shadow)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Por KG
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoPreco('fixo')}
+                  style={{
+                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: modoPreco === 'fixo' ? 'var(--panel)' : 'transparent',
+                    color: modoPreco === 'fixo' ? 'var(--text-h)' : 'var(--muted)',
+                    boxShadow: modoPreco === 'fixo' ? 'var(--shadow)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Fixo
+                </button>
               </div>
             </div>
           </div>
@@ -486,8 +495,25 @@ export function PedidosPage() {
           <section className="panel" style={{ boxShadow: 'none' }}>
             <div className="panelHeader">
               <h3 style={{ fontSize: 15 }}>Peças (escolha o tipo e a quantidade)</h3>
-              <button className="btn btnPrimary" type="button" onClick={adicionarLinhaItem}>
-                + Adicionar linha
+              <button 
+                type="button" 
+                onClick={adicionarLinhaItem}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 14px', borderRadius: 8,
+                  border: '1px dashed var(--accent)',
+                  background: 'var(--accent-bg)',
+                  color: 'var(--accent)',
+                  fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Nova peça
               </button>
             </div>
             <div className="panelBody grid" style={{ gap: 10 }}>
@@ -520,9 +546,25 @@ export function PedidosPage() {
                     />
                   </div>
                   <div className="field" style={{ minWidth: 120, alignSelf: 'end' }}>
-                    <label>&nbsp;</label>
-                    <button className="btn btnDanger" type="button" onClick={() => removerLinhaItem(l.key)}>
-                      Remover
+                    <label style={{ visibility: 'hidden' }}>X</label>
+                    <button 
+                      type="button" 
+                      onClick={() => removerLinhaItem(l.key)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        height: '42px', padding: '0 16px',
+                        borderRadius: 8, border: '1px solid var(--danger)',
+                        background: 'transparent',
+                        color: 'var(--danger)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      title="Remover peça"
+                    >
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
                     </button>
                   </div>
                 </div>

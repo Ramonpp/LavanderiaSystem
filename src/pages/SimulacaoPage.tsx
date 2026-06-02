@@ -5,16 +5,18 @@ function n(v: string) {
   return Math.max(0, Number(String(v).replace(',', '.')) || 0)
 }
 
-const DEFAULT_COMBUSTIVEL = (() => {
-  // Unamar -> Arraial (~51 km) + volta (~51 km)
-  const km = 51 * 2
-  // GNV: cilindro de 16 m³, preço R$ 4,69 por m³, média 190 km por cilindro
-  const cilindroM3 = 16
-  const precoM3 = 4.69
-  const autonomiaKm = 190
-  const custoKm = (cilindroM3 * precoM3) / autonomiaKm
-  return km * custoKm
-})()
+function calcularCustoAgua(m3: number) {
+  if (m3 <= 10) return 170.40;
+  let custo = 170.40;
+  if (m3 > 10) custo += Math.min(m3 - 10, 5) * 22.32;
+  if (m3 > 15) custo += Math.min(m3 - 15, 10) * 35.74;
+  if (m3 > 25) custo += Math.min(m3 - 25, 10) * 42.88;
+  if (m3 > 35) custo += Math.min(m3 - 35, 10) * 51.46;
+  if (m3 > 45) custo += Math.min(m3 - 45, 10) * 63.18;
+  if (m3 > 55) custo += Math.min(m3 - 55, 10) * 80.25;
+  if (m3 > 65) custo += (m3 - 65) * 91.26;
+  return custo;
+}
 
 function Field({
   id,
@@ -84,9 +86,13 @@ export function SimulacaoPage() {
 
   /* ── Utilidades (por ciclo) ─────────────────────────── */
   const [litrosPorCiclo, setLitrosPorCiclo] = useState(defaults.litrosPorCiclo ?? '77,6')
-  const [custoLuzPorCiclo, setCustoLuzPorCiclo] = useState(defaults.custoLuzPorCiclo ?? '0,36')
-  const [tarifaAguaM3, setTarifaAguaM3] = useState(defaults.tarifaAguaM3 ?? '14,59')
-  const [minAguaM3, setMinAguaM3] = useState(defaults.minAguaM3 ?? '10')
+  const [kwPorCiclo, setKwPorCiclo] = useState(defaults.kwPorCiclo ?? '0,4')
+  const [tarifaKw, setTarifaKw] = useState(defaults.tarifaKw ?? '0,90')
+
+  /* ── Combustível ────────────────────────────────────── */
+  const [combustivelTipo, setCombustivelTipo] = useState(defaults.combustivelTipo ?? 'gnv')
+  const [combustivelPreco, setCombustivelPreco] = useState(defaults.combustivelPreco ?? '4,69')
+  const [combustivelConsumo, setCombustivelConsumo] = useState(defaults.combustivelConsumo ?? '11,87')
 
   /* ── Custos fixos ───────────────────────────────────── */
   const [aluguel, setAluguel] = useState(defaults.aluguel ?? '')
@@ -97,18 +103,27 @@ export function SimulacaoPage() {
 
   /* ── Custos variáveis ───────────────────────────────── */
   const [viagensArraial, setViagensArraial] = useState(defaults.viagensArraial ?? '1')
-  const [combustivelExtra, setCombustivelExtra] = useState(defaults.combustivelExtra ?? '0')
   const [produtos, setProdutos] = useState(defaults.produtos ?? '')
   const [outrosVar, setOutrosVar] = useState(defaults.outrosVar ?? '')
+
+  /* ── Comparativo Combustíveis (apenas UI) ───────────── */
+  const [compGnvPreco, setCompGnvPreco] = useState(defaults.compGnvPreco ?? '4,69')
+  const [compGnvConsumo, setCompGnvConsumo] = useState(defaults.compGnvConsumo ?? '11,87')
+  const [compEtanolPreco, setCompEtanolPreco] = useState(defaults.compEtanolPreco ?? '3,99')
+  const [compEtanolConsumo, setCompEtanolConsumo] = useState(defaults.compEtanolConsumo ?? '8,5')
+  const [compGasolinaPreco, setCompGasolinaPreco] = useState(defaults.compGasolinaPreco ?? '5,99')
+  const [compGasolinaConsumo, setCompGasolinaConsumo] = useState(defaults.compGasolinaConsumo ?? '12,0')
 
   function salvarPadraoSimulacao() {
     setMsg(null)
     try {
       const payload: Record<string, string> = {
         clientes, lavagens, pesoMedio, precoKg,
-        litrosPorCiclo, custoLuzPorCiclo, tarifaAguaM3, minAguaM3,
+        litrosPorCiclo, kwPorCiclo, tarifaKw,
+        combustivelTipo, combustivelPreco, combustivelConsumo,
         aluguel, carro, maquinas, contador, outrosFixos,
-        viagensArraial, combustivelExtra, produtos, outrosVar,
+        viagensArraial, produtos, outrosVar,
+        compGnvPreco, compGnvConsumo, compEtanolPreco, compEtanolConsumo, compGasolinaPreco, compGasolinaConsumo,
       }
       localStorage.setItem('lav_simulacao_defaults', JSON.stringify(payload))
       setMsg('Padrões salvos.')
@@ -125,15 +140,24 @@ export function SimulacaoPage() {
 
     const ciclosMes = n(clientes) * n(lavagens)
     const aguaM3Calculado = (ciclosMes * n(litrosPorCiclo)) / 1000
-    const aguaM3Faturado = aguaM3Calculado > 0 ? Math.max(n(minAguaM3), aguaM3Calculado) : 0
-    const custoAgua = aguaM3Faturado * n(tarifaAguaM3)
-    const custoLuz = ciclosMes * n(custoLuzPorCiclo)
+    const aguaM3Faturado = aguaM3Calculado > 0 ? Math.max(10, aguaM3Calculado) : 0
+    const custoAgua = ciclosMes > 0 ? calcularCustoAgua(aguaM3Faturado) : 0
+    const custoLuz = ciclosMes * (n(kwPorCiclo) * n(tarifaKw))
 
-    const custoViagensArraial = n(viagensArraial) * DEFAULT_COMBUSTIVEL
+    const custoViagem = n(combustivelConsumo) > 0 ? (110 / n(combustivelConsumo)) * n(combustivelPreco) : 0
+    const custoViagensArraial = n(viagensArraial) * custoViagem
+
+    const custoCompGnv = n(compGnvConsumo) > 0 ? (110 / n(compGnvConsumo)) * n(compGnvPreco) : 0
+    const custoCompEtanol = n(compEtanolConsumo) > 0 ? (110 / n(compEtanolConsumo)) * n(compEtanolPreco) : 0
+    const custoCompGasolina = n(compGasolinaConsumo) > 0 ? (110 / n(compGasolinaConsumo)) * n(compGasolinaPreco) : 0
+
+    const tanquesGnv = n(compGnvConsumo) > 0 ? ((n(viagensArraial) * 110) / n(compGnvConsumo)) / 13 : 0
+    const tanquesEtanol = n(compEtanolConsumo) > 0 ? ((n(viagensArraial) * 110) / n(compEtanolConsumo)) / 58 : 0
+    const tanquesGasolina = n(compGasolinaConsumo) > 0 ? ((n(viagensArraial) * 110) / n(compGasolinaConsumo)) / 58 : 0
 
     const fixo =
       n(aluguel) + n(carro) + n(maquinas) + n(contador) + n(outrosFixos)
-    const variavel = custoViagensArraial + n(combustivelExtra) + n(produtos) + n(outrosVar) + custoAgua + custoLuz
+    const variavel = custoViagensArraial + n(produtos) + n(outrosVar) + custoAgua + custoLuz
     const custoTotal = fixo + variavel
     const lucro = receita - custoTotal
     const margem = receita > 0 ? (lucro / receita) * 100 : 0
@@ -158,12 +182,20 @@ export function SimulacaoPage() {
       margem,
       custoVarPorKg,
       pontoEquilibrio,
+      custoCompGnv,
+      custoCompEtanol,
+      custoCompGasolina,
+      tanquesGnv,
+      tanquesEtanol,
+      tanquesGasolina,
     }
   }, [
     clientes, lavagens, pesoMedio, precoKg,
-    litrosPorCiclo, custoLuzPorCiclo, tarifaAguaM3, minAguaM3,
+    litrosPorCiclo, kwPorCiclo, tarifaKw,
+    combustivelTipo, combustivelPreco, combustivelConsumo,
     aluguel, carro, maquinas, contador, outrosFixos,
-    viagensArraial, combustivelExtra, produtos, outrosVar,
+    viagensArraial, produtos, outrosVar,
+    compGnvPreco, compGnvConsumo, compEtanolPreco, compEtanolConsumo, compGasolinaPreco, compGasolinaConsumo,
   ])
 
   const lucroClass = r.lucro >= 0 ? 'valPositive' : 'valNegative'
@@ -280,7 +312,7 @@ export function SimulacaoPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                 gap: 10,
                 paddingBottom: 10,
                 borderBottom: '1px solid var(--border)',
@@ -294,28 +326,23 @@ export function SimulacaoPage() {
                 hint="Ex.: 77,6 L por ciclo"
               />
               <Field
-                id="luzCiclo"
-                label="Luz por ciclo (R$)"
-                value={custoLuzPorCiclo}
-                onChange={setCustoLuzPorCiclo}
-                prefix="R$"
-                hint="Ex.: 0,36 por ciclo"
+                id="kwCiclo"
+                label="KW por ciclo"
+                value={kwPorCiclo}
+                onChange={setKwPorCiclo}
+                hint="Ex.: 0,4 KW"
               />
               <Field
-                id="tarifaAgua"
-                label="Tarifa água (R$/m³)"
-                value={tarifaAguaM3}
-                onChange={setTarifaAguaM3}
+                id="tarifaKw"
+                label="Tarifa de Luz (R$/KW)"
+                value={tarifaKw}
+                onChange={setTarifaKw}
                 prefix="R$"
-                hint="Tarifa da concessionária"
+                hint="Valor do KW"
               />
-              <Field
-                id="minAgua"
-                label="Mínimo faturado (m³)"
-                value={minAguaM3}
-                onChange={setMinAguaM3}
-                hint="Regra: mínimo 10 m³"
-              />
+              <div className="hint" style={{ gridColumn: '1 / -1', marginTop: -2, paddingBottom: 6 }}>
+                Água calculada progressivamente baseada na tarifa referencial (mínimo 10m³ = R$ 170,04). Lembrete: 1000L = 1m³.
+              </div>
             </div>
 
             <div className="hint" style={{ marginTop: 2 }}>
@@ -326,17 +353,47 @@ export function SimulacaoPage() {
               Luz (estimada): <strong>{formatBRL(r.custoLuz)}</strong> · Água (estimada): <strong>{formatBRL(r.custoAgua)}</strong>
             </div>
 
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 10,
+                marginTop: 6,
+              }}
+            >
+              <div className="field">
+                <label>Combustível</label>
+                <select value={combustivelTipo} onChange={(e) => setCombustivelTipo(e.target.value)}>
+                  <option value="gnv">GNV</option>
+                  <option value="etanol">Etanol</option>
+                  <option value="gasolina">Gasolina</option>
+                </select>
+              </div>
+              <Field
+                id="combPreco"
+                label={`Preço ${combustivelTipo === 'gnv' ? 'm³' : 'Litro'}`}
+                value={combustivelPreco}
+                onChange={setCombustivelPreco}
+                prefix="R$"
+              />
+              <Field
+                id="combConsumo"
+                label={`Km por ${combustivelTipo === 'gnv' ? 'm³' : 'Litro'}`}
+                value={combustivelConsumo}
+                onChange={setCombustivelConsumo}
+                hint="Consumo médio"
+              />
+            </div>
             <Field
               id="viagensArraial"
               label="Viagens Arraial (ida+volta) / mês"
               value={viagensArraial}
               onChange={setViagensArraial}
-              hint={`102 km por viagem · custo estimado ${formatBRL(DEFAULT_COMBUSTIVEL)} por viagem`}
+              hint={`110 km por viagem · custo ${n(combustivelConsumo) > 0 ? formatBRL((110 / n(combustivelConsumo)) * n(combustivelPreco)) : 'R$ 0,00'} por viagem`}
             />
-            <div className="hint" style={{ marginTop: -2 }}>
+            <div className="hint" style={{ marginTop: -2, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
               Combustível (viagens): <strong>{formatBRL(r.custoViagensArraial)}</strong>
             </div>
-            <Field id="combExtra" label="Combustível extra" value={combustivelExtra} onChange={setCombustivelExtra} prefix="R$" />
             <Field id="produtos"    label="Produtos (químicos, etc.)" value={produtos}    onChange={setProdutos}    prefix="R$" />
             <Field id="outvar"      label="Outros variáveis" value={outrosVar}   onChange={setOutrosVar}   prefix="R$" />
             <div
@@ -573,8 +630,24 @@ export function SimulacaoPage() {
                     { label: '  Máquinas', val: -n(maquinas) },
                     { label: '  Contador', val: -n(contador) },
                     n(outrosFixos) ? { label: '  Outros fixos', val: -n(outrosFixos) } : null,
-                      r.custoViagensArraial ? { label: '  Combustível (viagens Arraial)', val: -r.custoViagensArraial } : null,
-                      n(combustivelExtra) ? { label: '  Combustível (extra)', val: -n(combustivelExtra) } : null,
+                    ...(() => {
+                      if (!n(viagensArraial)) return []
+                      const rows = []
+                      if (combustivelTipo === 'gnv') {
+                        rows.push({ label: '  Combustível (GNV)', val: -(r.custoCompGnv * n(viagensArraial)) })
+                        rows.push({ label: '• Comparativo Etanol', val: -(r.custoCompEtanol * n(viagensArraial)), infoOnly: true, isSub: true })
+                        rows.push({ label: '• Comparativo Gasolina', val: -(r.custoCompGasolina * n(viagensArraial)), infoOnly: true, isSub: true })
+                      } else if (combustivelTipo === 'etanol') {
+                        rows.push({ label: '  Combustível (Etanol)', val: -(r.custoCompEtanol * n(viagensArraial)) })
+                        rows.push({ label: '• Comparativo GNV', val: -(r.custoCompGnv * n(viagensArraial)), infoOnly: true, isSub: true })
+                        rows.push({ label: '• Comparativo Gasolina', val: -(r.custoCompGasolina * n(viagensArraial)), infoOnly: true, isSub: true })
+                      } else {
+                        rows.push({ label: '  Combustível (Gasolina)', val: -(r.custoCompGasolina * n(viagensArraial)) })
+                        rows.push({ label: '• Comparativo GNV', val: -(r.custoCompGnv * n(viagensArraial)), infoOnly: true, isSub: true })
+                        rows.push({ label: '• Comparativo Etanol', val: -(r.custoCompEtanol * n(viagensArraial)), infoOnly: true, isSub: true })
+                      }
+                      return rows
+                    })(),
                     { label: '  Produtos', val: -n(produtos) },
                     n(outrosVar) ? { label: '  Outros variáveis', val: -n(outrosVar) } : null,
                       r.custoLuz ? { label: '  Luz (por ciclo)', val: -r.custoLuz } : null,
@@ -583,19 +656,20 @@ export function SimulacaoPage() {
                     .filter(Boolean)
                     .map((row, i) => {
                       const item = row!
+                      const isInfo = (item as any).infoOnly
                       const pct = r.receita > 0 ? (Math.abs(item.val) / r.receita) * 100 : 0
                       return (
-                        <tr key={i}>
-                          <td style={(item as { bold?: boolean }).bold ? { fontWeight: 700, color: 'var(--text-h)' } : { paddingLeft: 20 }}>
+                        <tr key={i} style={isInfo ? { opacity: 0.55 } : {}}>
+                          <td style={(item as { bold?: boolean }).bold ? { fontWeight: 700, color: 'var(--text-h)' } : { paddingLeft: (item as any).isSub ? 38 : 20, fontSize: (item as any).isSub ? 13 : undefined }}>
                             {item.label.trim()}
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: (item as { bold?: boolean }).bold ? 700 : 400 }}>
-                            <span className={item.val < 0 ? 'valNegative' : ''}>
+                            <span className={item.val < 0 && !isInfo ? 'valNegative' : ''}>
                               {item.val < 0 ? `− ${formatBRL(Math.abs(item.val))}` : formatBRL(item.val)}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }} className="hint">
-                            {(item as { bold?: boolean }).bold ? '100%' : `${pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`}
+                            {isInfo ? '—' : ((item as { bold?: boolean }).bold ? '100%' : `${pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`)}
                           </td>
                         </tr>
                       )
@@ -613,6 +687,71 @@ export function SimulacaoPage() {
                   </tr>
                 </tfoot>
               </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Comparativo de Combustíveis ──────────────────── */}
+      <section className="panel">
+        <div className="panelHeader">
+          <h2 style={{ fontSize: 15 }}>Comparativo de Combustíveis (Viagem 110 km)</h2>
+          <span className="hint" style={{ fontSize: 12 }}>Descubra qual vale mais a pena</span>
+        </div>
+        <div className="panelBody">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+            {/* GNV */}
+            <div style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-h)' }}>GNV</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Field id="compGnvPreco" label="Preço (R$/m³)" value={compGnvPreco} onChange={setCompGnvPreco} prefix="R$" />
+                <Field id="compGnvConsumo" label="Média (km/m³)" value={compGnvConsumo} onChange={setCompGnvConsumo} />
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--border)' }}>
+                  <div className="statLabel">Custo por Viagem</div>
+                  <div className="statValSm" style={{ color: r.custoCompGnv <= Math.min(r.custoCompGnv, r.custoCompEtanol, r.custoCompGasolina) ? 'var(--ok)' : 'inherit' }}>
+                    {formatBRL(r.custoCompGnv)}
+                  </div>
+                  <div className="hint" style={{ marginTop: 2, fontSize: 11 }}>
+                    {r.tanquesGnv.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} tanques/mês (13m³)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Etanol */}
+            <div style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-h)' }}>Etanol</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Field id="compEtaPreco" label="Preço (R$/L)" value={compEtanolPreco} onChange={setCompEtanolPreco} prefix="R$" />
+                <Field id="compEtaConsumo" label="Média (km/L)" value={compEtanolConsumo} onChange={setCompEtanolConsumo} />
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--border)' }}>
+                  <div className="statLabel">Custo por Viagem</div>
+                  <div className="statValSm" style={{ color: r.custoCompEtanol <= Math.min(r.custoCompGnv, r.custoCompEtanol, r.custoCompGasolina) ? 'var(--ok)' : 'inherit' }}>
+                    {formatBRL(r.custoCompEtanol)}
+                  </div>
+                  <div className="hint" style={{ marginTop: 2, fontSize: 11 }}>
+                    {r.tanquesEtanol.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} tanques/mês (58L)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Gasolina */}
+            <div style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: 'var(--text-h)' }}>Gasolina</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Field id="compGasPreco" label="Preço (R$/L)" value={compGasolinaPreco} onChange={setCompGasolinaPreco} prefix="R$" />
+                <Field id="compGasConsumo" label="Média (km/L)" value={compGasolinaConsumo} onChange={setCompGasolinaConsumo} />
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed var(--border)' }}>
+                  <div className="statLabel">Custo por Viagem</div>
+                  <div className="statValSm" style={{ color: r.custoCompGasolina <= Math.min(r.custoCompGnv, r.custoCompEtanol, r.custoCompGasolina) ? 'var(--ok)' : 'inherit' }}>
+                    {formatBRL(r.custoCompGasolina)}
+                  </div>
+                  <div className="hint" style={{ marginTop: 2, fontSize: 11 }}>
+                    {r.tanquesGasolina.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} tanques/mês (58L)
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

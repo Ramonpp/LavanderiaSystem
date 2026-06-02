@@ -166,12 +166,38 @@ export function MaquinasPage() {
               <label htmlFor="mins">Minutos por ciclo (opcional)</label>
               <input id="mins" inputMode="decimal" value={minutosCiclo} onChange={(e) => setMinutosCiclo(e.target.value)} />
             </div>
+            <div className="field">
+              <label>Status</label>
+              <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 10, padding: 4, border: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setAtivo(true)}
+                  style={{
+                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: ativo ? 'var(--panel)' : 'transparent',
+                    color: ativo ? 'var(--text-h)' : 'var(--muted)',
+                    boxShadow: ativo ? 'var(--shadow)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Ativo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAtivo(false)}
+                  style={{
+                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: !ativo ? 'var(--panel)' : 'transparent',
+                    color: !ativo ? 'var(--text-h)' : 'var(--muted)',
+                    boxShadow: !ativo ? 'var(--shadow)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Inativo
+                </button>
+              </div>
+            </div>
           </div>
-
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--text-h)', marginBottom: 0 }}>
-            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
-            Ativa
-          </label>
 
           <button className="btn btnPrimary" type="button" onClick={() => void salvar()}>
             Salvar
