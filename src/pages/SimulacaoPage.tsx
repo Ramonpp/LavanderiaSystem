@@ -82,7 +82,8 @@ export function SimulacaoPage() {
   const [clientes, setClientes] = useState(defaults.clientes ?? '10')
   const [lavagens, setLavagens] = useState(defaults.lavagens ?? '4')
   const [pesoMedio, setPesoMedio] = useState(defaults.pesoMedio ?? '8')
-  const [precoKg, setPrecoKg] = useState(defaults.precoKg ?? '20')
+  const [capacidadeMaquina, setCapacidadeMaquina] = useState(defaults.capacidadeMaquina ?? '10')
+  const [precoKg, setPrecoKg] = useState(defaults.precoKg ?? '15')
 
   /* ── Utilidades (por ciclo) ─────────────────────────── */
   const [litrosPorCiclo, setLitrosPorCiclo] = useState(defaults.litrosPorCiclo ?? '77,6')
@@ -118,7 +119,7 @@ export function SimulacaoPage() {
     setMsg(null)
     try {
       const payload: Record<string, string> = {
-        clientes, lavagens, pesoMedio, precoKg,
+        clientes, lavagens, pesoMedio, precoKg, capacidadeMaquina,
         litrosPorCiclo, kwPorCiclo, tarifaKw,
         combustivelTipo, combustivelPreco, combustivelConsumo,
         aluguel, carro, maquinas, contador, outrosFixos,
@@ -135,10 +136,11 @@ export function SimulacaoPage() {
 
   /* ── Cálculos ───────────────────────────────────────── */
   const r = useMemo(() => {
+    const capMaquina = n(capacidadeMaquina) || 10
     const totalKg = n(clientes) * n(lavagens) * n(pesoMedio)
     const receita = totalKg * n(precoKg)
 
-    const ciclosMes = n(clientes) * n(lavagens)
+    const ciclosMes = capMaquina > 0 ? Math.ceil(totalKg / capMaquina) : 0
     const aguaM3Calculado = (ciclosMes * n(litrosPorCiclo)) / 1000
     const aguaM3Faturado = aguaM3Calculado > 0 ? Math.max(10, aguaM3Calculado) : 0
     const custoAgua = ciclosMes > 0 ? calcularCustoAgua(aguaM3Faturado) : 0
@@ -190,7 +192,7 @@ export function SimulacaoPage() {
       tanquesGasolina,
     }
   }, [
-    clientes, lavagens, pesoMedio, precoKg,
+    clientes, lavagens, pesoMedio, precoKg, capacidadeMaquina,
     litrosPorCiclo, kwPorCiclo, tarifaKw,
     combustivelTipo, combustivelPreco, combustivelConsumo,
     aluguel, carro, maquinas, contador, outrosFixos,
@@ -238,16 +240,24 @@ export function SimulacaoPage() {
             />
             <Field
               id="lavagens"
-              label="Lavagens por cliente / mês"
+              label="Vezes no mês que o cliente irá lavar"
               value={lavagens}
               onChange={setLavagens}
-              hint="Média de pedidos por cliente"
+              hint="Frequência mensal de lavagem"
             />
             <Field
               id="peso"
-              label="Peso médio por lavagem (kg)"
+              label="Média de KG por cliente"
               value={pesoMedio}
               onChange={setPesoMedio}
+              hint="Média de KG por lavagem"
+            />
+            <Field
+              id="capacidade"
+              label="Capacidade da máquina (kg)"
+              value={capacidadeMaquina}
+              onChange={setCapacidadeMaquina}
+              hint="Capacidade para o cálculo de ciclos"
             />
             <Field
               id="preco"
@@ -346,7 +356,7 @@ export function SimulacaoPage() {
             </div>
 
             <div className="hint" style={{ marginTop: 2 }}>
-              Ciclos/mês: <strong>{r.ciclosMes.toLocaleString('pt-BR')}</strong> · Água: {r.aguaM3Calculado.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m³ (calculado) →{' '}
+              Lavagens de máquina/mês: <strong>{r.ciclosMes.toLocaleString('pt-BR')}</strong> · Água: {r.aguaM3Calculado.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m³ (calculado) →{' '}
               <strong>{r.aguaM3Faturado.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m³</strong> (faturado)
             </div>
             <div className="hint" style={{ marginTop: 2 }}>
@@ -650,8 +660,8 @@ export function SimulacaoPage() {
                     })(),
                     { label: '  Produtos', val: -n(produtos) },
                     n(outrosVar) ? { label: '  Outros variáveis', val: -n(outrosVar) } : null,
-                      r.custoLuz ? { label: '  Luz (por ciclo)', val: -r.custoLuz } : null,
-                      r.custoAgua ? { label: '  Água (mín. 10 m³)', val: -r.custoAgua } : null,
+                      r.custoLuz ? { label: '  Luz (conta mensal)', val: -r.custoLuz } : null,
+                      r.custoAgua ? { label: '  Água (conta mensal)', val: -r.custoAgua } : null,
                   ]
                     .filter(Boolean)
                     .map((row, i) => {

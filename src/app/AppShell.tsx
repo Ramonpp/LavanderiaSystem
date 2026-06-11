@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import styles from './AppShell.module.css'
 import { SetupBanner } from '../components/SetupBanner'
 import { checkDbHealth, type DbHealth } from '../lib/healthCheck'
@@ -139,11 +139,20 @@ const COLLAPSED_KEY = 'lav-sidebar-collapsed'
 
 /* ── Component ─────────────────────────────────────────── */
 export function AppShell() {
+  const location = useLocation()
   const [health, setHealth] = useState<DbHealth>('checking')
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false }
   })
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(resolveTheme)
+  const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos'))
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/pedidos')) {
+      setIsPedidosOpen(true)
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     checkDbHealth().then(setHealth)
@@ -163,10 +172,27 @@ export function AppShell() {
   }
 
   const dot = DB_DOT[health]
-  const sidebarClass = `${styles.sidebar}${isCollapsed ? ` ${styles.collapsed}` : ''}`
+  const sidebarClass = `${styles.sidebar}${isCollapsed ? ` ${styles.collapsed}` : ''}${isMobileOpen ? ` ${styles.sidebarOpen}` : ''}`
+  const overlayClass = `${styles.sidebarOverlay}${isMobileOpen ? ` ${styles.sidebarOverlayOpen}` : ''}`
 
   return (
     <div className={styles.shell}>
+      <header className={styles.mobileHeader}>
+        <button className={styles.iconBtn} onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 'bold' }}>
+          <img src="/logo.png" alt="Logo" style={{ width: 28, height: 28, borderRadius: 6 }} />
+          <span>Ciclo Novo</span>
+        </div>
+      </header>
+
+      <div className={overlayClass} onClick={() => setIsMobileOpen(false)} aria-hidden="true" />
+
       <aside className={sidebarClass} aria-label="Menu lateral">
         {/* Brand */}
         <div className={styles.brand}>
@@ -179,24 +205,85 @@ export function AppShell() {
 
         {/* Navigation */}
         <nav className={styles.nav} aria-label="Setores">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              title={isCollapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                isActive ? `${styles.navItem} ${styles.active}` : styles.navItem
-              }
-            >
-              <span className={styles.navIcon} aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className={styles.navLabel}>
-                <span className={styles.navItemTitle}>{item.label}</span>
-                <span className={styles.navItemDesc}>{item.desc}</span>
-              </span>
-            </NavLink>
-          ))}
+          {navItems.map((item) => {
+            const isPedidos = item.to === '/pedidos'
+
+            if (isPedidos) {
+              return (
+                <div key={item.to} className={styles.navGroup}>
+                  <div
+                    title={isCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false)
+                        setIsPedidosOpen(true)
+                      } else {
+                        setIsPedidosOpen(!isPedidosOpen)
+                      }
+                    }}
+                    className={styles.navItem}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className={styles.navIcon} aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className={styles.navLabel}>
+                      <span className={styles.navItemTitle}>{item.label}</span>
+                      <span className={styles.navItemDesc}>{item.desc}</span>
+                    </span>
+                    {!isCollapsed && (
+                      <span className={`${styles.chevron} ${isPedidosOpen ? styles.chevronOpen : ''}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className={`${styles.subMenu} ${isPedidosOpen ? styles.subMenuOpen : styles.subMenuClosed}`}>
+                    <NavLink
+                      to="/pedidos/criar"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Criar pedido
+                    </NavLink>
+                    <NavLink
+                      to="/pedidos/lista"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Pedidos cadastrados
+                    </NavLink>
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                title={isCollapsed ? item.label : undefined}
+                onClick={() => setIsMobileOpen(false)}
+                className={({ isActive }) =>
+                  isActive ? `${styles.navItem} ${styles.active}` : styles.navItem
+                }
+              >
+                <span className={styles.navIcon} aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span className={styles.navLabel}>
+                  <span className={styles.navItemTitle}>{item.label}</span>
+                  <span className={styles.navItemDesc}>{item.desc}</span>
+                </span>
+              </NavLink>
+            )
+          })}
         </nav>
 
         {/* Footer */}
@@ -245,6 +332,45 @@ export function AppShell() {
         <span className={styles.sep} aria-hidden="true">·</span>
         <span className={styles.muted}>Sistema de gestão v1.0</span>
       </footer>
+
+      {/* ── Navegação inferior (mobile) ──────────────────── */}
+      <nav className={styles.bottomNav} aria-label="Navegação rápida">
+        {[
+          { to: '/dashboard',      icon: Ico.dashboard,  label: 'Início'     },
+          { to: '/pedidos/lista',  icon: Ico.pedidos,    label: 'Pedidos'    },
+          { to: '/clientes',       icon: Ico.clientes,   label: 'Clientes'   },
+          { to: '/despesas',       icon: Ico.despesas,   label: 'Despesas'   },
+          { to: '/relatorios',     icon: Ico.relatorios, label: 'Relatórios' },
+        ].map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            onClick={() => setIsMobileOpen(false)}
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.bottomNavItem} ${styles.bottomNavItemActive}`
+                : styles.bottomNavItem
+            }
+          >
+            <span className={styles.bottomNavIcon}>{item.icon}</span>
+            <span className={styles.bottomNavLabel}>{item.label}</span>
+          </NavLink>
+        ))}
+        <button
+          className={styles.bottomNavItem}
+          onClick={() => setIsMobileOpen(true)}
+          aria-label="Abrir menu completo"
+        >
+          <span className={styles.bottomNavIcon}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </span>
+          <span className={styles.bottomNavLabel}>Menu</span>
+        </button>
+      </nav>
     </div>
   )
 }

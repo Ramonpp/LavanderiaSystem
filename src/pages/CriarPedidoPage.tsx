@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   fetchItensPorPedidos,
   fetchPedidos,
@@ -13,7 +14,6 @@ import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, 
 import { receitaPedido } from '../domain/finance'
 import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
-import { StatusBadge } from '../components/StatusBadge'
 import { enviarCobrancaWebhook } from '../data/webhook'
 
 type ItemLinha = {
@@ -28,11 +28,11 @@ function newKey() {
 }
 
 const PEDIDO_MINIMO: Array<{ nome: string; quantidade: string }> = [
-  { nome: 'Toalha de piso',  quantidade: '1' },
+  { nome: 'Toalha de piso', quantidade: '1' },
   { nome: 'Toalha de banho', quantidade: '2' },
   { nome: 'Toalha de rosto', quantidade: '1' },
-  { nome: 'Lencol casal',    quantidade: '1' },
-  { nome: 'Fronha',          quantidade: '2' },
+  { nome: 'Lencol casal', quantidade: '1' },
+  { nome: 'Fronha', quantidade: '2' },
 ]
 
 function resolverTipoId(tipos: import('../types/models').TipoPeca[], nome: string): string {
@@ -60,13 +60,30 @@ const pagamentoOpcoes: Array<{ value: PagamentoStatus; label: string }> = [
   { value: 'pago', label: 'Pago' },
 ]
 
-export function PedidosPage() {
+const STATUS_BADGE_CLASSES: Record<OrderStatus, string> = {
+  recebido: 'badgeBlue',
+  em_lavagem: 'badgeYellow',
+  pronto: 'badgeGreen',
+  entregue: 'badgeMuted',
+  cancelado: 'badgeRed',
+}
+
+const PAGAMENTO_BADGE_CLASSES: Record<PagamentoStatus, string> = {
+  pago: 'badgeGreen',
+  devendo: 'badgeRed',
+  em_andamento: 'badgeYellow',
+}
+
+export function CriarPedidoPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tipos, setTipos] = useState<TipoPeca[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [enviandoId, setEnviandoId] = useState<string | null>(null)
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
 
@@ -79,15 +96,65 @@ export function PedidosPage() {
 
   type PricingMode = 'kg' | 'fixo'
   const [modoPreco, setModoPreco] = useState<PricingMode>('kg')
-  const [precoKg, setPrecoKg] = useState('17')
+  const [precoKg, setPrecoKg] = useState('15')
   const [precoFixo, setPrecoFixo] = useState('')
 
   const [observacoes, setObservacoes] = useState('')
 
   const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
 
+  /* ── Filtros ────────────────────────────────────────── */
+  const [filtroMes, setFiltroMes] = useState('todos')
+  const [filtroPagamento, setFiltroPagamento] = useState('todos')
+
+  function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
+    if (!c) return '—'
+    const parts = []
+    if (c.condominio?.trim()) parts.push(c.condominio.trim())
+    if (c.apartamento?.trim()) parts.push(c.apartamento.trim())
+    if (c.bloco?.trim()) parts.push(c.bloco.trim())
+    return parts.length > 0 ? `${c.nome} (${parts.join(' ')})` : c.nome
+  }
+
+  const mesesDisponiveis = useMemo(() => {
+    const list = pedidos.map((p) => p.data_pedido.slice(0, 7))
+    const unique = Array.from(new Set(list)).sort().reverse()
+    return unique
+  }, [pedidos])
+
+  const pedidosFiltrados = useMemo(() => {
+    return pedidos.filter((p) => {
+      if (filtroMes !== 'todos' && p.data_pedido.slice(0, 7) !== filtroMes) return false
+      if (filtroPagamento !== 'todos' && p.pagamento_status !== filtroPagamento) return false
+      return true
+    })
+  }, [pedidos, filtroMes, filtroPagamento])
+
+  /* ── Atualizações Inline ──────────────────────────────── */
+  async function inlineUpdateStatus(id: string, newStatus: OrderStatus) {
+    setErro(null)
+    setMsg(null)
+    const { error } = await updatePedido(id, { status: newStatus })
+    if (error) setErro(error)
+    else {
+      setMsg('Status do pedido atualizado.')
+      await reloadAll()
+    }
+  }
+
+  async function inlineUpdatePagamento(id: string, newPagamento: PagamentoStatus) {
+    setErro(null)
+    setMsg(null)
+    const { error } = await updatePedido(id, { pagamento_status: newPagamento })
+    if (error) setErro(error)
+    else {
+      setMsg('Status de pagamento atualizado.')
+      await reloadAll()
+    }
+  }
+
   const primeiraPecaDisponível = useMemo(() => tipos[0]?.id ?? '', [tipos])
-  const DEFAULT_PRECO_POR_KG_48H = '17'
+  const DEFAULT_PRECO_POR_KG_48H = '15'
 
   async function reloadAll() {
     setErro(null)
@@ -103,6 +170,16 @@ export function PedidosPage() {
 
     const e = peds.error ?? cls.error ?? tp.error ?? null
     if (e) setErro(e)
+
+    const searchParams = new URLSearchParams(location.search)
+    const editIdParam = searchParams.get('edit')
+    if (editIdParam) {
+      const pToEdit = peds.data.find(x => x.id === editIdParam)
+      if (pToEdit) {
+        preencherEdição(pToEdit)
+        return
+      }
+    }
 
     setClienteId((cur) => {
       if (cur) return cur
@@ -133,7 +210,7 @@ export function PedidosPage() {
     setPagamentoStatus('devendo')
     setPesoKg('')
     setModoPreco('kg')
-    setPrecoKg('17')
+    setPrecoKg('15')
     setPrecoFixo('')
     setObservacoes('')
     setItensLinhas(gerarLinhasPadrao(tipos))
@@ -174,10 +251,10 @@ export function PedidosPage() {
     const linhas: ItemLinha[] =
       data.length > 0
         ? data.map((it) => ({
-            key: it.id ?? newKey(),
-            tipo_peca_id: it.tipo_peca_id,
-            quantidade: String(it.quantidade),
-          }))
+          key: it.id ?? newKey(),
+          tipo_peca_id: it.tipo_peca_id,
+          quantidade: String(it.quantidade),
+        }))
         : [{ key: newKey(), tipo_peca_id: primeiraPecaDisponível, quantidade: '1' }]
     setItensLinhas(linhas)
   }
@@ -293,6 +370,7 @@ export function PedidosPage() {
       }
       setMsg('Pedido criado.')
       limparForm()
+      navigate('/pedidos/lista')
     }
 
     await reloadAll()
@@ -316,7 +394,12 @@ export function PedidosPage() {
     )
   }, [primeiraPecaDisponível])
 
+  useEffect(() => {
+    // Scroll to top or handle query params like ?edit=id if needed later
+  }, [location.hash, location.key])
+
   async function enviarCobranca(p: PedidoCliente) {
+    setConfirmandoId(null)
     setErro(null)
     setMsg(null)
     setEnviandoId(p.id)
@@ -328,15 +411,23 @@ export function PedidosPage() {
         return
       }
 
-      const itensTxt = itens
-        .map((it) => {
-          const nome = tipos.find((t) => t.id === it.tipo_peca_id)?.nome ?? 'Peça'
-          return `${it.quantidade}x ${nome}`
-        })
-        .join(', ')
-
       const valor = receitaPedido(p)
-      const texto = `Cobrança do pedido ${new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}: ${formatBRL(valor)}. Itens: ${itensTxt || '—'}.`
+      const nomeCompleto = p.cliente?.nome ?? cli?.nome ?? 'Cliente'
+      const primeiroNome = nomeCompleto.trim().split(' ')[0]
+      const pesoStr = p.peso_kg != null ? `${Number(p.peso_kg).toLocaleString('pt-BR')} kg` : '—'
+
+      const [ano, mes, dia] = p.data_pedido.split('-')
+      const dataFormatada = `${dia}/${mes}/${ano}`
+
+      const texto = `Olá ${primeiroNome}, tudo bem?\n\n` +
+        `Seu enxoval já foi coletado, tratado com todo carinho e está em processo de entrega.\n` +
+        `Segue a imagem da comanda com a quantidade de itens, peso total e valor do serviço.\n\n` +
+        `🧺 *Peso total:* ${pesoStr}\n` +
+        `💰 *Valor:* ${formatBRL(valor)}\n\n` +
+        `Estamos enviando a chave pix na mensagem abaixo.  \n` +
+        `Caso prefira outra forma de pagamento, é só nos informar.\n` +
+        `Qualquer dúvida, estamos à disposição!\n\n` +
+        `Abraços, equipe Ciclo Novo Lavanderia 💙`
 
       const { error: w } = await enviarCobrancaWebhook({
         type: 'cobranca',
@@ -350,7 +441,7 @@ export function PedidosPage() {
         },
         pedido: {
           id: p.id,
-          data_pedido: p.data_pedido,
+          data_pedido: dataFormatada,
           status: p.status,
           pagamento_status: p.pagamento_status,
           valor,
@@ -373,16 +464,16 @@ export function PedidosPage() {
       <header>
         <h1 style={{ fontSize: 22, letterSpacing: -0.2 }}>Pedidos</h1>
         <div className="hint">
-          Padrão sugerido: <strong>R$ 17/kg</strong> com entrega em <strong>48h</strong>. Ajuste por pedido quando necessário.
+          Padrão sugerido: <strong>R$ 15/kg</strong> com entrega em <strong>48h</strong>. Ajuste por pedido quando necessário.
         </div>
       </header>
 
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}
 
-      <section className="panel">
-        <div className="panelHeader">
-          <h2 style={{ fontSize: 16 }}>{editandoId ? 'Editar pedido' : 'Novo pedido'}</h2>
+      <section className="panel" id="criar-pedido">
+        <div className="panelHeader" style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
+          <h2 style={{ fontSize: 18, color: 'var(--accent)' }}>{editandoId ? 'Editar pedido' : 'Criar pedido'}</h2>
           <div className="row" style={{ gap: 8 }}>
             <button className="btn" type="button" onClick={limparForm}>
               Cancelar
@@ -392,7 +483,7 @@ export function PedidosPage() {
             </button>
           </div>
         </div>
-        <div className="panelBody grid" style={{ gap: 12 }}>
+        <div className="panelBody grid" style={{ gap: 12, paddingTop: 0 }}>
           <div className="row">
             <div className="field">
               <label htmlFor="cli">Cliente</label>
@@ -401,7 +492,7 @@ export function PedidosPage() {
                 {clientes.map((c) => (
                   <option key={c.id} value={c.id}>
                     {!c.ativo ? '(inativo) ' : ''}
-                    {c.nome}
+                    {formatarNomeCliente(c)}
                   </option>
                 ))}
               </select>
@@ -422,7 +513,7 @@ export function PedidosPage() {
               <select id="status" value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
                 {statusOpções.map((s) => (
                   <option key={s} value={s}>
-                    {s.replaceAll('_', ' ')}
+                    {s.replaceAll('_', ' ').replace(/^./, str => str.toUpperCase())}
                   </option>
                 ))}
               </select>
@@ -495,8 +586,8 @@ export function PedidosPage() {
           <section className="panel" style={{ boxShadow: 'none' }}>
             <div className="panelHeader">
               <h3 style={{ fontSize: 15 }}>Peças (escolha o tipo e a quantidade)</h3>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={adicionarLinhaItem}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -547,8 +638,8 @@ export function PedidosPage() {
                   </div>
                   <div className="field" style={{ minWidth: 120, alignSelf: 'end' }}>
                     <label style={{ visibility: 'hidden' }}>X</label>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => removerLinhaItem(l.key)}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -578,70 +669,6 @@ export function PedidosPage() {
           <button className="btn btnPrimary" type="button" onClick={() => void salvarPedido()}>
             Salvar pedido
           </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <h2 style={{ fontSize: 16 }}>Pedidos cadastrados</h2>
-        </div>
-        <div className="panelBody">
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Cliente</th>
-                  <th>kg</th>
-                  <th>Receita</th>
-                  <th>Status</th>
-                  <th>Pagamento</th>
-                  <th style={{ width: 260 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {pedidos.map((p) => (
-                  <tr key={p.id}>
-                    <td>{new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}</td>
-                    <td>{p.cliente?.nome ?? '—'}</td>
-                    <td>{Number(p.peso_kg).toLocaleString('pt-BR')}</td>
-                    <td>{formatBRL(receitaPedido(p))}</td>
-                    <td><StatusBadge status={p.status} /></td>
-                    <td className="hint">
-                      {pagamentoOpcoes.find((o) => o.value === p.pagamento_status)?.label ?? p.pagamento_status}
-                    </td>
-                    <td>
-                      <div className="row" style={{ gap: 8 }}>
-                        {(p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento') ? (
-                          <button
-                            className="btn btnPrimary"
-                            type="button"
-                            disabled={enviandoId === p.id}
-                            onClick={() => void enviarCobranca(p)}
-                          >
-                            {enviandoId === p.id ? 'Enviando…' : 'Enviar cobrança'}
-                          </button>
-                        ) : null}
-                        <button className="btn" type="button" onClick={() => void preencherEdição(p)}>
-                          Editar
-                        </button>
-                        <button className="btn btnDanger" type="button" onClick={() => void excluir(p)}>
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {pedidos.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="hint">
-                      Nenhum pedido cadastrado ainda.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
         </div>
       </section>
     </div>

@@ -6,7 +6,8 @@ import { CustosMaquinasPage } from './pages/CustosMaquinasPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DespesasPage } from './pages/DespesasPage'
 import { MaquinasPage } from './pages/MaquinasPage'
-import { PedidosPage } from './pages/PedidosPage'
+import { CriarPedidoPage } from './pages/CriarPedidoPage'
+import { PedidosCadastradosPage } from './pages/PedidosCadastradosPage'
 import { RelatoriosPage } from './pages/RelatoriosPage'
 import { SimulacaoPage } from './pages/SimulacaoPage'
 import { TiposPecaPage } from './pages/TiposPecaPage'
@@ -18,7 +19,9 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/clientes" element={<ClientesPage />} />
-        <Route path="/pedidos" element={<PedidosPage />} />
+        <Route path="/pedidos/criar" element={<CriarPedidoPage />} />
+        <Route path="/pedidos/lista" element={<PedidosCadastradosPage />} />
+        <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
         <Route path="/pecas" element={<TiposPecaPage />} />
         <Route path="/despesas" element={<DespesasPage />} />
         <Route path="/maquinas" element={<MaquinasPage />} />

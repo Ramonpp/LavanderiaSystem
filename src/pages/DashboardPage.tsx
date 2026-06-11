@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchAppConfig, updateAppConfig } from '../data/appConfig'
+import { fetchAppConfig } from '../data/appConfig'
 import { fetchDespesasPorPeriodo } from '../data/despesas'
 import { fetchMaquinas } from '../data/maquinas'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
-import { capacidadeKgDia, lucroPotencialMensal } from '../domain/ops'
-import { lucroPedidoEstimado, receitaPedido, somaDespesas } from '../domain/finance'
+import { capacidadeKgDia } from '../domain/ops'
+import { receitaPedido, somaDespesas } from '../domain/finance'
 import type { Maquina, PedidoCliente } from '../types/models'
 import { formatMesAno, monthBoundsLocal } from '../lib/dates'
 import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
-import { StatusBadge } from '../components/StatusBadge'
 import { GraficoMeses } from '../components/GraficoMeses'
 import type { PontoMes } from '../components/GraficoMeses'
 
@@ -35,7 +34,7 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [pedidosMes, setPedidosMes] = useState<PedidoCliente[]>([])
   const [maquinas, setMaquinas] = useState<Maquina[]>([])
-  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [, setSaveMsg] = useState<string | null>(null)
 
   const [cfgDias, setCfgDias] = useState(22)
   const [cfgPrecoKg, setCfgPrecoKg] = useState(8.5)
@@ -82,6 +81,9 @@ export function DashboardPage() {
 
   const [despesasValor, setDespesasValor] = useState(0)
   const [dadosGrafico, setDadosGrafico] = useState<PontoMes[]>([])
+  
+  const [receitaAno, setReceitaAno] = useState(0)
+  const [despesasAno, setDespesasAno] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -120,6 +122,20 @@ export function DashboardPage() {
 
       setDadosGrafico(pontos)
     })()
+    
+    ;(async () => {
+      const y = monthValue.split('-')[0]
+      const startDate = `${y}-01-01`
+      const endDate = `${y}-12-31`
+      const [{ data: peds }, { data: desps }] = await Promise.all([
+        fetchPedidosPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
+        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
+      ])
+      
+      const pedsAtivos = peds.filter((p) => p.status !== 'cancelado')
+      setReceitaAno(pedsAtivos.reduce((acc, p) => acc + receitaPedido(p), 0))
+      setDespesasAno(somaDespesas(desps))
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthValue])
 
@@ -137,27 +153,6 @@ export function DashboardPage() {
     if (capKgMes <= 0) return 0
     return kgLavados / capKgMes
   }, [cap.gargaloKgDia, cfgDias, kgLavados])
-
-  const potencial = useMemo(() => {
-    return lucroPotencialMensal({
-      capacidadeKgDia: cap.gargaloKgDia,
-      diasUteisMes: cfgDias,
-      precoReferenciaKg: cfgPrecoKg,
-      custoVariavelPorKg: cfgCustoKg,
-      despesasFixasMensais: despesasValor,
-    })
-  }, [cap.gargaloKgDia, cfgDias, cfgCustoKg, cfgPrecoKg, despesasValor])
-
-  async function saveConfig() {
-    setSaveMsg(null)
-    const { error: e } = await updateAppConfig({
-      dias_uteis_mes_padrao: Math.round(cfgDias),
-      preco_referencia_kg: cfgPrecoKg,
-      custo_variavel_estimado_por_kg: cfgCustoKg,
-    })
-    if (e) setError(e)
-    else setSaveMsg('Parâmetros salvos.')
-  }
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -204,12 +199,22 @@ export function DashboardPage() {
                     <div className="statValSm">{formatBRL(despesasValor)}</div>
                   </div>
                 </div>
-                <div style={{ paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                  <div className="statLabel">Lucro líquido do mês</div>
-                  <div
-                    className={`statVal ${lucroMesSimples >= 0 ? 'valPositive' : 'valNegative'}`}
-                  >
-                    {formatBRL(lucroMesSimples)}
+                <div className="row" style={{ alignItems: 'flex-start', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div className="statLabel">Lucro líquido do mês</div>
+                    <div
+                      className={`statVal ${lucroMesSimples >= 0 ? 'valPositive' : 'valNegative'}`}
+                    >
+                      {formatBRL(lucroMesSimples)}
+                    </div>
+                  </div>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div className="statLabel">Total Entradas (Ano)</div>
+                    <div className="statValSm valPositive">{formatBRL(receitaAno)}</div>
+                  </div>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div className="statLabel">Total Gastos (Ano)</div>
+                    <div className="statValSm valNegative">{formatBRL(despesasAno)}</div>
                   </div>
                 </div>
               </div>
@@ -268,119 +273,6 @@ export function DashboardPage() {
             </div>
             <div className="panelBody">
               <GraficoMeses dados={dadosGrafico} />
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panelHeader">
-              <h2 style={{ fontSize: 16 }}>Lucro potencial — capacidade máxima</h2>
-            </div>
-            <div className="panelBody grid" style={{ gap: 14 }}>
-              <div className="hint">
-                Simulação com 100% da capacidade do gargalo: receita máxima possível descontando custos variáveis e despesas do mês.
-              </div>
-              <div className="row" style={{ alignItems: 'flex-start' }}>
-                <div style={{ flex: '1 1 180px' }}>
-                  <div className="statLabel">Kg mensal (gargalo)</div>
-                  <div className="statValSm">{Math.round(potencial.kgMes).toLocaleString('pt-BR')} kg</div>
-                </div>
-                <div style={{ flex: '1 1 180px' }}>
-                  <div className="statLabel">Receita potencial</div>
-                  <div className="statValSm">{formatBRL(potencial.receita)}</div>
-                </div>
-                <div style={{ flex: '1 1 180px' }}>
-                  <div className="statLabel">Custos variáveis</div>
-                  <div className="statValSm">{formatBRL(potencial.custoVariavel)}</div>
-                </div>
-                <div style={{ flex: '1 1 180px', paddingLeft: 12, borderLeft: '2px solid var(--border)' }}>
-                  <div className="statLabel">Lucro potencial</div>
-                  <div className={`statVal ${potencial.lucro >= 0 ? 'valPositive' : 'valNegative'}`}>
-                    {formatBRL(potencial.lucro)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panelHeader">
-              <h2 style={{ fontSize: 16 }}>Parâmetros econômicos</h2>
-              <button className="btn btnPrimary" type="button" onClick={() => reload()}>
-                Recarregar
-              </button>
-            </div>
-            <div className="panelBody grid" style={{ gap: 10 }}>
-              {saveMsg ? <StatusBanner kind="success" message={saveMsg} /> : null}
-
-              <div className="row">
-                <div className="field">
-                  <label htmlFor="diasUteis">Dias úteis (mês padrão)</label>
-                  <input
-                    id="diasUteis"
-                    inputMode="numeric"
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={cfgDias}
-                    onChange={(e) => setCfgDias(Number(e.target.value))}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="precoRef">Preço de referência (R$/kg)</label>
-                  <input id="precoRef" step="0.01" type="number" value={cfgPrecoKg} onChange={(e) => setCfgPrecoKg(Number(e.target.value))} />
-                </div>
-                <div className="field">
-                  <label htmlFor="custoVar">Custo variável estimado (R$/kg)</label>
-                  <input id="custoVar" step="0.01" type="number" value={cfgCustoKg} onChange={(e) => setCfgCustoKg(Number(e.target.value))} />
-                </div>
-                <div className="field" style={{ minWidth: 160 }}>
-                  <label>&nbsp;</label>
-                  <button className="btn btnPrimary" type="button" onClick={saveConfig}>
-                    Salvar parâmetros
-                  </button>
-                </div>
-              </div>
-
-              <div className="hint">
-                O custo variável/kg reúne químicos, água e energia proporcional à quantidade lavada. Ajuste conforme seus rateios mensais.
-              </div>
-
-              <div className="tableWrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Pedido</th>
-                      <th>Cliente</th>
-                      <th>kg</th>
-                      <th>Receita</th>
-                      <th>Lucro estimado (parâmetro)</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pedidosMes
-                      .filter((p) => p.status !== 'cancelado')
-                      .slice(0, 25)
-                      .map((p) => (
-                        <tr key={p.id}>
-                          <td className="hint">{new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}</td>
-                          <td>{p.cliente?.nome ?? '—'}</td>
-                          <td>{Number(p.peso_kg).toLocaleString('pt-BR')}</td>
-                          <td>{formatBRL(receitaPedido(p))}</td>
-                          <td>{formatBRL(lucroPedidoEstimado({ pedido: p, custoVariavelEstimadoPorKg: cfgCustoKg }))}</td>
-                          <td><StatusBadge status={p.status} /></td>
-                        </tr>
-                      ))}
-                    {pedidosMes.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="hint">
-                          Nenhum pedido ativo neste período.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </section>
         </>

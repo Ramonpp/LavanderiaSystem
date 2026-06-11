@@ -168,12 +168,12 @@ export function ClientesPage() {
               <input id="cond" value={condominio} onChange={(e) => setCondominio(e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="bloco">Bloco</label>
-              <input id="bloco" value={bloco} onChange={(e) => setBloco(e.target.value)} />
-            </div>
-            <div className="field">
               <label htmlFor="apto">Apartamento</label>
               <input id="apto" value={apartamento} onChange={(e) => setApartamento(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="bloco">Bloco</label>
+              <input id="bloco" value={bloco} onChange={(e) => setBloco(e.target.value)} />
             </div>
           </div>
           <div className="row">
@@ -305,11 +305,17 @@ export function ClientesPage() {
                     <td>{c.ativo ? 'sim' : 'não'}</td>
                     <td>
                       <div className="row" style={{ gap: 8 }}>
-                        <button className="btn" type="button" onClick={() => preencher(c)}>
-                          Editar
+                        <button className="btn btnIcon" type="button" onClick={() => preencher(c)} title="Editar cliente">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
                         </button>
-                        <button className="btn btnDanger" type="button" onClick={() => void excluir(c)}>
-                          Excluir
+                        <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(c)} title="Excluir cliente">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
                         </button>
                       </div>
                     </td>

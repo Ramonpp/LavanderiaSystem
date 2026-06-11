@@ -45,7 +45,14 @@ export type Pedido = {
   criado_em: string
 }
 
-export type PedidoCliente = Pedido & { cliente: { id: string; nome: string } | null }
+export type PedidoCliente = Pedido & {
+  cliente: {
+    id: string
+    nome: string
+    condominio: string | null
+    bloco: string | null
+  } | null
+}
 
 export type ItemPedido = {
   id: UUID

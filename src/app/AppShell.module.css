@@ -3,9 +3,13 @@
   min-height: 100svh;
   display: grid;
   grid-template-columns: var(--sidebar-w, 256px) 1fr;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto 1fr auto; /* Added top row for mobile header if needed */
   background: var(--bg);
   transition: grid-template-columns 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobileHeader {
+  display: none;
 }
 
 /* ── Sidebar ───────────────────────────────────────────── */
@@ -185,6 +189,91 @@
   color: color-mix(in srgb, var(--accent), transparent 30%);
 }
 
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.chevron {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: transform 250ms ease, color 150ms ease;
+  width: 20px;
+  height: 20px;
+}
+
+.navItem:hover .chevron,
+.active .chevron {
+  color: var(--accent);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.subMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 42px;
+  overflow: hidden;
+  transition: max-height 250ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease, margin 250ms ease;
+}
+
+.subMenuOpen {
+  max-height: 120px;
+  opacity: 1;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.subMenuClosed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  pointer-events: none;
+}
+
+.subNavItem {
+  text-decoration: none;
+  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all 150ms ease;
+  opacity: 0.85;
+}
+
+.subNavItem:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-border);
+  opacity: 1;
+}
+
+.subActive {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Force submenu closed when sidebar is collapsed */
+.collapsed .subMenu {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Tooltip shown when collapsed */
 .navItem[title]:hover::after {
   content: attr(title);
@@ -346,6 +435,11 @@
   align-content: start;
 }
 
+/* ── Bottom navigation (mobile only — hidden on desktop) ── */
+.bottomNav {
+  display: none;
+}
+
 /* ── Footer bar ────────────────────────────────────────── */
 .footer {
   grid-column: 2;
@@ -374,65 +468,49 @@
     grid-template-rows: auto 1fr auto;
   }
 
-  .sidebar {
-    grid-row: 1;
-    width: 100% !important;
-    height: auto;
-    position: static;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .brand {
-    border-bottom: none;
-    border-right: 1px solid var(--border);
-    padding: 12px 14px;
-    min-height: auto;
-  }
-
-  .nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 8px;
-    gap: 4px;
-    flex: 1;
-  }
-
-  .navItem {
-    flex: 0 0 auto;
-  }
-
-  .navLabel {
-    max-width: 120px !important;
-    opacity: 1 !important;
-  }
-
-  .navItemDesc {
-    display: none;
-  }
-
-  .sideFooter {
-    width: 100%;
-    flex-direction: row;
+  .mobileHeader {
+    display: flex;
     align-items: center;
-    border-top: 1px solid var(--border);
-    padding: 8px 12px;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
   }
 
-  .dbStatus {
-    max-height: 40px !important;
-    opacity: 1 !important;
-    flex: 1;
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px !important;
+    height: 100svh;
+    z-index: 100;
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
   }
 
-  .footer {
-    grid-column: 1;
+  .sidebarOpen {
+    transform: translateX(0);
   }
 
-  .collapseBtn {
-    display: none;
+  .sidebarOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 300ms ease;
+  }
+
+  .sidebarOverlayOpen {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .brandText {
@@ -440,9 +518,96 @@
     opacity: 1 !important;
   }
 
-  .collapsed .navLabel {
-    max-width: 120px !important;
+  .navLabel {
+    max-width: 180px !important;
     opacity: 1 !important;
+  }
+
+  .dbStatus {
+    max-height: 40px !important;
+    opacity: 1 !important;
+  }
+
+  .collapseBtn {
+    display: none;
+  }
+
+  .footer {
+    display: none; /* substituído pela bottom nav no mobile */
+  }
+
+  .main {
+    padding: 16px;
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ── Bottom navigation ─────────────────────────────────── */
+  .bottomNav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .bottomNavItem {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px 10px;
+    gap: 3px;
+    text-decoration: none;
+    color: var(--muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    min-height: 56px;
+    touch-action: manipulation;
+    transition: color 150ms ease;
+    position: relative;
+  }
+
+  .bottomNavItemActive {
+    color: var(--accent);
+  }
+
+  .bottomNavItemActive::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 28px;
+    height: 3px;
+    border-radius: 0 0 4px 4px;
+    background: var(--accent);
+  }
+
+  .bottomNavIcon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .bottomNavIcon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .bottomNavLabel {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
   }
 }
 
