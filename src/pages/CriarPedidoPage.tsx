@@ -54,25 +54,11 @@ function gerarLinhasPadrao(tipos: import('../types/models').TipoPeca[]): ItemLin
 }
 
 const statusOpções: OrderStatus[] = ['recebido', 'em_lavagem', 'pronto', 'entregue', 'cancelado']
-const pagamentoOpcoes: Array<{ value: PagamentoStatus; label: string }> = [
-  { value: 'devendo', label: 'Devendo' },
-  { value: 'em_andamento', label: 'Em andamento' },
+const pagamentoOpcoes: { value: PagamentoStatus; label: string }[] = [
   { value: 'pago', label: 'Pago' },
+  { value: 'devendo', label: 'Devendo' },
+  { value: 'em_andamento', label: 'Em Andamento' },
 ]
-
-const STATUS_BADGE_CLASSES: Record<OrderStatus, string> = {
-  recebido: 'badgeBlue',
-  em_lavagem: 'badgeYellow',
-  pronto: 'badgeGreen',
-  entregue: 'badgeMuted',
-  cancelado: 'badgeRed',
-}
-
-const PAGAMENTO_BADGE_CLASSES: Record<PagamentoStatus, string> = {
-  pago: 'badgeGreen',
-  devendo: 'badgeRed',
-  em_andamento: 'badgeYellow',
-}
 
 export function CriarPedidoPage() {
   const location = useLocation()
@@ -82,8 +68,6 @@ export function CriarPedidoPage() {
   const [tipos, setTipos] = useState<TipoPeca[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
-  const [enviandoId, setEnviandoId] = useState<string | null>(null)
-  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
 
@@ -103,10 +87,6 @@ export function CriarPedidoPage() {
 
   const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
 
-  /* ── Filtros ────────────────────────────────────────── */
-  const [filtroMes, setFiltroMes] = useState('todos')
-  const [filtroPagamento, setFiltroPagamento] = useState('todos')
-
   function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
     if (!c) return '—'
     const parts = []
@@ -114,43 +94,6 @@ export function CriarPedidoPage() {
     if (c.apartamento?.trim()) parts.push(c.apartamento.trim())
     if (c.bloco?.trim()) parts.push(c.bloco.trim())
     return parts.length > 0 ? `${c.nome} (${parts.join(' ')})` : c.nome
-  }
-
-  const mesesDisponiveis = useMemo(() => {
-    const list = pedidos.map((p) => p.data_pedido.slice(0, 7))
-    const unique = Array.from(new Set(list)).sort().reverse()
-    return unique
-  }, [pedidos])
-
-  const pedidosFiltrados = useMemo(() => {
-    return pedidos.filter((p) => {
-      if (filtroMes !== 'todos' && p.data_pedido.slice(0, 7) !== filtroMes) return false
-      if (filtroPagamento !== 'todos' && p.pagamento_status !== filtroPagamento) return false
-      return true
-    })
-  }, [pedidos, filtroMes, filtroPagamento])
-
-  /* ── Atualizações Inline ──────────────────────────────── */
-  async function inlineUpdateStatus(id: string, newStatus: OrderStatus) {
-    setErro(null)
-    setMsg(null)
-    const { error } = await updatePedido(id, { status: newStatus })
-    if (error) setErro(error)
-    else {
-      setMsg('Status do pedido atualizado.')
-      await reloadAll()
-    }
-  }
-
-  async function inlineUpdatePagamento(id: string, newPagamento: PagamentoStatus) {
-    setErro(null)
-    setMsg(null)
-    const { error } = await updatePedido(id, { pagamento_status: newPagamento })
-    if (error) setErro(error)
-    else {
-      setMsg('Status de pagamento atualizado.')
-      await reloadAll()
-    }
   }
 
   const primeiraPecaDisponível = useMemo(() => tipos[0]?.id ?? '', [tipos])
@@ -376,14 +319,6 @@ export function CriarPedidoPage() {
     await reloadAll()
   }
 
-  async function excluir(p: PedidoCliente) {
-    if (!window.confirm('Excluir pedido e suas linhas?')) return
-    setErro(null)
-    const { error } = await deletePedido(p.id)
-    if (error) setErro(error)
-    else await reloadAll()
-  }
-
   useEffect(() => {
     setItensLinhas((xs) =>
       xs.map((l) =>
@@ -397,67 +332,6 @@ export function CriarPedidoPage() {
   useEffect(() => {
     // Scroll to top or handle query params like ?edit=id if needed later
   }, [location.hash, location.key])
-
-  async function enviarCobranca(p: PedidoCliente) {
-    setConfirmandoId(null)
-    setErro(null)
-    setMsg(null)
-    setEnviandoId(p.id)
-    try {
-      const cli = clientes.find((c) => c.id === p.cliente_id) ?? null
-      const { data: itens, error: eItens } = await fetchItensPorPedidos([p.id])
-      if (eItens) {
-        setErro(eItens)
-        return
-      }
-
-      const valor = receitaPedido(p)
-      const nomeCompleto = p.cliente?.nome ?? cli?.nome ?? 'Cliente'
-      const primeiroNome = nomeCompleto.trim().split(' ')[0]
-      const pesoStr = p.peso_kg != null ? `${Number(p.peso_kg).toLocaleString('pt-BR')} kg` : '—'
-
-      const [ano, mes, dia] = p.data_pedido.split('-')
-      const dataFormatada = `${dia}/${mes}/${ano}`
-
-      const texto = `Olá ${primeiroNome}, tudo bem?\n\n` +
-        `Seu enxoval já foi coletado, tratado com todo carinho e está em processo de entrega.\n` +
-        `Segue a imagem da comanda com a quantidade de itens, peso total e valor do serviço.\n\n` +
-        `🧺 *Peso total:* ${pesoStr}\n` +
-        `💰 *Valor:* ${formatBRL(valor)}\n\n` +
-        `Estamos enviando a chave pix na mensagem abaixo.  \n` +
-        `Caso prefira outra forma de pagamento, é só nos informar.\n` +
-        `Qualquer dúvida, estamos à disposição!\n\n` +
-        `Abraços, equipe Ciclo Novo Lavanderia 💙`
-
-      const { error: w } = await enviarCobrancaWebhook({
-        type: 'cobranca',
-        cliente: {
-          id: p.cliente_id,
-          nome: p.cliente?.nome ?? cli?.nome ?? '—',
-          telefone: cli?.telefone ?? null,
-          email: cli?.email ?? null,
-          plano: cli?.plano,
-          forma_pagamento: cli?.forma_pagamento,
-        },
-        pedido: {
-          id: p.id,
-          data_pedido: dataFormatada,
-          status: p.status,
-          pagamento_status: p.pagamento_status,
-          valor,
-        },
-        itens: itens.map((it) => ({
-          nome: tipos.find((t) => t.id === it.tipo_peca_id)?.nome ?? 'Peça',
-          quantidade: it.quantidade,
-        })),
-        texto,
-      })
-      if (w) setErro(w)
-      else setMsg('Cobrança enviada no webhook.')
-    } finally {
-      setEnviandoId(null)
-    }
-  }
 
   return (
     <div className="grid" style={{ gap: 12 }}>
