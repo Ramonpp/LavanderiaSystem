@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { checkDbHealth, type DbHealth } from '../lib/healthCheck'
 
-const PROJECT_REF = import.meta.env.VITE_SUPABASE_URL
-  ? new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname.split('.')[0]
-  : '<project-ref>'
+let PROJECT_REF = '<project-ref>'
+try {
+  if (import.meta.env.VITE_SUPABASE_URL) {
+    PROJECT_REF = new URL(import.meta.env.VITE_SUPABASE_URL as string).hostname.split('.')[0]
+  }
+} catch (e) {
+  // Ignorar erro de URL inválida
+}
 
 export function SetupBanner() {
   const [health, setHealth] = useState<DbHealth>('checking')

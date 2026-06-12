@@ -11,7 +11,7 @@ if (!url || !anonKey) {
 }
 
 export const supabase = createClient(
-  typeof url === 'string' ? url : '',
-  typeof anonKey === 'string' ? anonKey : '',
+  typeof url === 'string' && url.length > 0 ? url : 'https://placeholder.supabase.co',
+  typeof anonKey === 'string' && anonKey.length > 0 ? anonKey : 'placeholder-anon-key',
 )
 
