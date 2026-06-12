@@ -5,16 +5,12 @@ import {
   fetchPedidos,
   insertPedidoComItens,
   replaceItensPedido,
-  deletePedido,
   updatePedido,
 } from '../data/pedidos'
 import { fetchClientes } from '../data/clientes'
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
-import { receitaPedido } from '../domain/finance'
-import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
-import { enviarCobrancaWebhook } from '../data/webhook'
 
 type ItemLinha = {
   key: string
@@ -63,7 +59,6 @@ const pagamentoOpcoes: { value: PagamentoStatus; label: string }[] = [
 export function CriarPedidoPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tipos, setTipos] = useState<TipoPeca[]>([])
   const [erro, setErro] = useState<string | null>(null)
@@ -107,7 +102,6 @@ export function CriarPedidoPage() {
       fetchTiposPeca(),
     ])
 
-    setPedidos(peds.data)
     setClientes(cls.data)
     setTipos(tp.data)
 

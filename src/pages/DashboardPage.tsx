@@ -37,8 +37,6 @@ export function DashboardPage() {
   const [, setSaveMsg] = useState<string | null>(null)
 
   const [cfgDias, setCfgDias] = useState(22)
-  const [cfgPrecoKg, setCfgPrecoKg] = useState(8.5)
-  const [cfgCustoKg, setCfgCustoKg] = useState(2.2)
 
   const bounds = useMemo(() => {
     const [y, m] = monthValue.split('-').map(Number)
@@ -66,8 +64,6 @@ export function DashboardPage() {
 
     if (cfg) {
       setCfgDias(cfg.dias_uteis_mes_padrao)
-      setCfgPrecoKg(Number(cfg.preco_referencia_kg))
-      setCfgCustoKg(Number(cfg.custo_variavel_estimado_por_kg))
     }
   }
 

@@ -1,57 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   fetchItensPorPedidos,
   fetchPedidos,
-  insertPedidoComItens,
-  replaceItensPedido,
   deletePedido,
   updatePedido,
 } from '../data/pedidos'
 import { fetchClientes } from '../data/clientes'
 import { fetchTiposPeca } from '../data/tiposPeca'
-import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
+import type { Cliente, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
 import { receitaPedido } from '../domain/finance'
 import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { enviarCobrancaWebhook } from '../data/webhook'
-
-type ItemLinha = {
-  key: string
-  tipo_peca_id: string
-  quantidade: string
-}
-
-function newKey() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`
-}
-
-const PEDIDO_MINIMO: Array<{ nome: string; quantidade: string }> = [
-  { nome: 'Toalha de piso', quantidade: '1' },
-  { nome: 'Toalha de banho', quantidade: '2' },
-  { nome: 'Toalha de rosto', quantidade: '1' },
-  { nome: 'Lencol casal', quantidade: '1' },
-  { nome: 'Fronha', quantidade: '2' },
-]
-
-function resolverTipoId(tipos: import('../types/models').TipoPeca[], nome: string): string {
-  const n = nome.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-  return tipos.find((t) =>
-    t.nome.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '') === n,
-  )?.id ?? ''
-}
-
-function gerarLinhasPadrao(tipos: import('../types/models').TipoPeca[]): ItemLinha[] {
-  const linhas = PEDIDO_MINIMO
-    .map(({ nome, quantidade }) => ({
-      key: newKey(),
-      tipo_peca_id: resolverTipoId(tipos, nome),
-      quantidade,
-    }))
-    .filter((l) => l.tipo_peca_id !== '')
-  return linhas.length > 0 ? linhas : [{ key: newKey(), tipo_peca_id: tipos[0]?.id ?? '', quantidade: '1' }]
-}
 
 const statusOpções: OrderStatus[] = ['recebido', 'em_lavagem', 'pronto', 'entregue', 'cancelado']
 const pagamentoOpcoes: Array<{ value: PagamentoStatus; label: string }> = [
@@ -75,7 +36,6 @@ const PAGAMENTO_BADGE_CLASSES: Record<PagamentoStatus, string> = {
 }
 
 export function PedidosCadastradosPage() {
-  const location = useLocation()
   const navigate = useNavigate()
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -84,24 +44,6 @@ export function PedidosCadastradosPage() {
   const [msg, setMsg] = useState<string | null>(null)
   const [enviandoId, setEnviandoId] = useState<string | null>(null)
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
-
-  const [editandoId, setEditandoId] = useState<string | null>(null)
-
-  const [clienteId, setClienteId] = useState('')
-  const [dataPedido, setDataPedido] = useState(() => new Date().toISOString().slice(0, 10))
-  const [dataPrev, setDataPrev] = useState('')
-  const [status, setStatus] = useState<OrderStatus>('recebido')
-  const [pagamentoStatus, setPagamentoStatus] = useState<PagamentoStatus>('devendo')
-  const [pesoKg, setPesoKg] = useState('')
-
-  type PricingMode = 'kg' | 'fixo'
-  const [modoPreco, setModoPreco] = useState<PricingMode>('kg')
-  const [precoKg, setPrecoKg] = useState('15')
-  const [precoFixo, setPrecoFixo] = useState('')
-
-  const [observacoes, setObservacoes] = useState('')
-
-  const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
 
   /* ── Filtros ────────────────────────────────────────── */
   const [filtroMes, setFiltroMes] = useState('todos')
@@ -153,9 +95,6 @@ export function PedidosCadastradosPage() {
     }
   }
 
-  const primeiraPecaDisponível = useMemo(() => tipos[0]?.id ?? '', [tipos])
-  const DEFAULT_PRECO_POR_KG_48H = '15'
-
   async function reloadAll() {
     setErro(null)
     const [peds, cls, tp] = await Promise.all([
@@ -170,42 +109,11 @@ export function PedidosCadastradosPage() {
 
     const e = peds.error ?? cls.error ?? tp.error ?? null
     if (e) setErro(e)
-
-    setClienteId((cur) => {
-      if (cur) return cur
-      const primeiro = cls.data.find((c) => c.ativo)?.id ?? cls.data[0]?.id
-      return primeiro ?? ''
-    })
-
-    setItensLinhas((cur) => (cur.length > 0 ? cur : gerarLinhasPadrao(tp.data)))
   }
 
   useEffect(() => {
     void reloadAll()
   }, [])
-
-  useEffect(() => {
-    if (editandoId) return
-    setModoPreco('kg')
-    setPrecoKg(DEFAULT_PRECO_POR_KG_48H)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editandoId])
-
-  function limparForm() {
-    setEditandoId(null)
-    const d = new Date().toISOString().slice(0, 10)
-    setDataPedido(d)
-    setDataPrev(addDaysIso(d, 2))
-    setStatus('recebido')
-    setPagamentoStatus('devendo')
-    setPesoKg('')
-    setModoPreco('kg')
-    setPrecoKg('15')
-    setPrecoFixo('')
-    setObservacoes('')
-    setItensLinhas(gerarLinhasPadrao(tipos))
-    setMsg(null)
-  }
 
   async function excluir(p: PedidoCliente) {
     if (!window.confirm('Excluir pedido e suas linhas?')) return
@@ -214,37 +122,6 @@ export function PedidosCadastradosPage() {
     if (error) setErro(error)
     else await reloadAll()
   }
-
-  useEffect(() => {
-    setItensLinhas((xs) =>
-      xs.map((l) =>
-        !l.tipo_peca_id && primeiraPecaDisponível
-          ? { ...l, tipo_peca_id: primeiraPecaDisponível }
-          : l,
-      ),
-    )
-  }, [primeiraPecaDisponível])
-
-  useEffect(() => {
-    if (location.hash === '#criar') {
-      if (editandoId) {
-        limparForm()
-      }
-      const el = document.getElementById('criar-pedido')
-      if (el) {
-        setTimeout(() => {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 50)
-      }
-    } else if (location.hash === '#lista') {
-      const el = document.getElementById('pedidos-cadastrados')
-      if (el) {
-        setTimeout(() => {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 50)
-      }
-    }
-  }, [location.hash, location.key])
 
   async function enviarCobranca(p: PedidoCliente) {
     setConfirmandoId(null)
