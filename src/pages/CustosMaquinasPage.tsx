@@ -8,6 +8,7 @@ import { formatBRL } from '../lib/format'
 type ParamsMaquina = {
   potencia_kw: string   // kW consumidos por ciclo (lavagem=motor+aquecimento, secagem=resistência)
   litros_ciclo: string  // litros de água por ciclo (secagem = 0)
+  lg_device_id?: string // ID do device no LG ThinQ
 }
 
 type ResultadoMaquina = {
@@ -40,12 +41,15 @@ const DEF_LITROS: Record<Maquina['tipo'], string> = {
   secagem: '0',   // secadora não consome água
 }
 
+import { fetchLgEnergyUsage } from '../lib/lgThinq'
+
 function calcular(
   maquinas: Maquina[],
   params: Record<string, ParamsMaquina>,
   tarifaKwh: number,
   tarifaAguaM3: number,
   diasMes: number,
+  lgConsumos: Record<string, number>
 ): ResultadoMaquina[] {
   return maquinas.map((m) => {
     const p = params[m.id] ?? { potencia_kw: DEF_POTENCIA[m.tipo], litros_ciclo: DEF_LITROS[m.tipo] }
@@ -54,18 +58,31 @@ function calcular(
     const horas_ciclo = minutos / 60
 
     const kw = Math.max(0, Number(String(p.potencia_kw).replace(',', '.')) || 0)
-    const kwh_ciclo = kw * horas_ciclo
+    let kwh_ciclo = kw * horas_ciclo
 
     const litros = Math.max(0, Number(String(p.litros_ciclo).replace(',', '.')) || 0)
     const m3_ciclo = litros / 1000
 
-    const custo_energia_ciclo = kwh_ciclo * tarifaKwh
+    let custo_energia_ciclo = kwh_ciclo * tarifaKwh
     const custo_agua_ciclo    = m3_ciclo * tarifaAguaM3
-    const custo_total_ciclo   = custo_energia_ciclo + custo_agua_ciclo
+    let custo_total_ciclo   = custo_energia_ciclo + custo_agua_ciclo
 
     const ciclos_dia = Number(m.ciclos_por_dia_util)
-    const custo_dia  = custo_total_ciclo * ciclos_dia
-    const custo_mes  = custo_dia * diasMes
+    let custo_dia  = custo_total_ciclo * ciclos_dia
+    let custo_mes  = custo_dia * diasMes
+    
+    // Sobrescrever se tivermos consumo da LG
+    const lgWh = lgConsumos[m.id]
+    if (lgWh !== undefined) {
+      const lgKwhMes = lgWh / 1000
+      const lgCustoEnergiaMes = lgKwhMes * tarifaKwh
+      const custo_agua_mes = custo_agua_ciclo * ciclos_dia * diasMes
+      custo_mes = lgCustoEnergiaMes + custo_agua_mes
+      custo_dia = custo_mes / diasMes
+      custo_total_ciclo = custo_dia / ciclos_dia
+      custo_energia_ciclo = lgCustoEnergiaMes / (ciclos_dia * diasMes)
+      kwh_ciclo = lgKwhMes / (ciclos_dia * diasMes)
+    }
     const kg_dia     = Number(m.capacidade_kg) * ciclos_dia
     const custo_por_kg = kg_dia > 0 ? custo_dia / kg_dia : 0
 
@@ -117,23 +134,45 @@ export function CustosMaquinasPage() {
   const [diasMes,      setDiasMes]      = useState(() => {
     try { return localStorage.getItem('lav_custos_diasMes') ?? '22' } catch { return '22' }
   })
+  
+  const [mesLg, setMesLg] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
-  // Parâmetros por máquina: { [id]: { potencia_kw, litros_ciclo } }
-  const [params, setParams] = useState<Record<string, ParamsMaquina>>({})
+  // Parâmetros por máquina: { [id]: { potencia_kw, litros_ciclo, lg_device_id } }
+  const [params, setParams] = useState<Record<string, ParamsMaquina>>(() => {
+    try {
+      const saved = localStorage.getItem('lav_custos_params')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return {}
+  })
+
+  // Consumo retornado da LG em Watt-hora
+  const [lgConsumos, setLgConsumos] = useState<Record<string, number>>({})
+  const [buscandoLg, setBuscandoLg] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetchMaquinas().then(({ data, error }) => {
       if (error) { setErro(error); return }
       setMaquinas(data.filter((m) => m.ativo))
-      // Inicializa params com defaults por tipo
-      const init: Record<string, ParamsMaquina> = {}
-      data.filter((m) => m.ativo).forEach((m) => {
-        init[m.id] = {
-          potencia_kw:  DEF_POTENCIA[m.tipo],
-          litros_ciclo: DEF_LITROS[m.tipo],
-        }
+      
+      setParams((prev) => {
+        const next = { ...prev }
+        let changed = false
+        data.filter((m) => m.ativo).forEach((m) => {
+          if (!next[m.id]) {
+            next[m.id] = {
+              potencia_kw:  DEF_POTENCIA[m.tipo],
+              litros_ciclo: DEF_LITROS[m.tipo],
+              lg_device_id: ''
+            }
+            changed = true
+          }
+        })
+        return changed ? next : prev
       })
-      setParams(init)
     })
   }, [])
 
@@ -143,6 +182,7 @@ export function CustosMaquinasPage() {
       localStorage.setItem('lav_custos_tarifaKwh', tarifaKwh)
       localStorage.setItem('lav_custos_tarifaAguaM3', tarifaAguaM3)
       localStorage.setItem('lav_custos_diasMes', diasMes)
+      localStorage.setItem('lav_custos_params', JSON.stringify(params))
       setMsg('Padrões salvos.')
     } catch {
       setErro('Não foi possível salvar os padrões neste navegador.')
@@ -161,8 +201,8 @@ export function CustosMaquinasPage() {
   const dias = Math.max(1, Number(diasMes) || 22)
 
   const resultados = useMemo(
-    () => calcular(maquinas, params, kwh, m3, dias),
-    [maquinas, params, kwh, m3, dias],
+    () => calcular(maquinas, params, kwh, m3, dias, lgConsumos),
+    [maquinas, params, kwh, m3, dias, lgConsumos],
   )
 
   const totalMes          = resultados.reduce((a, r) => a + r.custo_mes, 0)
@@ -387,8 +427,21 @@ export function CustosMaquinasPage() {
 
       {/* ── Configuração por máquina ─── */}
       <section className="panel">
-        <div className="panelHeader">
+        <div className="panelHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <h2 style={{ fontSize: 15 }}>Consumo por máquina</h2>
+          <div className="field" style={{ minWidth: 160, margin: 0 }}>
+            <label htmlFor="mesLg" style={{ display: 'none' }}>Mês LG ThinQ</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="hint">Mês LG ThinQ:</span>
+              <input 
+                id="mesLg" 
+                type="month" 
+                value={mesLg} 
+                onChange={(e) => setMesLg(e.target.value)} 
+                style={{ padding: '6px 10px', width: 'auto' }}
+              />
+            </div>
+          </div>
         </div>
         <div className="panelBody grid" style={{ gap: 12 }}>
           {maquinas.length === 0 && (
@@ -444,6 +497,48 @@ export function CustosMaquinasPage() {
                       placeholder={DEF_LITROS[m.tipo]}
                     />
                   </div>
+                </div>
+
+                <div className="row" style={{ alignItems: 'flex-end' }}>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>LG ThinQ Device ID (opcional)</label>
+                    <input
+                      value={p.lg_device_id ?? ''}
+                      onChange={(e) => setParam(m.id, 'lg_device_id', e.target.value)}
+                      placeholder="Ex: a62b1df203c4a7188e7..."
+                      style={{ fontSize: 12, fontFamily: 'monospace' }}
+                    />
+                  </div>
+                  <button
+                    className="btn"
+                    style={{ background: 'var(--accent)', color: '#fff', border: 'none', padding: '8px 14px', height: 38 }}
+                    disabled={!p.lg_device_id || buscandoLg[m.id]}
+                    onClick={async () => {
+                      if (!p.lg_device_id) return
+                      setBuscandoLg((prev) => ({ ...prev, [m.id]: true }))
+                      setErro(null)
+                      setMsg(null)
+                      try {
+                        const yyyyMm = mesLg.replace('-', '') // ex: 2026-05 -> 202605
+                        const res = await fetchLgEnergyUsage(p.lg_device_id, yyyyMm, yyyyMm)
+                        if (res.error) {
+                          setErro(res.error)
+                        } else if (res.energy_wh !== undefined) {
+                          setLgConsumos((prev) => ({ ...prev, [m.id]: res.energy_wh as number }))
+                          setMsg(`Consumo LG atualizado para ${m.nome}: ${(res.energy_wh / 1000).toLocaleString('pt-BR')} kWh neste mês.`)
+                        }
+                      } catch (err) {
+                        setErro(String(err))
+                      } finally {
+                        setBuscandoLg((prev) => ({ ...prev, [m.id]: false }))
+                      }
+                    }}
+                  >
+                    {buscandoLg[m.id] ? 'Buscando...' : 'Buscar Consumo LG'}
+                  </button>
+                </div>
+                
+                <div className="row">
 
                   {r && (
                     <>
