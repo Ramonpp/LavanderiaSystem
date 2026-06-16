@@ -522,6 +522,41 @@ export function CustosMaquinasPage() {
                       placeholder="Ex: a62b1df203c4a7188e7..."
                       style={{ fontSize: 12, fontFamily: 'monospace' }}
                     />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                      <span className="hint" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>Atalhos:</span>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          height: 'auto',
+                          minHeight: '22px',
+                          background: 'var(--border)',
+                          color: 'var(--text)',
+                          border: '1px solid transparent',
+                        }}
+                        onClick={() => setParam(m.id, 'lg_device_id', 'a62b1df203c4a7188e7880433c9cebfb407c428b5a5a8e0af9dd0f696bee44c1')}
+                      >
+                        Usar ID Máq. 753
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          height: 'auto',
+                          minHeight: '22px',
+                          background: 'var(--border)',
+                          color: 'var(--text)',
+                          border: '1px solid transparent',
+                        }}
+                        onClick={() => setParam(m.id, 'lg_device_id', '2d6ec2ccc498b22ed9690f16cec2b0d93a0743abb5c3c2c594ecd6bcc1779181')}
+                      >
+                        Usar ID Máq. 789
+                      </button>
+                    </div>
                   </div>
                   <button
                     className="btn"

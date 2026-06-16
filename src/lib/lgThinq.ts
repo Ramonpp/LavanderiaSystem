@@ -13,22 +13,23 @@ export async function fetchLgEnergyUsage(
       return { error: 'Credenciais da LG ThinQ não configuradas.' }
     }
 
+    // De acordo com o openapi.json, o header de país é 'x-country' (ex: 'BR', 'US')
     const headers = {
       'x-client-id': clientId,
       'x-api-key': apiKey,
       'x-message-id': messageId,
-      'x-country-code': 'BR',
-      'x-service-phase': 'OP',
+      'x-country': 'BR',
       'Authorization': `Bearer ${token}`
     }
 
-    // Usamos o proxy /lg-api configurado no Vercel (ou Vite server) para evitar CORS
+    // Usamos o proxy /lg-api configurado no Vercel (ou Vite server) para evitar CORS.
+    // O endpoint conforme o openapi.json é: /devices/energy/{deviceId}/usage com period=MONTHLY
     const url = `/lg-api/devices/energy/${deviceId}/usage?period=MONTHLY&startDate=${startDate}&endDate=${endDate}`
 
     const response = await fetch(url, { headers })
 
     if (response.status === 401) {
-      return { error: 'Acesso negado (401). Verifique se o Token da LG expirou.' }
+      return { error: 'Acesso negado (401). Verifique se o Token da LG (PAT) expirou ou é inválido.' }
     }
 
     if (!response.ok) {
@@ -37,19 +38,43 @@ export async function fetchLgEnergyUsage(
 
     const data = await response.json()
     
-    // Supondo que a resposta venha no formato { item: { totalUsage: 1234 } } (em Watt-hora)
-    // Se a estrutura for diferente, isso precisará ser ajustado.
-    // Vamos tentar pegar de item.totalUsage ou de outro lugar genérico.
+    // De acordo com o openapi.json (schema energy-usage-res), a resposta tem o formato:
+    // {
+    //   "response": {
+    //     "resultCode": "0000",
+    //     "result": {
+    //       "property": ["energyUsage"],
+    //       "dataList": [
+    //         { "usedDate": "202605", "useAmount": 12.3 }
+    //       ]
+    //     }
+    //   }
+    // }
+    const resultCode = data?.response?.resultCode
+    if (resultCode !== '0000') {
+      const codeDescriptions: Record<string, string> = {
+        '1212': 'Dispositivo não pertence ao usuário (1212)',
+        '1221': 'Produto não suportado (1221)',
+        '1220': 'Propriedade não suportada (1220)',
+        '1307': 'País não suportado (1307)',
+        '2214': 'Falha na requisição (2214)',
+      }
+      const desc = codeDescriptions[resultCode] || `Erro código ${resultCode}`
+      return { error: `LG retornou erro: ${desc}` }
+    }
+
+    const dataList = data?.response?.result?.dataList
+    if (!Array.isArray(dataList)) {
+      console.log('Resposta LG sem dataList:', data)
+      return { error: 'Formato de resposta inesperado da LG (campo dataList ausente).' }
+    }
+
+    // Soma o consumo total de todas as entradas retornadas no período
     let totalWh = 0
-    
-    if (data && data.item && typeof data.item.totalUsage === 'number') {
-      totalWh = data.item.totalUsage
-    } else if (data && typeof data.totalUsage === 'number') {
-      totalWh = data.totalUsage
-    } else {
-      // Se não soubermos a estrutura, retornamos o JSON no erro para debug
-      console.log('Resposta LG:', data)
-      return { error: 'Formato de resposta inesperado da LG. Olhe o console.' }
+    for (const item of dataList) {
+      if (item && typeof item.useAmount === 'number') {
+        totalWh += item.useAmount
+      }
     }
 
     return { energy_wh: totalWh }
