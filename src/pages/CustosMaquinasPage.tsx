@@ -42,6 +42,7 @@ const DEF_LITROS: Record<Maquina['tipo'], string> = {
 }
 
 import { fetchLgEnergyUsage } from '../lib/lgThinq'
+import { upsertConsumo, fetchConsumos } from '../data/consumo_maquina'
 
 function calcular(
   maquinas: Maquina[],
@@ -175,6 +176,19 @@ export function CustosMaquinasPage() {
       })
     })
   }, [])
+
+  useEffect(() => {
+    // Ao trocar o mês, busca os consumos já salvos no banco para este mês
+    if (!mesLg) return
+    fetchConsumos(mesLg).then(({ data, error }) => {
+      if (error) { setErro(error); return }
+      const novosConsumos: Record<string, number> = {}
+      for (const row of data) {
+        novosConsumos[row.maquina_id] = row.consumo_wh
+      }
+      setLgConsumos(novosConsumos)
+    })
+  }, [mesLg])
 
   function salvarPadrao() {
     setMsg(null)
@@ -524,8 +538,15 @@ export function CustosMaquinasPage() {
                         if (res.error) {
                           setErro(res.error)
                         } else if (res.energy_wh !== undefined) {
-                          setLgConsumos((prev) => ({ ...prev, [m.id]: res.energy_wh as number }))
-                          setMsg(`Consumo LG atualizado para ${m.nome}: ${(res.energy_wh / 1000).toLocaleString('pt-BR')} kWh neste mês.`)
+                          const wh = res.energy_wh as number
+                          // Salva no banco de dados
+                          const { error: dbError } = await upsertConsumo(m.id, mesLg, wh)
+                          if (dbError) {
+                            setErro('Erro ao salvar no banco: ' + dbError)
+                          } else {
+                            setLgConsumos((prev) => ({ ...prev, [m.id]: wh }))
+                            setMsg(`Consumo LG atualizado e salvo para ${m.nome}: ${(wh / 1000).toLocaleString('pt-BR')} kWh neste mês.`)
+                          }
                         }
                       } catch (err) {
                         setErro(String(err))

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchDespesasPorPeriodo } from '../data/despesas'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
+import { fetchConsumos, fetchConsumosAno } from '../data/consumo_maquina'
 import { receitaPedido, somaDespesas } from '../domain/finance'
 import type { PedidoCliente } from '../types/models'
 import { formatMesAno, monthBoundsLocal } from '../lib/dates'
@@ -62,6 +63,10 @@ export function DashboardPage() {
   
   const [receitaAno, setReceitaAno] = useState(0)
   const [despesasAno, setDespesasAno] = useState(0)
+  const [kgAno, setKgAno] = useState(0)
+  
+  const [consumoMesWh, setConsumoMesWh] = useState(0)
+  const [consumoAnoWh, setConsumoAnoWh] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -112,7 +117,17 @@ export function DashboardPage() {
       
       const pedsAtivos = peds.filter((p) => p.status !== 'cancelado')
       setReceitaAno(pedsAtivos.reduce((acc, p) => acc + receitaPedido(p), 0))
+      setKgAno(pedsAtivos.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0))
       setDespesasAno(somaDespesas(desps))
+      
+      // Busca consumos da LG para o ano e para o mês
+      const [{ data: consAno }, { data: consMes }] = await Promise.all([
+        fetchConsumosAno(y),
+        fetchConsumos(monthValue)
+      ])
+      
+      setConsumoAnoWh(consAno.reduce((acc, c) => acc + Number(c.consumo_wh), 0))
+      setConsumoMesWh(consMes.reduce((acc, c) => acc + Number(c.consumo_wh), 0))
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthValue])
@@ -205,9 +220,13 @@ export function DashboardPage() {
                     <div className="statLabel">Total Entradas (Ano)</div>
                     <div className="statValSm valPositive">{formatBRL(receitaAno)}</div>
                   </div>
-                  <div style={{ flex: '1 1 160px' }}>
+                  <div style={{ flex: '1 1 120px' }}>
                     <div className="statLabel">Total Gastos (Ano)</div>
                     <div className="statValSm valNegative">{formatBRL(despesasAno)}</div>
+                  </div>
+                  <div style={{ flex: '1 1 120px' }}>
+                    <div className="statLabel">Kg Lavados (Ano)</div>
+                    <div className="statValSm">{(Math.round((kgAno + Number.EPSILON) * 100) / 100).toLocaleString('pt-BR')} kg</div>
                   </div>
                 </div>
               </div>
@@ -230,6 +249,31 @@ export function DashboardPage() {
                     <div className="statLabel">Pedidos Devendo</div>
                     <div className="statValSm valNegative">
                       {pagamentos.qtdDevendo} ({formatBRL(pagamentos.valDevendo)})
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="grid gridCols2">
+            <section className="panel">
+              <div className="panelHeader">
+                <h2 style={{ fontSize: 16 }}>Consumo de Máquinas (Energia)</h2>
+                <span className="hint" style={{ fontSize: 12 }}>Dados reais extraídos da LG ThinQ</span>
+              </div>
+              <div className="panelBody grid" style={{ gap: 14 }}>
+                <div className="row" style={{ alignItems: 'flex-start' }}>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div className="statLabel">Consumo do Mês</div>
+                    <div className="statValSm valNegative">
+                      {(consumoMesWh / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh
+                    </div>
+                  </div>
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div className="statLabel">Consumo do Ano</div>
+                    <div className="statValSm valNegative">
+                      {(consumoAnoWh / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh
                     </div>
                   </div>
                 </div>

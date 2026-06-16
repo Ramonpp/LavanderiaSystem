@@ -95,3 +95,12 @@ export type AppConfig = {
   atualizado_em: string
 }
 
+
+export type ConsumoMaquina = {
+  id: UUID
+  maquina_id: UUID
+  mes_ano: string
+  consumo_wh: number
+  criado_em: string
+}
+
