@@ -72,8 +72,9 @@ export async function fetchLgEnergyUsage(
     // Soma o consumo total de todas as entradas retornadas no período
     let totalWh = 0
     for (const item of dataList) {
-      if (item && typeof item.useAmount === 'number') {
-        totalWh += item.useAmount
+      const amount = item.energyUsage ?? item.useAmount
+      if (typeof amount === 'number') {
+        totalWh += amount
       }
     }
 
