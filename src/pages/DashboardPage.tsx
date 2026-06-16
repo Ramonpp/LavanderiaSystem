@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchAppConfig } from '../data/appConfig'
 import { fetchDespesasPorPeriodo } from '../data/despesas'
-import { fetchMaquinas } from '../data/maquinas'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
-import { capacidadeKgDia } from '../domain/ops'
 import { receitaPedido, somaDespesas } from '../domain/finance'
-import type { Maquina, PedidoCliente } from '../types/models'
+import type { PedidoCliente } from '../types/models'
 import { formatMesAno, monthBoundsLocal } from '../lib/dates'
 import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
@@ -33,10 +30,7 @@ export function DashboardPage() {
   const [monthValue, setMonthValue] = useState(defaultMonth)
   const [error, setError] = useState<string | null>(null)
   const [pedidosMes, setPedidosMes] = useState<PedidoCliente[]>([])
-  const [maquinas, setMaquinas] = useState<Maquina[]>([])
   const [, setSaveMsg] = useState<string | null>(null)
-
-  const [cfgDias, setCfgDias] = useState(22)
 
   const bounds = useMemo(() => {
     const [y, m] = monthValue.split('-').map(Number)
@@ -48,23 +42,11 @@ export function DashboardPage() {
     setError(null)
     setSaveMsg(null)
 
-    const [{ data: peds, error: e1 }, { data: maqs, error: e2 }] = await Promise.all([
-      fetchPedidosPorPeriodo({ inicioIsoDate: bounds.start, fimIsoDate: bounds.end }),
-      fetchMaquinas(),
-    ])
-
-    const { data: cfg, error: e3 } = await fetchAppConfig()
+    const { data: peds, error: e1 } = await fetchPedidosPorPeriodo({ inicioIsoDate: bounds.start, fimIsoDate: bounds.end })
 
     if (e1) setError(e1)
-    else if (e2) setError(e2)
-    else if (e3) setError(e3)
 
-    setPedidosMes(peds)
-    setMaquinas(maqs)
-
-    if (cfg) {
-      setCfgDias(cfg.dias_uteis_mes_padrao)
-    }
+    if (peds) setPedidosMes(peds)
   }
 
   useEffect(() => {
@@ -135,20 +117,35 @@ export function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthValue])
 
-  const { cap, receita, kgLavados, lucroMesSimples } = useMemo(() => {
+  const { receita, kgLavados, lucroMesSimples, pagamentos } = useMemo(() => {
     const ativosMes = pedidosMes.filter((p) => p.status !== 'cancelado')
     const receitaVal = ativosMes.reduce((acc, p) => acc + receitaPedido(p), 0)
     const kgVal = ativosMes.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0)
-    const capVals = capacidadeKgDia(maquinas)
     const luc = receitaVal - despesasValor
-    return { cap: capVals, receita: receitaVal, kgLavados: kgVal, lucroMesSimples: luc }
-  }, [pedidosMes, maquinas, despesasValor])
+    
+    let qtdPagos = 0
+    let valPagos = 0
+    let qtdDevendo = 0
+    let valDevendo = 0
 
-  const ocupacaoMes = useMemo(() => {
-    const capKgMes = cap.gargaloKgDia * cfgDias
-    if (capKgMes <= 0) return 0
-    return kgLavados / capKgMes
-  }, [cap.gargaloKgDia, cfgDias, kgLavados])
+    for (const p of ativosMes) {
+      const valor = receitaPedido(p)
+      if (p.pagamento_status === 'pago') {
+        qtdPagos++
+        valPagos += valor
+      } else {
+        qtdDevendo++
+        valDevendo += valor
+      }
+    }
+
+    return { 
+      receita: receitaVal, 
+      kgLavados: kgVal, 
+      lucroMesSimples: luc,
+      pagamentos: { qtdPagos, valPagos, qtdDevendo, valDevendo }
+    }
+  }, [pedidosMes, despesasValor])
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -218,44 +215,22 @@ export function DashboardPage() {
 
             <section className="panel">
               <div className="panelHeader">
-                <h2 style={{ fontSize: 16 }}>Capacidade operacional</h2>
+                <h2 style={{ fontSize: 16 }}>Status de Pagamentos</h2>
+                <span className="hint" style={{ fontSize: 12 }}>Valores baseados nos pedidos ativos do mês</span>
               </div>
               <div className="panelBody grid" style={{ gap: 14 }}>
                 <div className="row" style={{ alignItems: 'flex-start' }}>
                   <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Lavagem (kg/dia)</div>
-                    <div className="statValSm">
-                      {(Math.round(cap.lavagemKgDia * 100) / 100).toLocaleString('pt-BR')}
+                    <div className="statLabel">Pedidos Pagos</div>
+                    <div className="statValSm valPositive">
+                      {pagamentos.qtdPagos} ({formatBRL(pagamentos.valPagos)})
                     </div>
                   </div>
                   <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Secagem (kg/dia)</div>
-                    <div className="statValSm">
-                      {(Math.round(cap.secagemKgDia * 100) / 100).toLocaleString('pt-BR')}
+                    <div className="statLabel">Pedidos Devendo</div>
+                    <div className="statValSm valNegative">
+                      {pagamentos.qtdDevendo} ({formatBRL(pagamentos.valDevendo)})
                     </div>
-                  </div>
-                </div>
-                <div style={{ paddingTop: 4, borderTop: '1px solid var(--border)' }}>
-                  <div className="statLabel">Gargalo (kg/dia)</div>
-                  <div className="statVal">
-                    {(Math.round(cap.gargaloKgDia * 100) / 100).toLocaleString('pt-BR')}
-                  </div>
-                  <div className="hint" style={{ marginTop: 6 }}>
-                    Ocupação estimada:{' '}
-                    <strong>{(Math.round(ocupacaoMes * 1000) / 10).toLocaleString('pt-BR')}%</strong>
-                    {' '}do máximo mensal ({cfgDias} dias úteis)
-                  </div>
-                  <div
-                    className="progressWrap"
-                    role="progressbar"
-                    aria-valuenow={Math.round(ocupacaoMes * 100)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      className={`progressBar${ocupacaoMes > 0.85 ? ' progressBarWarn' : ''}`}
-                      style={{ width: `${Math.min(ocupacaoMes * 100, 100)}%` }}
-                    />
                   </div>
                 </div>
               </div>

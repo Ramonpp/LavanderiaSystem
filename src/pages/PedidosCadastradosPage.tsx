@@ -48,6 +48,7 @@ export function PedidosCadastradosPage() {
   /* ── Filtros ────────────────────────────────────────── */
   const [filtroMes, setFiltroMes] = useState('todos')
   const [filtroPagamento, setFiltroPagamento] = useState('todos')
+  const [busca, setBusca] = useState('')
 
   function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
     if (!c) return '—'
@@ -65,12 +66,19 @@ export function PedidosCadastradosPage() {
   }, [pedidos])
 
   const pedidosFiltrados = useMemo(() => {
+    const termoBusca = busca.toLowerCase().trim()
     return pedidos.filter((p) => {
       if (filtroMes !== 'todos' && p.data_pedido.slice(0, 7) !== filtroMes) return false
       if (filtroPagamento !== 'todos' && p.pagamento_status !== filtroPagamento) return false
+      
+      if (termoBusca) {
+        const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
+        if (!nomeCliente.includes(termoBusca)) return false
+      }
+      
       return true
     })
-  }, [pedidos, filtroMes, filtroPagamento])
+  }, [pedidos, filtroMes, filtroPagamento, busca])
 
   /* ── Atualizações Inline ──────────────────────────────── */
   async function inlineUpdateStatus(id: string, newStatus: OrderStatus) {
@@ -201,6 +209,19 @@ export function PedidosCadastradosPage() {
           {/* Filtros */}
           <div className="row" style={{ marginBottom: 14, gap: 12, alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
             <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Campo de Busca */}
+              <div className="field" style={{ minWidth: 200, flex: '1 1 auto' }}>
+                <label htmlFor="busca-cliente" style={{ marginBottom: 4 }}>Buscar Cliente</label>
+                <input
+                  id="busca-cliente"
+                  type="text"
+                  placeholder="Nome, bloco, ap..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                />
+              </div>
+
               {/* Filtro Mês */}
               <div className="field" style={{ minWidth: 160, flex: '0 1 auto' }}>
                 <label htmlFor="filtro-mes" style={{ marginBottom: 4 }}>Filtrar por Mês</label>
