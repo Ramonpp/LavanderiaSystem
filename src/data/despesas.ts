@@ -33,3 +33,11 @@ export async function insertDespesasLote(
   const { error } = await supabase.from('despesa').insert(inputs)
   return { error: error ? dbErrorMessage(error) : null }
 }
+
+export async function updateDespesa(
+  id: string,
+  patch: Partial<Omit<Despesa, 'id' | 'criado_em'>>,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('despesa').update(patch).eq('id', id)
+  return { error: error ? dbErrorMessage(error) : null }
+}

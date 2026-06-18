@@ -153,10 +153,14 @@ export function AppShell() {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(resolveTheme)
   const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos'))
+  const [isDespesasOpen, setIsDespesasOpen] = useState(() => location.pathname.startsWith('/despesas'))
 
   useEffect(() => {
     if (location.pathname.startsWith('/pedidos')) {
       setIsPedidosOpen(true)
+    }
+    if (location.pathname.startsWith('/despesas')) {
+      setIsDespesasOpen(true)
     }
   }, [location.pathname])
 
@@ -269,6 +273,64 @@ export function AppShell() {
               )
             }
 
+            const isDespesas = item.to === '/despesas'
+
+            if (isDespesas) {
+              return (
+                <div key={item.to} className={styles.navGroup}>
+                  <div
+                    title={isCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false)
+                        setIsDespesasOpen(true)
+                      } else {
+                        setIsDespesasOpen(!isDespesasOpen)
+                      }
+                    }}
+                    className={styles.navItem}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className={styles.navIcon} aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className={styles.navLabel}>
+                      <span className={styles.navItemTitle}>{item.label}</span>
+                      <span className={styles.navItemDesc}>{item.desc}</span>
+                    </span>
+                    {!isCollapsed && (
+                      <span className={`${styles.chevron} ${isDespesasOpen ? styles.chevronOpen : ''}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className={`${styles.subMenu} ${isDespesasOpen ? styles.subMenuOpen : styles.subMenuClosed}`}>
+                    <NavLink
+                      to="/despesas/criar"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Lançamento de despesa
+                    </NavLink>
+                    <NavLink
+                      to="/despesas/lista"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Dashboard de despesas
+                    </NavLink>
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <NavLink
                 key={item.to}
@@ -345,7 +407,7 @@ export function AppShell() {
           { to: '/pedidos/lista',  icon: Ico.pedidos,    label: 'Pedidos'                     },
           { to: '/pedidos/criar',  icon: Ico.plus,       label: 'Novo',        isPlus: true   },
           { to: '/clientes',       icon: Ico.clientes,   label: 'Clientes'                    },
-          { to: '/despesas',       icon: Ico.despesas,   label: 'Despesas'                    },
+          { to: '/despesas/lista', icon: Ico.despesas,   label: 'Despesas'                    },
         ].map((item) => {
           if (item.isPlus) {
             return (

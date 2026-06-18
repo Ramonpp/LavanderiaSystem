@@ -23,7 +23,9 @@ export default function App() {
         <Route path="/pedidos/lista" element={<PedidosCadastradosPage />} />
         <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
         <Route path="/pecas" element={<TiposPecaPage />} />
-        <Route path="/despesas" element={<DespesasPage />} />
+        <Route path="/despesas/criar" element={<DespesasPage mode="criar" />} />
+        <Route path="/despesas/lista" element={<DespesasPage mode="lista" />} />
+        <Route path="/despesas" element={<Navigate to="/despesas/lista" replace />} />
         <Route path="/maquinas" element={<MaquinasPage />} />
         <Route path="/custos" element={<CustosMaquinasPage />} />
         <Route path="/relatorios" element={<RelatoriosPage />} />
