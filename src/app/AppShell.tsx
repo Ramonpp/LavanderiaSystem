@@ -309,15 +309,6 @@ export function AppShell() {
                   
                   <div className={`${styles.subMenu} ${isDespesasOpen ? styles.subMenuOpen : styles.subMenuClosed}`}>
                     <NavLink
-                      to="/despesas/criar"
-                      onClick={() => setIsMobileOpen(false)}
-                      className={({ isActive }) =>
-                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
-                      }
-                    >
-                      Lançamento de despesa
-                    </NavLink>
-                    <NavLink
                       to="/despesas/lista"
                       onClick={() => setIsMobileOpen(false)}
                       className={({ isActive }) =>
@@ -325,6 +316,15 @@ export function AppShell() {
                       }
                     >
                       Dashboard de despesas
+                    </NavLink>
+                    <NavLink
+                      to="/despesas/criar"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Lançamento de despesa
                     </NavLink>
                   </div>
                 </div>

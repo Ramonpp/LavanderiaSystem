@@ -154,10 +154,19 @@ export function CriarPedidoPage() {
   }
 
   function adicionarLinhaItem() {
+    const key = newKey()
     setItensLinhas((xs) => [
       ...xs,
-      { key: newKey(), tipo_peca_id: primeiraPecaDisponível, quantidade: '1' },
+      { key, tipo_peca_id: primeiraPecaDisponível, quantidade: '1' },
     ])
+    setTimeout(() => {
+      const el = document.getElementById(`item-row-${key}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        const select = el.querySelector('select')
+        if (select) select.focus()
+      }
+    }, 100)
   }
 
   function removerLinhaItem(key: string) {
@@ -345,8 +354,12 @@ export function CriarPedidoPage() {
             <button className="btn" type="button" onClick={limparForm}>
               Cancelar
             </button>
-            <button className="btn" type="button" onClick={() => void reloadAll()}>
-              Recarregar
+            <button className="btn" type="button" onClick={() => void reloadAll()} title="Recarregar" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 4v6h-6" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              <span className="hide-mobile">Recarregar</span>
             </button>
           </div>
         </div>
@@ -476,7 +489,7 @@ export function CriarPedidoPage() {
             </div>
             <div className="panelBody grid" style={{ gap: 10 }}>
               {itensLinhas.map((l) => (
-                <div key={l.key} className="row" style={{ gap: 10 }}>
+                <div key={l.key} id={`item-row-${l.key}`} className="row responsive" style={{ gap: 10 }}>
                   <div className="field">
                     <label>Tipo peça</label>
                     <select value={l.tipo_peca_id} onChange={(e) => {

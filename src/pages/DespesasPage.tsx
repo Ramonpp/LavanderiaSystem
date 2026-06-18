@@ -265,37 +265,15 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
 
             {/* Toggle parcelado (apenas se for nova despesa) */}
             {!editandoId && (
-              <div className="field">
-                <label>É parcelado?</label>
-                <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 10, padding: 4, border: '1px solid var(--border)' }}>
-                  <button
-                    type="button"
-                    onClick={() => setParcelado(false)}
-                    style={{
-                      flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                      background: !parcelado ? 'var(--panel)' : 'transparent',
-                      color: !parcelado ? 'var(--text-h)' : 'var(--muted)',
-                      boxShadow: !parcelado ? 'var(--shadow)' : 'none',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    Não
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setParcelado(true)}
-                    style={{
-                      flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                      background: parcelado ? 'var(--panel)' : 'transparent',
-                      color: parcelado ? 'var(--text-h)' : 'var(--muted)',
-                      boxShadow: parcelado ? 'var(--shadow)' : 'none',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    Sim
-                  </button>
-                </div>
-              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0, fontSize: 13, color: 'var(--text-h)', fontWeight: 650 }}>
+                <input
+                  type="checkbox"
+                  checked={parcelado}
+                  onChange={(e) => setParcelado(e.target.checked)}
+                  style={{ width: 16, height: 16, cursor: 'pointer', margin: 0 }}
+                />
+                <span>É parcelado?</span>
+              </label>
             )}
           </div>
 
