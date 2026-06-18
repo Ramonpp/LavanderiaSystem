@@ -79,6 +79,18 @@ export function PedidosCadastradosPage() {
     })
   }, [pedidos, filtroMes, filtroPagamento, busca])
 
+  const pedidosAtrasados = useMemo(() => {
+    const seteDiasAtras = new Date()
+    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7)
+    const limiteStr = seteDiasAtras.toISOString().slice(0, 10)
+
+    return pedidos.filter((p) => {
+      const isPendente = p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento'
+      const isCancelado = p.status === 'cancelado'
+      return isPendente && !isCancelado && p.data_pedido < limiteStr
+    })
+  }, [pedidos])
+
   /* ── Atualizações Inline ──────────────────────────────── */
   async function inlineUpdateStatus(id: string, newStatus: OrderStatus) {
     setErro(null)
@@ -199,6 +211,117 @@ export function PedidosCadastradosPage() {
 
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}
+
+      {pedidosAtrasados.length > 0 && (
+        <div 
+          style={{ 
+            background: 'color-mix(in srgb, var(--danger), transparent 95%)',
+            border: '1.5px solid var(--danger)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px',
+            marginTop: 8,
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--danger)', fontWeight: 700, fontSize: 15 }}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>Atenção: Clientes devendo há mais de 7 dias! ({pedidosAtrasados.length})</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pedidosAtrasados.map((p) => {
+              const valor = receitaPedido(p)
+              const dias = Math.floor((Date.now() - new Date(`${p.data_pedido}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24))
+              return (
+                <div 
+                  key={p.id} 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    padding: '10px 12px', 
+                    background: 'var(--panel)', 
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    gap: 12,
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontWeight: 650, color: 'var(--text-h)' }}>
+                      {formatarNomeCliente(p.cliente)}
+                    </span>
+                    <span className="hint" style={{ fontSize: 12 }}>
+                      Pedido em {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')} ({dias} dias atrás) — Valor: <strong style={{ color: 'var(--text-h)' }}>{formatBRL(valor)}</strong>
+                    </span>
+                  </div>
+                  <div>
+                    {confirmandoId === p.id ? (
+                      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                        <button
+                          className="btn btnSuccess btnIcon"
+                          type="button"
+                          disabled={enviandoId === p.id}
+                          onClick={() => void enviarCobranca(p)}
+                          title="Confirmar envio"
+                          style={{ minHeight: '36px', height: '36px' }}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          <span style={{ fontSize: 12 }}>Confirmar</span>
+                        </button>
+                        <button
+                          className="btn btnIcon"
+                          type="button"
+                          onClick={() => setConfirmandoId(null)}
+                          title="Cancelar"
+                          style={{ minHeight: '36px', height: '36px', width: '36px', padding: 0 }}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btnPrimary btnIcon"
+                        type="button"
+                        disabled={enviandoId === p.id}
+                        onClick={() => setConfirmandoId(p.id)}
+                        title="Cobrar via Whatsapp"
+                        style={{ 
+                          minHeight: '36px', 
+                          height: '36px', 
+                          padding: '0 14px', 
+                          fontSize: 12, 
+                          background: 'var(--danger)', 
+                          border: 'none', 
+                          color: '#fff',
+                          boxShadow: 'none'
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13" />
+                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                        Cobrar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <section className="panel" id="pedidos-cadastrados" style={{ marginTop: 24 }}>
         <div className="panelHeader" style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>

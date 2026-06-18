@@ -2,7 +2,7 @@ export type UUID = string
 
 export type OrderStatus = 'recebido' | 'em_lavagem' | 'pronto' | 'entregue' | 'cancelado'
 
-export type ClientePlano = 'pagou' | 'mensal' | 'quinzenal'
+export type ClientePlano = 'pagou' | 'mensal' | 'quinzenal' | 'vaneide'
 export type ClienteFormaPagamento = 'pix' | 'dinheiro' | 'cartao' | 'transferencia' | 'outro'
 export type PagamentoStatus = 'pago' | 'devendo' | 'em_andamento'
 
@@ -18,6 +18,7 @@ export type Cliente = {
   apartamento: string | null
   plano: ClientePlano
   forma_pagamento: ClienteFormaPagamento
+  dia_pagamento: number | null
   ativo: boolean
   criado_em: string
   atualizado_em: string

@@ -7,6 +7,7 @@ const PLANO_OPCOES: Array<{ value: ClientePlano; label: string }> = [
   { value: 'pagou', label: 'Uso pagou' },
   { value: 'quinzenal', label: 'Quinzenal' },
   { value: 'mensal', label: 'Mensal' },
+  { value: 'vaneide', label: 'Vaneide' },
 ]
 
 const FORMA_OPCOES: Array<{ value: ClienteFormaPagamento; label: string }> = [
@@ -34,6 +35,7 @@ export function ClientesPage() {
   const [apartamento, setApartamento] = useState('')
   const [plano, setPlano] = useState<ClientePlano>('pagou')
   const [formaPagamento, setFormaPagamento] = useState<ClienteFormaPagamento>('pix')
+  const [diaPagamento, setDiaPagamento] = useState<number | null>(null)
   const [ativo, setAtivo] = useState(true)
 
   async function recarregar() {
@@ -60,6 +62,7 @@ export function ClientesPage() {
     setApartamento('')
     setPlano('pagou')
     setFormaPagamento('pix')
+    setDiaPagamento(null)
     setAtivo(true)
     setMsg(null)
   }
@@ -76,6 +79,7 @@ export function ClientesPage() {
     setApartamento(c.apartamento ?? '')
     setPlano(c.plano ?? 'pagou')
     setFormaPagamento(c.forma_pagamento ?? 'pix')
+    setDiaPagamento(c.dia_pagamento ?? null)
     setAtivo(c.ativo)
     setMsg(null)
   }
@@ -100,6 +104,7 @@ export function ClientesPage() {
         apartamento: apartamento.trim() || null,
         plano,
         forma_pagamento: formaPagamento,
+        dia_pagamento: plano === 'mensal' ? (diaPagamento || null) : null,
         ativo,
       })
       if (error) { setErro(error); return }
@@ -117,6 +122,7 @@ export function ClientesPage() {
         apartamento: apartamento.trim() || null,
         plano,
         forma_pagamento: formaPagamento,
+        dia_pagamento: plano === 'mensal' ? (diaPagamento || null) : null,
         ativo,
       })
       if (error) { setErro(error); return }
@@ -179,12 +185,31 @@ export function ClientesPage() {
           <div className="row">
             <div className="field">
               <label htmlFor="plano">Plano</label>
-              <select id="plano" value={plano} onChange={(e) => setPlano(e.target.value as ClientePlano)}>
+              <select id="plano" value={plano} onChange={(e) => {
+                const val = e.target.value as ClientePlano
+                setPlano(val)
+                if (val !== 'mensal') setDiaPagamento(null)
+              }}>
                 {PLANO_OPCOES.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
+            {plano === 'mensal' && (
+              <div className="field">
+                <label htmlFor="diaPagto">Dia do pagamento</label>
+                <select
+                  id="diaPagto"
+                  value={diaPagamento ?? ''}
+                  onChange={(e) => setDiaPagamento(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Selecione...</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="field">
               <label htmlFor="forma">Forma de pagamento</label>
               <select id="forma" value={formaPagamento} onChange={(e) => setFormaPagamento(e.target.value as ClienteFormaPagamento)}>
@@ -298,7 +323,14 @@ export function ClientesPage() {
                     <td>{c.condominio ?? '—'}</td>
                     <td>{c.bloco ?? '—'}</td>
                     <td>{c.apartamento ?? '—'}</td>
-                    <td>{PLANO_OPCOES.find((x) => x.value === c.plano)?.label ?? c.plano}</td>
+                    <td>
+                      <div>{PLANO_OPCOES.find((x) => x.value === c.plano)?.label ?? c.plano}</div>
+                      {c.plano === 'mensal' && c.dia_pagamento && (
+                        <div className="hint" style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 650, marginTop: 2 }}>
+                          Dia {c.dia_pagamento}
+                        </div>
+                      )}
+                    </td>
                     <td>{FORMA_OPCOES.find((x) => x.value === c.forma_pagamento)?.label ?? c.forma_pagamento}</td>
                     <td>{c.telefone ?? '—'}</td>
                     <td>{c.email ?? '—'}</td>

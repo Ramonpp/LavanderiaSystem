@@ -18,7 +18,7 @@ exception
 end $$;
 
 do $$ begin
-  create type public.cliente_plano as enum ('pagou','mensal','quinzenal');
+  create type public.cliente_plano as enum ('pagou','mensal','quinzenal','vaneide');
 exception
   when duplicate_object then null;
 end $$;
@@ -57,6 +57,7 @@ create table if not exists public.cliente (
   apartamento text,
   plano public.cliente_plano not null default 'pagou',
   forma_pagamento public.cliente_forma_pagamento not null default 'pix',
+  dia_pagamento int,
   ativo boolean not null default true,
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
