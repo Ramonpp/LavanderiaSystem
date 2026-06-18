@@ -79,17 +79,17 @@ export function PedidosCadastradosPage() {
     })
   }, [pedidos, filtroMes, filtroPagamento, busca])
 
-  const pedidosAtrasados = useMemo(() => {
+  const limiteAtrasoStr = useMemo(() => {
     const seteDiasAtras = new Date()
     seteDiasAtras.setDate(seteDiasAtras.getDate() - 7)
-    const limiteStr = seteDiasAtras.toISOString().slice(0, 10)
+    return seteDiasAtras.toISOString().slice(0, 10)
+  }, [])
 
-    return pedidos.filter((p) => {
-      const isPendente = p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento'
-      const isCancelado = p.status === 'cancelado'
-      return isPendente && !isCancelado && p.data_pedido < limiteStr
-    })
-  }, [pedidos])
+  function checkAtraso(p: PedidoCliente) {
+    const isPendente = p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento'
+    const isCancelado = p.status === 'cancelado'
+    return isPendente && !isCancelado && p.data_pedido < limiteAtrasoStr
+  }
 
   /* ── Atualizações Inline ──────────────────────────────── */
   async function inlineUpdateStatus(id: string, newStatus: OrderStatus) {
@@ -212,118 +212,7 @@ export function PedidosCadastradosPage() {
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}
 
-      {pedidosAtrasados.length > 0 && (
-        <div 
-          style={{ 
-            background: 'color-mix(in srgb, var(--danger), transparent 95%)',
-            border: '1.5px solid var(--danger)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '16px',
-            marginTop: 8,
-            boxShadow: 'var(--shadow)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--danger)', fontWeight: 700, fontSize: 15 }}>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <span>Atenção: Clientes devendo há mais de 7 dias! ({pedidosAtrasados.length})</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {pedidosAtrasados.map((p) => {
-              const valor = receitaPedido(p)
-              const dias = Math.floor((Date.now() - new Date(`${p.data_pedido}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24))
-              return (
-                <div 
-                  key={p.id} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between', 
-                    padding: '10px 12px', 
-                    background: 'var(--panel)', 
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)',
-                    gap: 12,
-                    flexWrap: 'wrap'
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontWeight: 650, color: 'var(--text-h)' }}>
-                      {formatarNomeCliente(p.cliente)}
-                    </span>
-                    <span className="hint" style={{ fontSize: 12 }}>
-                      Pedido em {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')} ({dias} dias atrás) — Valor: <strong style={{ color: 'var(--text-h)' }}>{formatBRL(valor)}</strong>
-                    </span>
-                  </div>
-                  <div>
-                    {confirmandoId === p.id ? (
-                      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                        <button
-                          className="btn btnSuccess btnIcon"
-                          type="button"
-                          disabled={enviandoId === p.id}
-                          onClick={() => void enviarCobranca(p)}
-                          title="Confirmar envio"
-                          style={{ minHeight: '36px', height: '36px' }}
-                        >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          <span style={{ fontSize: 12 }}>Confirmar</span>
-                        </button>
-                        <button
-                          className="btn btnIcon"
-                          type="button"
-                          onClick={() => setConfirmandoId(null)}
-                          title="Cancelar"
-                          style={{ minHeight: '36px', height: '36px', width: '36px', padding: 0 }}
-                        >
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="btn btnPrimary btnIcon"
-                        type="button"
-                        disabled={enviandoId === p.id}
-                        onClick={() => setConfirmandoId(p.id)}
-                        title="Cobrar via Whatsapp"
-                        style={{ 
-                          minHeight: '36px', 
-                          height: '36px', 
-                          padding: '0 14px', 
-                          fontSize: 12, 
-                          background: 'var(--danger)', 
-                          border: 'none', 
-                          color: '#fff',
-                          boxShadow: 'none'
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="22" y1="2" x2="11" y2="13" />
-                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                        Cobrar
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      <section className="panel" id="pedidos-cadastrados" style={{ marginTop: 24 }}>
+      <section className="panel" id="pedidos-cadastrados" style={{ marginTop: 12 }}>
         <div className="panelHeader" style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12 }}>
           <h2 style={{ fontSize: 18, color: 'var(--accent)' }}>Pedidos cadastrados</h2>
         </div>
@@ -404,7 +293,8 @@ export function PedidosCadastradosPage() {
             </div>
           </div>
 
-          <div className="tableWrap">
+          {/* Desktop View */}
+          <div className="tableWrap desktop-only">
             <table>
               <thead>
                 <tr>
@@ -419,12 +309,22 @@ export function PedidosCadastradosPage() {
               </thead>
               <tbody>
                 {pedidosFiltrados.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} style={checkAtraso(p) ? { background: 'color-mix(in srgb, var(--danger), transparent 97%)' } : undefined}>
                     <td>{new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--text-h)' }}>
                         {formatarNomeCliente(p.cliente)}
                       </div>
+                      {checkAtraso(p) && (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--danger)', fontSize: 11, fontWeight: 700, marginTop: 4 }}>
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                          Devendo há +7 dias
+                        </div>
+                      )}
                     </td>
                     <td>{Number(p.peso_kg).toLocaleString('pt-BR')}</td>
                     <td>{formatBRL(receitaPedido(p))}</td>
@@ -491,6 +391,7 @@ export function PedidosCadastradosPage() {
                               disabled={enviandoId === p.id}
                               onClick={() => setConfirmandoId(p.id)}
                               title="Enviar cobrança pelo Whatsapp"
+                              style={checkAtraso(p) ? { background: 'var(--danger)', border: 'none', color: '#fff', boxShadow: 'none' } : undefined}
                             >
                               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="22" y1="2" x2="11" y2="13" />
@@ -515,7 +416,7 @@ export function PedidosCadastradosPage() {
                     </td>
                   </tr>
                 ))}
-                {pedidos.length === 0 ? (
+                {pedidosFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="hint">
                       Nenhum pedido cadastrado ainda.
@@ -524,6 +425,197 @@ export function PedidosCadastradosPage() {
                 ) : null}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile View */}
+          <div className="mobile-card-list mobile-only">
+            {pedidosFiltrados.map((p) => (
+              <div 
+                key={p.id} 
+                className="mobile-card" 
+                style={checkAtraso(p) ? { border: '1.5px solid var(--danger)', background: 'color-mix(in srgb, var(--danger), transparent 97%)' } : undefined}
+              >
+                <div className="mobile-card-header">
+                  <div>
+                    <div className="mobile-card-title">{formatarNomeCliente(p.cliente)}</div>
+                    <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
+                      Data: {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                  <span className={`badge ${STATUS_BADGE_CLASSES[p.status]}`}>
+                    {p.status.replaceAll('_', ' ').replace(/^./, str => str.toUpperCase())}
+                  </span>
+                </div>
+                
+                <div className="mobile-card-body">
+                  <div>
+                    <div className="mobile-card-label">Peso</div>
+                    <div className="mobile-card-value">{Number(p.peso_kg).toLocaleString('pt-BR')} kg</div>
+                  </div>
+                  <div>
+                    <div className="mobile-card-label">Valor</div>
+                    <div className="mobile-card-value" style={{ fontWeight: 700 }}>{formatBRL(receitaPedido(p))}</div>
+                  </div>
+                  <div>
+                    <div className="mobile-card-label">Status</div>
+                    <select
+                      value={p.status}
+                      onChange={(e) => void inlineUpdateStatus(p.id, e.target.value as OrderStatus)}
+                      className={`badge-select ${STATUS_BADGE_CLASSES[p.status]}`}
+                      style={{ padding: '4px 24px 4px 10px', fontSize: 12 }}
+                    >
+                      {statusOpções.map((s) => (
+                        <option key={s} value={s}>
+                          {s.replaceAll('_', ' ').replace(/^./, str => str.toUpperCase())}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="mobile-card-label">Pagamento</div>
+                    <select
+                      value={p.pagamento_status ?? 'devendo'}
+                      onChange={(e) => void inlineUpdatePagamento(p.id, e.target.value as PagamentoStatus)}
+                      className={`badge-select ${PAGAMENTO_BADGE_CLASSES[p.pagamento_status ?? 'devendo']}`}
+                      style={{ padding: '4px 24px 4px 10px', fontSize: 12 }}
+                    >
+                      {pagamentoOpcoes.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {checkAtraso(p) && (
+                    <div className="mobile-card-body-full" style={{ 
+                      background: 'color-mix(in srgb, var(--danger), transparent 94%)',
+                      border: '1px solid var(--danger)',
+                      borderRadius: 8,
+                      padding: '8px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 4
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--danger)', fontWeight: 700, fontSize: 12 }}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        <span>Devendo há +7 dias</span>
+                      </div>
+                      
+                      <div>
+                        {confirmandoId === p.id ? (
+                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                            <button
+                              className="btn btnSuccess btnIcon"
+                              type="button"
+                              disabled={enviandoId === p.id}
+                              onClick={() => void enviarCobranca(p)}
+                              style={{ minHeight: '28px', height: '28px', padding: '0 8px', fontSize: 11 }}
+                            >
+                              Confirmar
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setConfirmandoId(null)}
+                              style={{ minHeight: '28px', height: '28px', padding: '0 8px', fontSize: 11 }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="btn btnPrimary"
+                            type="button"
+                            disabled={enviandoId === p.id}
+                            onClick={() => setConfirmandoId(p.id)}
+                            style={{ 
+                              minHeight: '28px', 
+                              height: '28px', 
+                              padding: '0 10px', 
+                              fontSize: 11, 
+                              background: 'var(--danger)', 
+                              border: 'none', 
+                              color: '#fff',
+                              boxShadow: 'none'
+                            }}
+                          >
+                            Cobrar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mobile-card-actions">
+                  {!checkAtraso(p) && (p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento') && (
+                    <div style={{ marginRight: 'auto' }}>
+                      {confirmandoId === p.id ? (
+                        <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                          <button
+                            className="btn btnSuccess btnIcon"
+                            type="button"
+                            disabled={enviandoId === p.id}
+                            onClick={() => void enviarCobranca(p)}
+                            style={{ minHeight: '32px', height: '32px', padding: '0 10px', fontSize: 12 }}
+                          >
+                            Confirmar
+                          </button>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => setConfirmandoId(null)}
+                            style={{ minHeight: '32px', height: '32px', padding: '0 8px', fontSize: 12 }}
+                          >
+                            X
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btnPrimary btnIcon"
+                          type="button"
+                          disabled={enviandoId === p.id}
+                          onClick={() => setConfirmandoId(p.id)}
+                          style={{ minHeight: '32px', height: '32px', padding: '0 10px', fontSize: 12 }}
+                        >
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                          </svg>
+                          <span style={{ marginLeft: 4 }}>Cobrar</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
+                  <button className="btn btnIcon" type="button" onClick={() => navigate(`/pedidos/criar?edit=${p.id}`)} title="Editar pedido">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <span style={{ marginLeft: 4 }}>Editar</span>
+                  </button>
+                  <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(p)} title="Excluir pedido">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    <span style={{ marginLeft: 4 }}>Excluir</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+            {pedidosFiltrados.length === 0 && (
+              <div className="hint" style={{ textAlign: 'center', padding: 20 }}>
+                Nenhum pedido cadastrado ainda.
+              </div>
+            )}
           </div>
         </div>
       </section>

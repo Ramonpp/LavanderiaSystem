@@ -486,3 +486,93 @@ select.badge-select:focus {
     display: none !important;
   }
 }
+
+/* ── Responsive Visibility Helpers ── */
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 860px) {
+  .mobile-only {
+    display: block !important;
+  }
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 861px) {
+  .mobile-only {
+    display: none !important;
+  }
+  .desktop-only {
+    display: block !important;
+  }
+}
+
+/* ── Mobile Cards layout ── */
+.mobile-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.mobile-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow);
+}
+
+.mobile-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 8px;
+}
+
+.mobile-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.mobile-card-body {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-size: 13px;
+}
+
+.mobile-card-body-full {
+  grid-column: span 2;
+}
+
+.mobile-card-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.mobile-card-value {
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.mobile-card-actions {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  justify-content: flex-end;
+  align-items: center;
+}
+

@@ -154,6 +154,7 @@ export function AppShell() {
   const [theme, setTheme] = useState<Theme>(resolveTheme)
   const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos'))
   const [isDespesasOpen, setIsDespesasOpen] = useState(() => location.pathname.startsWith('/despesas'))
+  const [isClientesOpen, setIsClientesOpen] = useState(() => location.pathname.startsWith('/clientes'))
 
   useEffect(() => {
     if (location.pathname.startsWith('/pedidos')) {
@@ -161,6 +162,9 @@ export function AppShell() {
     }
     if (location.pathname.startsWith('/despesas')) {
       setIsDespesasOpen(true)
+    }
+    if (location.pathname.startsWith('/clientes')) {
+      setIsClientesOpen(true)
     }
   }, [location.pathname])
 
@@ -331,6 +335,64 @@ export function AppShell() {
               )
             }
 
+            const isClientes = item.to === '/clientes'
+
+            if (isClientes) {
+              return (
+                <div key={item.to} className={styles.navGroup}>
+                  <div
+                    title={isCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false)
+                        setIsClientesOpen(true)
+                      } else {
+                        setIsClientesOpen(!isClientesOpen)
+                      }
+                    }}
+                    className={styles.navItem}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className={styles.navIcon} aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className={styles.navLabel}>
+                      <span className={styles.navItemTitle}>{item.label}</span>
+                      <span className={styles.navItemDesc}>{item.desc}</span>
+                    </span>
+                    {!isCollapsed && (
+                      <span className={`${styles.chevron} ${isClientesOpen ? styles.chevronOpen : ''}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className={`${styles.subMenu} ${isClientesOpen ? styles.subMenuOpen : styles.subMenuClosed}`}>
+                    <NavLink
+                      to="/clientes/criar"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Novo cliente
+                    </NavLink>
+                    <NavLink
+                      to="/clientes/lista"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Clientes cadastrados
+                    </NavLink>
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <NavLink
                 key={item.to}
@@ -426,21 +488,25 @@ export function AppShell() {
               </NavLink>
             )
           }
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setIsMobileOpen(false)}
-              className={({ isActive }) =>
-                isActive
-                  ? `${styles.bottomNavItem} ${styles.bottomNavItemActive}`
-                  : styles.bottomNavItem
-              }
-            >
-              <span className={styles.bottomNavIcon}>{item.icon}</span>
-              <span className={styles.bottomNavLabel}>{item.label}</span>
-            </NavLink>
-          )
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setIsMobileOpen(false)}
+                className={({ isActive }) => {
+                  const isItemActive = isActive ||
+                    (item.to === '/clientes' && location.pathname.startsWith('/clientes')) ||
+                    (item.to === '/despesas/lista' && location.pathname.startsWith('/despesas')) ||
+                    (item.to === '/pedidos/lista' && location.pathname.startsWith('/pedidos') && !location.pathname.includes('/criar'))
+                  return isItemActive
+                    ? `${styles.bottomNavItem} ${styles.bottomNavItemActive}`
+                    : styles.bottomNavItem
+                }}
+              >
+                <span className={styles.bottomNavIcon}>{item.icon}</span>
+                <span className={styles.bottomNavLabel}>{item.label}</span>
+              </NavLink>
+            )
         })}
       </nav>
     </div>

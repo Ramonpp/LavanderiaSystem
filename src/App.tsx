@@ -18,7 +18,9 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/clientes" element={<ClientesPage />} />
+        <Route path="/clientes/criar" element={<ClientesPage mode="criar" />} />
+        <Route path="/clientes/lista" element={<ClientesPage mode="lista" />} />
+        <Route path="/clientes" element={<Navigate to="/clientes/lista" replace />} />
         <Route path="/pedidos/criar" element={<CriarPedidoPage />} />
         <Route path="/pedidos/lista" element={<PedidosCadastradosPage />} />
         <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
