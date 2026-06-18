@@ -4,57 +4,7 @@ import { fetchPedidosPorPeriodo } from '../data/pedidos'
 import { fetchConsumos, fetchConsumosAno } from '../data/consumo_maquina'
 import { fetchMaquinas } from '../data/maquinas'
 
-const DEF_POTENCIA: Record<string, string> = {
-  lavagem: '2.5',
-  secagem: '3.5',
-}
-const DEF_LITROS: Record<string, string> = {
-  lavagem: '80',
-  secagem: '0',
-}
 
-function calcularCustoMaquinaMes(
-  maquinas: any[],
-  params: Record<string, any>,
-  tarifaKwh: number,
-  tarifaAguaM3: number,
-  diasMes: number,
-  consumosDoMes: any[]
-): number {
-  let totalCusto = 0
-  
-  for (const m of maquinas) {
-    if (!m.ativo) continue
-    const p = params[m.id] ?? { potencia_kw: DEF_POTENCIA[m.tipo] ?? '2.5', litros_ciclo: DEF_LITROS[m.tipo] ?? '80' }
-    
-    const minutos = Number(m.minutos_por_ciclo ?? 60)
-    const horas_ciclo = minutos / 60
-    
-    const kw = Number(String(p.potencia_kw).replace(',', '.')) || 0
-    const litros = Number(String(p.litros_ciclo).replace(',', '.')) || 0
-    const m3_ciclo = litros / 1000
-    const ciclos_dia = Number(m.ciclos_por_dia_util) || 6
-    
-    const custo_agua_ciclo = m3_ciclo * tarifaAguaM3
-    const custo_agua_mes = custo_agua_ciclo * ciclos_dia * diasMes
-    
-    const lgRow = consumosDoMes.find((c: any) => c.maquina_id === m.id)
-    let custo_energia_mes = 0
-    
-    if (lgRow && lgRow.consumo_wh != null) {
-      const lgKwhMes = Number(lgRow.consumo_wh) / 1000
-      custo_energia_mes = lgKwhMes * tarifaKwh
-    } else {
-      const kwh_ciclo = kw * horas_ciclo
-      const custo_energia_ciclo = kwh_ciclo * tarifaKwh
-      custo_energia_mes = custo_energia_ciclo * ciclos_dia * diasMes
-    }
-    
-    totalCusto += (custo_energia_mes + custo_agua_mes)
-  }
-  
-  return totalCusto
-}
 import { receitaPedido, somaDespesas } from '../domain/finance'
 import type { PedidoCliente } from '../types/models'
 import { formatMesAno, monthBoundsLocal } from '../lib/dates'
@@ -130,23 +80,10 @@ export function DashboardPage() {
 
   useEffect(() => {
     ;(async () => {
-      const [{ data }, { data: consMes }] = await Promise.all([
-        despesasQuery(),
-        fetchConsumos(monthValue)
-      ])
+      const { data } = await despesasQuery()
       const manualDesps = somaDespesas(data)
       
-      const tarifaKwh = Number((localStorage.getItem('lav_custos_tarifaKwh') ?? '0.85').replace(',', '.'))
-      const tarifaAguaM3 = Number((localStorage.getItem('lav_custos_tarifaAguaM3') ?? '8.00').replace(',', '.'))
-      const diasMes = Number(localStorage.getItem('lav_custos_diasMes') ?? '22')
-      let params: Record<string, any> = {}
-      try {
-        const saved = localStorage.getItem('lav_custos_params')
-        if (saved) params = JSON.parse(saved)
-      } catch {}
-
-      const maqCusto = calcularCustoMaquinaMes(maquinas, params, tarifaKwh, tarifaAguaM3, diasMes, consMes)
-      setDespesasValor(manualDesps + maqCusto)
+      setDespesasValor(manualDesps)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bounds.start, bounds.end, maquinas])
@@ -161,20 +98,10 @@ export function DashboardPage() {
       const startDate = monthBoundsLocal(fy, fm).start
       const endDate = monthBoundsLocal(ly, lm).end
 
-      const [{ data: peds }, { data: desps }, { data: consPeriodo }] = await Promise.all([
+      const [{ data: peds }, { data: desps }] = await Promise.all([
         fetchPedidosPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
-        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
-        fetchConsumos()
+        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate })
       ])
-
-      const tarifaKwh = Number((localStorage.getItem('lav_custos_tarifaKwh') ?? '0.85').replace(',', '.'))
-      const tarifaAguaM3 = Number((localStorage.getItem('lav_custos_tarifaAguaM3') ?? '8.00').replace(',', '.'))
-      const diasMes = Number(localStorage.getItem('lav_custos_diasMes') ?? '22')
-      let params: Record<string, any> = {}
-      try {
-        const saved = localStorage.getItem('lav_custos_params')
-        if (saved) params = JSON.parse(saved)
-      } catch {}
 
       const pontos: PontoMes[] = meses.map((mes) => {
         const [my, mm] = mes.split('-').map(Number)
@@ -183,11 +110,9 @@ export function DashboardPage() {
           (p) => p.data_pedido >= start && p.data_pedido <= end && p.status !== 'cancelado',
         )
         const despsMes = desps.filter((d) => d.data >= start && d.data <= end)
-        const consMes = consPeriodo.filter((c) => c.mes_ano === mes)
         
-        const maqCusto = calcularCustoMaquinaMes(maquinas, params, tarifaKwh, tarifaAguaM3, diasMes, consMes)
         const receita = pedsMes.reduce((acc, p) => acc + receitaPedido(p), 0)
-        const lucro = receita - (somaDespesas(despsMes) + maqCusto)
+        const lucro = receita - somaDespesas(despsMes)
         return { mes, receita, lucro }
       })
 
@@ -207,24 +132,8 @@ export function DashboardPage() {
       const pedsAtivos = peds.filter((p) => p.status !== 'cancelado')
       setReceitaAno(pedsAtivos.reduce((acc, p) => acc + receitaPedido(p), 0))
       setKgAno(pedsAtivos.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0))
-      
-      const tarifaKwh = Number((localStorage.getItem('lav_custos_tarifaKwh') ?? '0.85').replace(',', '.'))
-      const tarifaAguaM3 = Number((localStorage.getItem('lav_custos_tarifaAguaM3') ?? '8.00').replace(',', '.'))
-      const diasMes = Number(localStorage.getItem('lav_custos_diasMes') ?? '22')
-      let params: Record<string, any> = {}
-      try {
-        const saved = localStorage.getItem('lav_custos_params')
-        if (saved) params = JSON.parse(saved)
-      } catch {}
 
-      let maqCustoAno = 0
-      for (let m = 1; m <= 12; m++) {
-        const mesStr = `${y}-${String(m).padStart(2, '0')}`
-        const consMes = consAno.filter((c) => c.mes_ano === mesStr)
-        maqCustoAno += calcularCustoMaquinaMes(maquinas, params, tarifaKwh, tarifaAguaM3, diasMes, consMes)
-      }
-
-      setDespesasAno(somaDespesas(desps) + maqCustoAno)
+      setDespesasAno(somaDespesas(desps))
       
       const { data: consMes } = await fetchConsumos(monthValue)
       

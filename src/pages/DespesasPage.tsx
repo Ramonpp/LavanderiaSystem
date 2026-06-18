@@ -36,7 +36,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
 
   /* Filtro de mês */
   const [monthValue, setMonthValue] = useState(monthDefault)
-  const [periodoTipo, setPeriodoTipo] = useState<'mes' | 'ano' | '15dias' | '2meses'>('mes')
+  const [periodoTipo, setPeriodoTipo] = useState<'mes' | 'ano' | '15dias' | '2meses' | 'tudo'>('mes')
   const [lista, setLista] = useState<Despesa[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -83,6 +83,10 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
     if (periodoTipo === 'ano') {
       const year = monthValue.slice(0, 4) || String(today.getFullYear())
       return { start: `${year}-01-01`, end: `${year}-12-31` }
+    }
+
+    if (periodoTipo === 'tudo') {
+      return { start: '1970-01-01', end: '2099-12-31' }
     }
     
     // Default: 'mes'
@@ -521,6 +525,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               <option value="ano">Anual</option>
               <option value="15dias">Últimos 15 dias</option>
               <option value="2meses">Últimos 2 meses</option>
+              <option value="tudo">Tudo (Todos os anos)</option>
             </select>
           </div>
 
@@ -575,6 +580,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               periodoTipo === 'mes' ? formatMesAno(monthValue) :
               periodoTipo === 'ano' ? `Ano ${monthValue.slice(0, 4)}` :
               periodoTipo === '15dias' ? 'Últimos 15 dias' :
+              periodoTipo === 'tudo' ? 'Todos os registros' :
               'Últimos 2 meses'
             }
           </h2>
