@@ -609,6 +609,36 @@
     letter-spacing: 0.01em;
     white-space: nowrap;
   }
+
+  /* Estilização especial para o botão de "+" flutuante central */
+  .bottomNavPlus .bottomNavIcon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #16a34a 100%);
+    color: #ffffff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(59, 111, 232, 0.35);
+    transform: translateY(-8px);
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+
+  .bottomNavPlus:hover .bottomNavIcon {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 6px 14px rgba(59, 111, 232, 0.5);
+  }
+
+  .bottomNavPlusActive .bottomNavIcon {
+    background: linear-gradient(135deg, var(--accent) 0%, #16a34a 100%);
+    box-shadow: 0 4px 12px rgba(59, 111, 232, 0.45);
+  }
+
+  /* Ocultar barra indicadora azul para o botão flutuante */
+  .bottomNavPlusActive::before {
+    display: none;
+  }
 }
 
 @media (max-width: 560px) {

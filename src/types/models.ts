@@ -51,6 +51,7 @@ export type PedidoCliente = Pedido & {
     nome: string
     condominio: string | null
     bloco: string | null
+    apartamento: string | null
   } | null
 }
 
@@ -103,4 +104,3 @@ export type ConsumoMaquina = {
   consumo_wh: number
   criado_em: string
 }
-

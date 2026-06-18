@@ -111,6 +111,12 @@ const Ico = {
       <polyline points="9 18 15 12 9 6" />
     </svg>
   ),
+  plus: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  ),
 }
 
 /* ── Nav items ─────────────────────────────────────────── */
@@ -187,7 +193,6 @@ export function AppShell() {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 'bold' }}>
           <img src="/logo.png" alt="Logo" style={{ width: 28, height: 28, borderRadius: 6 }} />
-          <span>Ciclo Novo</span>
         </div>
       </header>
 
@@ -336,40 +341,45 @@ export function AppShell() {
       {/* ── Navegação inferior (mobile) ──────────────────── */}
       <nav className={styles.bottomNav} aria-label="Navegação rápida">
         {[
-          { to: '/dashboard',      icon: Ico.dashboard,  label: 'Início'     },
-          { to: '/pedidos/lista',  icon: Ico.pedidos,    label: 'Pedidos'    },
-          { to: '/clientes',       icon: Ico.clientes,   label: 'Clientes'   },
-          { to: '/despesas',       icon: Ico.despesas,   label: 'Despesas'   },
-          { to: '/relatorios',     icon: Ico.relatorios, label: 'Relatórios' },
-        ].map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={() => setIsMobileOpen(false)}
-            className={({ isActive }) =>
-              isActive
-                ? `${styles.bottomNavItem} ${styles.bottomNavItemActive}`
-                : styles.bottomNavItem
-            }
-          >
-            <span className={styles.bottomNavIcon}>{item.icon}</span>
-            <span className={styles.bottomNavLabel}>{item.label}</span>
-          </NavLink>
-        ))}
-        <button
-          className={styles.bottomNavItem}
-          onClick={() => setIsMobileOpen(true)}
-          aria-label="Abrir menu completo"
-        >
-          <span className={styles.bottomNavIcon}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </span>
-          <span className={styles.bottomNavLabel}>Menu</span>
-        </button>
+          { to: '/dashboard',      icon: Ico.dashboard,  label: 'Início'                      },
+          { to: '/pedidos/lista',  icon: Ico.pedidos,    label: 'Pedidos'                     },
+          { to: '/pedidos/criar',  icon: Ico.plus,       label: 'Novo',        isPlus: true   },
+          { to: '/clientes',       icon: Ico.clientes,   label: 'Clientes'                    },
+          { to: '/despesas',       icon: Ico.despesas,   label: 'Despesas'                    },
+        ].map((item) => {
+          if (item.isPlus) {
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setIsMobileOpen(false)}
+                className={({ isActive }) =>
+                  isActive
+                    ? `${styles.bottomNavItem} ${styles.bottomNavPlus} ${styles.bottomNavPlusActive}`
+                    : `${styles.bottomNavItem} ${styles.bottomNavPlus}`
+                }
+              >
+                <span className={styles.bottomNavIcon}>{item.icon}</span>
+                <span className={styles.bottomNavLabel}>{item.label}</span>
+              </NavLink>
+            )
+          }
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setIsMobileOpen(false)}
+              className={({ isActive }) =>
+                isActive
+                  ? `${styles.bottomNavItem} ${styles.bottomNavItemActive}`
+                  : styles.bottomNavItem
+              }
+            >
+              <span className={styles.bottomNavIcon}>{item.icon}</span>
+              <span className={styles.bottomNavLabel}>{item.label}</span>
+            </NavLink>
+          )
+        })}
       </nav>
     </div>
   )

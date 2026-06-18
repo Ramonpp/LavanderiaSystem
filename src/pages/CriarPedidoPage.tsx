@@ -85,7 +85,6 @@ export function CriarPedidoPage() {
   function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
     if (!c) return '—'
     const parts = []
-    if (c.condominio?.trim()) parts.push(c.condominio.trim())
     if (c.apartamento?.trim()) parts.push(c.apartamento.trim())
     if (c.bloco?.trim()) parts.push(c.bloco.trim())
     return parts.length > 0 ? `${c.nome} (${parts.join(' ')})` : c.nome
