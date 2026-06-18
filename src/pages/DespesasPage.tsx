@@ -518,14 +518,18 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
             <span style={{ fontWeight: 800, color: 'var(--text-h)', fontSize: 16 }}>
               {formatBRL(total)}
             </span>
-            <button className="btn" type="button" onClick={() => void recarregar()}>
-              Recarregar
+            <button className="btn btnIcon" type="button" onClick={() => void recarregar()} title="Recarregar" style={{ minWidth: 36, width: 36, height: 36, padding: 0 }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 4v6h-6" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
             </button>
           </div>
         </div>
 
         <div className="panelBody">
-          <div className="tableWrap">
+          {/* Desktop View */}
+          <div className="tableWrap desktop-only">
             <table>
               <thead>
                 <tr>
@@ -572,7 +576,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                         >
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                           </svg>
                         </button>
                       </div>
@@ -601,6 +605,62 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                 </tfoot>
               ) : null}
             </table>
+          </div>
+
+          {/* Mobile View */}
+          <div className="mobile-card-list mobile-only">
+            {lista.map((d) => (
+              <div key={d.id} className="mobile-card">
+                <div className="mobile-card-header">
+                  <div>
+                    <div className="mobile-card-title">{d.categoria}</div>
+                    <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
+                      Data: {new Date(`${d.data}T00:00:00`).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                  <span style={{ fontWeight: 800, color: 'var(--text-h)', fontSize: 14 }}>
+                    {formatBRL(Number(d.valor))}
+                  </span>
+                </div>
+                {d.descricao && (
+                  <div className="mobile-card-body" style={{ gridTemplateColumns: '1fr' }}>
+                    <div>
+                      <div className="mobile-card-label">Descrição</div>
+                      <div className="mobile-card-value">{d.descricao}</div>
+                    </div>
+                  </div>
+                )}
+                <div className="mobile-card-actions">
+                  <button 
+                    className="btn btnIcon" 
+                    type="button" 
+                    onClick={() => navigate(`/despesas/criar?edit=${d.id}`)} 
+                    title="Editar despesa"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                  <button 
+                    className="btn btnDanger btnIcon" 
+                    type="button" 
+                    onClick={() => void remover(d)} 
+                    title="Excluir despesa"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+            {lista.length === 0 && (
+              <div className="hint" style={{ textAlign: 'center', padding: 20 }}>
+                Nenhum lançamento em {formatMesAno(monthValue)}.
+              </div>
+            )}
           </div>
         </div>
       </section>
