@@ -36,6 +36,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
 
   /* Filtro de mês */
   const [monthValue, setMonthValue] = useState(monthDefault)
+  const [periodoTipo, setPeriodoTipo] = useState<'mes' | 'ano' | '15dias' | '2meses'>('mes')
   const [lista, setLista] = useState<Despesa[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -62,11 +63,35 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
 
   /* ── Bounds e queries ──────────────────────────────────── */
   const bounds = useMemo(() => {
+    const today = new Date()
+    const todayStr = today.toISOString().slice(0, 10)
+    
+    if (periodoTipo === '15dias') {
+      const start = new Date()
+      start.setDate(today.getDate() - 15)
+      const startStr = start.toISOString().slice(0, 10)
+      return { start: startStr, end: todayStr }
+    }
+    
+    if (periodoTipo === '2meses') {
+      const start = new Date()
+      start.setMonth(today.getMonth() - 2)
+      const startStr = start.toISOString().slice(0, 10)
+      return { start: startStr, end: todayStr }
+    }
+    
+    if (periodoTipo === 'ano') {
+      const year = monthValue.slice(0, 4) || String(today.getFullYear())
+      return { start: `${year}-01-01`, end: `${year}-12-31` }
+    }
+    
+    // Default: 'mes'
     const [y, m] = monthValue.split('-').map(Number)
-    if (!Number.isFinite(y) || !Number.isFinite(m))
-      return monthBoundsLocal(new Date().getFullYear(), new Date().getMonth() + 1)
+    if (!Number.isFinite(y) || !Number.isFinite(m)) {
+      return monthBoundsLocal(today.getFullYear(), today.getMonth() + 1)
+    }
     return monthBoundsLocal(y, m)
-  }, [monthValue])
+  }, [monthValue, periodoTipo])
 
   async function recarregar() {
     setErro(null)
@@ -83,7 +108,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
       void recarregar()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthValue, mode])
+  }, [monthValue, periodoTipo, mode])
 
   const total = useMemo(() => lista.reduce((a, d) => a + Number(d.valor ?? 0), 0), [lista])
 
@@ -483,17 +508,51 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
             Lista e totais de despesas registradas. Para registrar uma nova despesa, clique em "Nova despesa".
           </div>
         </div>
-        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <div className="field" style={{ minWidth: 160, flex: '0 0 auto' }}>
-            <label htmlFor="mes" style={{ marginBottom: 4 }}>Mês exibido</label>
-            <input
-              id="mes"
-              type="month"
-              value={monthValue}
-              onChange={(e) => setMonthValue(e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 8 }}
-            />
+        <div className="row" style={{ gap: 8, alignItems: 'end', flexWrap: 'wrap' }}>
+          <div className="field" style={{ minWidth: 130, flex: '1 1 auto' }}>
+            <label htmlFor="periodoTipo" style={{ marginBottom: 4 }}>Filtrar por</label>
+            <select
+              id="periodoTipo"
+              value={periodoTipo}
+              onChange={(e) => setPeriodoTipo(e.target.value as any)}
+              style={{ padding: '8px 10px', borderRadius: 8, height: 38 }}
+            >
+              <option value="mes">Mensal</option>
+              <option value="ano">Anual</option>
+              <option value="15dias">Últimos 15 dias</option>
+              <option value="2meses">Últimos 2 meses</option>
+            </select>
           </div>
+
+          {periodoTipo === 'mes' && (
+            <div className="field" style={{ minWidth: 130, flex: '1 1 auto' }}>
+              <label htmlFor="mes" style={{ marginBottom: 4 }}>Mês exibido</label>
+              <input
+                id="mes"
+                type="month"
+                value={monthValue}
+                onChange={(e) => setMonthValue(e.target.value)}
+                style={{ padding: '8px 10px', borderRadius: 8, height: 38 }}
+              />
+            </div>
+          )}
+
+          {periodoTipo === 'ano' && (
+            <div className="field" style={{ minWidth: 100, flex: '1 1 auto' }}>
+              <label htmlFor="ano" style={{ marginBottom: 4 }}>Ano exibido</label>
+              <select
+                id="ano"
+                value={monthValue.slice(0, 4)}
+                onChange={(e) => setMonthValue(`${e.target.value}-01`)}
+                style={{ padding: '8px 10px', borderRadius: 8, height: 38 }}
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((yr) => (
+                  <option key={yr} value={yr}>{yr}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button 
             className="btn btnPrimary" 
             type="button" 
@@ -512,7 +571,12 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
       <section className="panel" style={{ marginTop: 14 }}>
         <div className="panelHeader">
           <h2 style={{ fontSize: 16, color: 'var(--accent)' }}>
-            Lançamentos de despesas — {formatMesAno(monthValue)}
+            Lançamentos de despesas — {
+              periodoTipo === 'mes' ? formatMesAno(monthValue) :
+              periodoTipo === 'ano' ? `Ano ${monthValue.slice(0, 4)}` :
+              periodoTipo === '15dias' ? 'Últimos 15 dias' :
+              'Últimos 2 meses'
+            }
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontWeight: 800, color: 'var(--text-h)', fontSize: 16 }}>
@@ -586,7 +650,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                 {lista.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="hint" style={{ textAlign: 'center', padding: 24 }}>
-                      Nenhum lançamento em {formatMesAno(monthValue)}.
+                      Nenhum lançamento no período selecionado.
                     </td>
                   </tr>
                 ) : null}
@@ -658,7 +722,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
             ))}
             {lista.length === 0 && (
               <div className="hint" style={{ textAlign: 'center', padding: 20 }}>
-                Nenhum lançamento em {formatMesAno(monthValue)}.
+                Nenhum lançamento no período selecionado.
               </div>
             )}
           </div>

@@ -559,7 +559,7 @@ export function PedidosCadastradosPage() {
                       {confirmandoId === p.id ? (
                         <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
                           <button
-                            className="btn btnSuccess btnIcon"
+                            className="btn btnSuccess"
                             type="button"
                             disabled={enviandoId === p.id}
                             onClick={() => void enviarCobranca(p)}
@@ -578,7 +578,7 @@ export function PedidosCadastradosPage() {
                         </div>
                       ) : (
                         <button
-                          className="btn btnPrimary btnIcon"
+                          className="btn btnPrimary"
                           type="button"
                           disabled={enviandoId === p.id}
                           onClick={() => setConfirmandoId(p.id)}

@@ -77,8 +77,11 @@ export function RelatoriosPage() {
       <section className="panel">
         <div className="panelHeader">
           <h2 style={{ fontSize: 16 }}>Resumo — {formatMesAno(monthValue)}</h2>
-          <button className="btn" type="button" onClick={() => void recarregar()}>
-            Recarregar
+          <button className="btn btnIcon" type="button" onClick={() => void recarregar()} title="Recarregar" style={{ minWidth: 36, width: 36, height: 36, padding: 0 }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 4v6h-6" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
           </button>
         </div>
         <div className="panelBody grid" style={{ gap: 14 }}>
@@ -114,7 +117,8 @@ export function RelatoriosPage() {
           <h2 style={{ fontSize: 16 }}>Lucro por pedido</h2>
         </div>
         <div className="panelBody">
-          <div className="tableWrap">
+          {/* Desktop View */}
+          <div className="tableWrap desktop-only">
             <table>
               <thead>
                 <tr>
@@ -151,6 +155,48 @@ export function RelatoriosPage() {
                 ) : null}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile View */}
+          <div className="mobile-card-list mobile-only">
+            {pedidos.map((p) => {
+              const luc = lucroPedidoEstimado({ pedido: p, custoVariavelEstimadoPorKg: cfgCustoKg })
+              return (
+                <div key={p.id} className="mobile-card">
+                  <div className="mobile-card-header">
+                    <div>
+                      <div className="mobile-card-title">{p.cliente?.nome ?? '—'}</div>
+                      <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
+                        Data: {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    <StatusBadge status={p.status} />
+                  </div>
+                  
+                  <div className="mobile-card-body">
+                    <div>
+                      <div className="mobile-card-label">Peso</div>
+                      <div className="mobile-card-value">{Number(p.peso_kg).toLocaleString('pt-BR')} kg</div>
+                    </div>
+                    <div>
+                      <div className="mobile-card-label">Receita</div>
+                      <div className="mobile-card-value">{formatBRL(receitaPedido(p))}</div>
+                    </div>
+                    <div className="mobile-card-body-full" style={{ borderTop: '1px dashed var(--border)', paddingTop: 8, marginTop: 4 }}>
+                      <div className="mobile-card-label">Lucro Estimado</div>
+                      <div className={`mobile-card-value ${luc >= 0 ? 'valPositive' : 'valNegative'}`}>
+                        {formatBRL(luc)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {pedidos.length === 0 && (
+              <div className="hint" style={{ textAlign: 'center', padding: 20 }}>
+                Nenhum pedido neste período.
+              </div>
+            )}
           </div>
         </div>
       </section>
