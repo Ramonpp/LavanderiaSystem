@@ -4,6 +4,7 @@ import styles from './AppShell.module.css'
 import { SetupBanner } from '../components/SetupBanner'
 import { checkDbHealth, type DbHealth } from '../lib/healthCheck'
 import { resolveTheme, toggleTheme, type Theme } from '../lib/theme'
+import { supabase } from '../lib/supabase'
 
 /* ── SVG icons ─────────────────────────────────────────── */
 const Ico = {
@@ -115,6 +116,13 @@ const Ico = {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  ),
+  logout: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
 }
@@ -436,6 +444,16 @@ export function AppShell() {
               <span className={styles.themeBtnLabel}>
                 {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
               </span>
+            </button>
+
+            <button
+              className={`${styles.iconBtn} ${styles.logoutBtn}`}
+              type="button"
+              onClick={() => void supabase.auth.signOut()}
+              title="Sair"
+              aria-label="Sair"
+            >
+              {Ico.logout}
             </button>
 
             <button

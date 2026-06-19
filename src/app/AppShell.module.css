@@ -389,6 +389,12 @@
   color: var(--accent);
 }
 
+.logoutBtn:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: var(--danger) !important;
+}
+
 .collapseBtn {
   margin-left: auto;
 }
