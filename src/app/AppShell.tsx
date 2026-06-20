@@ -272,6 +272,15 @@ export function AppShell() {
                       Criar pedido
                     </NavLink>
                     <NavLink
+                      to="/pedidos/em-lavagem"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Em lavagem
+                    </NavLink>
+                    <NavLink
                       to="/pedidos/lista"
                       onClick={() => setIsMobileOpen(false)}
                       className={({ isActive }) =>

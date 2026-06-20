@@ -17,6 +17,7 @@ type ItemLinha = {
   key: string
   tipo_peca_id: string
   quantidade: string
+  pecas?: Array<{ id_peca: string; conferido: boolean }>
 }
 
 function newKey() {
@@ -70,7 +71,7 @@ export function CriarPedidoPage() {
   const [clienteId, setClienteId] = useState('')
   const [dataPedido, setDataPedido] = useState(() => new Date().toISOString().slice(0, 10))
   const [dataPrev, setDataPrev] = useState('')
-  const [status, setStatus] = useState<OrderStatus>('recebido')
+  const [status, setStatus] = useState<OrderStatus>('em_lavagem')
   const [pagamentoStatus, setPagamentoStatus] = useState<PagamentoStatus>('devendo')
   const [pesoKg, setPesoKg] = useState('')
 
@@ -87,6 +88,43 @@ export function CriarPedidoPage() {
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const [fotoDriveIdExistente, setFotoDriveIdExistente] = useState<string | null>(null)
+  const [prevClienteId, setPrevClienteId] = useState('')
+
+  useEffect(() => {
+    if (!clienteId || clientes.length === 0) return
+    const oldCliente = clientes.find((c) => c.id === prevClienteId)
+    const newCliente = clientes.find((c) => c.id === clienteId)
+
+    const oldDefault = oldCliente ? [oldCliente.apartamento?.trim(), oldCliente.bloco?.trim()].filter(Boolean).join(' / ') : ''
+    const newDefault = newCliente ? [newCliente.apartamento?.trim(), newCliente.bloco?.trim()].filter(Boolean).join(' / ') : ''
+
+    setItensLinhas((xs) =>
+      xs.map((l) => {
+        const q = Math.round(Number(l.quantidade)) || 0
+        const currentPecas = l.pecas || []
+        const updatedPecas = Array.from({ length: q }, (_, i) => {
+          const existing = currentPecas[i]
+          const currentVal = existing?.id_peca ?? ''
+          let valToSet = currentVal
+          if (prevClienteId === '') {
+            if (!currentVal) {
+              valToSet = newDefault
+            }
+          } else {
+            if (!currentVal || currentVal === oldDefault) {
+              valToSet = newDefault
+            }
+          }
+          return {
+            id_peca: valToSet,
+            conferido: existing?.conferido ?? false,
+          }
+        })
+        return { ...l, pecas: updatedPecas }
+      })
+    )
+    setPrevClienteId(clienteId)
+  }, [clienteId, clientes])
 
   function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
     if (!c) return '—'
@@ -148,7 +186,7 @@ export function CriarPedidoPage() {
     const d = new Date().toISOString().slice(0, 10)
     setDataPedido(d)
     setDataPrev(addDaysIso(d, 2))
-    setStatus('recebido')
+    setStatus('em_lavagem')
     setPagamentoStatus('devendo')
     setPesoKg('')
     setModoPreco('kg')
@@ -164,9 +202,11 @@ export function CriarPedidoPage() {
 
   function adicionarLinhaItem() {
     const key = newKey()
+    const selected = clientes.find((c) => c.id === clienteId)
+    const defaultId = selected ? [selected.apartamento?.trim(), selected.bloco?.trim()].filter(Boolean).join(' / ') : ''
     setItensLinhas((xs) => [
       ...xs,
-      { key, tipo_peca_id: primeiraPecaDisponível, quantidade: '1' },
+      { key, tipo_peca_id: primeiraPecaDisponível, quantidade: '1', pecas: [{ id_peca: defaultId, conferido: false }] },
     ])
     setTimeout(() => {
       const el = document.getElementById(`item-row-${key}`)
@@ -176,6 +216,23 @@ export function CriarPedidoPage() {
         if (select) select.focus()
       }
     }, 100)
+  }
+
+  function handleQuantidadeChange(key: string, value: string) {
+    const q = Math.max(0, Math.round(Number(value.replace(',', '.'))) || 0)
+    const selected = clientes.find((c) => c.id === clienteId)
+    const defaultId = selected ? [selected.apartamento?.trim(), selected.bloco?.trim()].filter(Boolean).join(' / ') : ''
+
+    setItensLinhas((xs) =>
+      xs.map((l) => {
+        if (l.key !== key) return l
+        const currentPecas = l.pecas || []
+        const updatedPecas = Array.from({ length: q }, (_, i) => {
+          return currentPecas[i] || { id_peca: defaultId, conferido: false }
+        })
+        return { ...l, quantidade: value, pecas: updatedPecas }
+      })
+    )
   }
 
   function removerLinhaItem(key: string) {
@@ -211,8 +268,9 @@ export function CriarPedidoPage() {
           key: it.id ?? newKey(),
           tipo_peca_id: it.tipo_peca_id,
           quantidade: String(it.quantidade),
+          pecas: it.pecas || [],
         }))
-        : [{ key: newKey(), tipo_peca_id: primeiraPecaDisponível, quantidade: '1' }]
+        : [{ key: newKey(), tipo_peca_id: primeiraPecaDisponível, quantidade: '1', pecas: [] }]
     setItensLinhas(linhas)
   }
 
@@ -231,6 +289,7 @@ export function CriarPedidoPage() {
         tipo_peca_id: l.tipo_peca_id,
         quantidade: q,
         peso_linha_kg: null,
+        pecas: l.pecas || [],
       })
     }
 
@@ -622,56 +681,82 @@ export function CriarPedidoPage() {
               </button>
             </div>
             <div className="panelBody grid" style={{ gap: 10 }}>
-              {itensLinhas.map((l) => (
-                <div key={l.key} id={`item-row-${l.key}`} className="row responsive" style={{ gap: 10 }}>
-                  <div className="field">
-                    <label>Tipo peça</label>
-                    <select value={l.tipo_peca_id} onChange={(e) => {
-                      const v = e.target.value
-                      setItensLinhas((xs) => xs.map((y) => (y.key === l.key ? { ...y, tipo_peca_id: v } : y)))
-                    }}>
-                      <option value="">Escolha</option>
-                      {tipos.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.nome}
-                        </option>
+               {itensLinhas.map((l) => (
+                <div key={l.key} id={`item-row-${l.key}`} className="row responsive" style={{ gap: 10, borderBottom: '1px dashed var(--border)', paddingBottom: 16, marginBottom: 6 }}>
+                  <div className="row" style={{ width: '100%', gap: 10, alignItems: 'end' }}>
+                    <div className="field">
+                      <label>Tipo peça</label>
+                      <select value={l.tipo_peca_id} onChange={(e) => {
+                        const v = e.target.value
+                        setItensLinhas((xs) => xs.map((y) => (y.key === l.key ? { ...y, tipo_peca_id: v } : y)))
+                      }}>
+                        <option value="">Escolha</option>
+                        {tipos.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>Quantidade</label>
+                      <input
+                        inputMode="numeric"
+                        value={l.quantidade}
+                        onChange={(e) => handleQuantidadeChange(l.key, e.target.value)}
+                      />
+                    </div>
+                    <div className="field" style={{ minWidth: 120, alignSelf: 'end', flex: '0 0 auto' }}>
+                      <label style={{ visibility: 'hidden' }}>X</label>
+                      <button
+                        type="button"
+                        onClick={() => removerLinhaItem(l.key)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          height: '42px', padding: '0 16px',
+                          borderRadius: 8, border: '1px solid var(--danger)',
+                          background: 'transparent',
+                          color: 'var(--danger)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        title="Remover peça"
+                      >
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dynamic piece ID inputs */}
+                  {l.pecas && l.pecas.length > 0 && (
+                    <div style={{ width: '100%', paddingLeft: 12, marginTop: 4, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+                      {l.pecas.map((peca, idx) => (
+                        <div key={idx} className="field" style={{ minWidth: 100 }}>
+                          <label style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>ID da Peça #{idx + 1}</label>
+                          <input
+                            type="text"
+                            placeholder="Apartamento / Bloco"
+                            value={peca.id_peca}
+                            onChange={(e) => {
+                              const newVal = e.target.value
+                              setItensLinhas((xs) =>
+                                xs.map((y) => {
+                                  if (y.key !== l.key) return y
+                                  const updatedPecas = [...(y.pecas || [])]
+                                  updatedPecas[idx] = { ...updatedPecas[idx], id_peca: newVal }
+                                  return { ...y, pecas: updatedPecas }
+                                })
+                              )
+                            }}
+                            style={{ padding: '6px 10px', fontSize: 13, borderRadius: '8px' }}
+                          />
+                        </div>
                       ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label>Quantidade</label>
-                    <input
-                      inputMode="numeric"
-                      value={l.quantidade}
-                      onChange={(e) =>
-                        setItensLinhas((xs) =>
-                          xs.map((y) => (y.key === l.key ? { ...y, quantidade: e.target.value } : y)),
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="field" style={{ minWidth: 120, alignSelf: 'end' }}>
-                    <label style={{ visibility: 'hidden' }}>X</label>
-                    <button
-                      type="button"
-                      onClick={() => removerLinhaItem(l.key)}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        height: '42px', padding: '0 16px',
-                        borderRadius: 8, border: '1px solid var(--danger)',
-                        background: 'transparent',
-                        color: 'var(--danger)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                      title="Remover peça"
-                    >
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {tipos.length === 0 ? (

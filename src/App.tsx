@@ -11,6 +11,7 @@ import { DespesasPage } from './pages/DespesasPage'
 import { MaquinasPage } from './pages/MaquinasPage'
 import { CriarPedidoPage } from './pages/CriarPedidoPage'
 import { PedidosCadastradosPage } from './pages/PedidosCadastradosPage'
+import { EmLavagemPage } from './pages/EmLavagemPage'
 import { RelatoriosPage } from './pages/RelatoriosPage'
 import { SimulacaoPage } from './pages/SimulacaoPage'
 import { TiposPecaPage } from './pages/TiposPecaPage'
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="/clientes" element={<Navigate to="/clientes/lista" replace />} />
         <Route path="/pedidos/criar" element={<CriarPedidoPage />} />
         <Route path="/pedidos/lista" element={<PedidosCadastradosPage />} />
+        <Route path="/pedidos/em-lavagem" element={<EmLavagemPage />} />
         <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
         <Route path="/pecas" element={<TiposPecaPage />} />
         <Route path="/despesas/criar" element={<DespesasPage mode="criar" />} />

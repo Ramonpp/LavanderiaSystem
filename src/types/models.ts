@@ -57,12 +57,18 @@ export type PedidoCliente = Pedido & {
   } | null
 }
 
+export type ItemPedidoPeca = {
+  id_peca: string
+  conferido: boolean
+}
+
 export type ItemPedido = {
   id: UUID
   pedido_id: UUID
   tipo_peca_id: UUID
   quantidade: number
   peso_linha_kg: number | null
+  pecas?: ItemPedidoPeca[] | null
   criado_em: string
 }
 

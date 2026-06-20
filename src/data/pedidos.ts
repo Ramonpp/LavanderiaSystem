@@ -110,3 +110,22 @@ export async function deletePedido(id: string): Promise<{ error: string | null }
   const { error } = await supabase.from('pedido').delete().eq('id', id)
   return { error: error ? dbErrorMessage(error) : null }
 }
+
+export async function updateItemPedido(
+  id: string,
+  patch: Partial<Omit<ItemPedido, 'id' | 'criado_em'>>,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('item_pedido').update(patch).eq('id', id)
+  return { error: error ? dbErrorMessage(error) : null }
+}
+
+export async function fetchPedidosEmLavagem(): Promise<{ data: PedidoCliente[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('pedido')
+    .select('*')
+    .eq('status', 'em_lavagem')
+    .order('data_pedido', { ascending: false })
+
+  if (error) return { data: [], error: dbErrorMessage(error) }
+  return hydratePedidosComCliente((data ?? []) as Pedido[])
+}
