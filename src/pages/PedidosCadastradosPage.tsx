@@ -315,6 +315,22 @@ export function PedidosCadastradosPage() {
                       <div style={{ fontWeight: 600, color: 'var(--text-h)' }}>
                         {formatarNomeCliente(p.cliente)}
                       </div>
+                      {p.foto_drive_id && (
+                        <div style={{ marginTop: 4 }}>
+                          <a
+                            href={`https://drive.google.com/file/d/${p.foto_drive_id}/view?usp=drivesdk`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
+                          >
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                              <circle cx="12" cy="13" r="4" />
+                            </svg>
+                            Ver Foto Balança
+                          </a>
+                        </div>
+                      )}
                       {checkAtraso(p) && (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--danger)', fontSize: 11, fontWeight: 700, marginTop: 4 }}>
                           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -441,6 +457,22 @@ export function PedidosCadastradosPage() {
                     <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
                       Data: {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}
                     </div>
+                    {p.foto_drive_id && (
+                      <div style={{ marginTop: 4 }}>
+                        <a
+                          href={`https://drive.google.com/file/d/${p.foto_drive_id}/view?usp=drivesdk`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
+                        >
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                          </svg>
+                          Ver Foto Balança
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <span className={`badge ${STATUS_BADGE_CLASSES[p.status]}`}>
                     {p.status.replaceAll('_', ' ').replace(/^./, str => str.toUpperCase())}

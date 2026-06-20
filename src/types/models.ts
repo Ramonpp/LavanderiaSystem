@@ -43,6 +43,7 @@ export type Pedido = {
   preco_por_kg: number | null
   preco_fixo: number | null
   observacoes: string | null
+  foto_drive_id?: string | null
   criado_em: string
 }
 

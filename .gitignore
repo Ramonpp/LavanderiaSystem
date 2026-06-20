@@ -30,3 +30,6 @@ supabase/.branches
 *.njsproj
 *.sln
 *.sw?
+
+# Google Cloud Service Account Keys
+lavanderia-*.json

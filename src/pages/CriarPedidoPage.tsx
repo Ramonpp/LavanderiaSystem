@@ -11,6 +11,8 @@ import { fetchClientes } from '../data/clientes'
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
+import { compressImage } from '../utils/image'
+import { supabase } from '../lib/supabase'
 
 type ItemLinha = {
   key: string
@@ -82,6 +84,11 @@ export function CriarPedidoPage() {
 
   const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
 
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const [fotoDriveIdExistente, setFotoDriveIdExistente] = useState<string | null>(null)
+
   function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
     if (!c) return '—'
     const parts = []
@@ -151,6 +158,9 @@ export function CriarPedidoPage() {
     setObservacoes('')
     setItensLinhas(gerarLinhasPadrao(tipos))
     setMsg(null)
+    setFotoFile(null)
+    setFotoPreview(null)
+    setFotoDriveIdExistente(null)
   }
 
   function adicionarLinhaItem() {
@@ -183,6 +193,9 @@ export function CriarPedidoPage() {
     setStatus(p.status)
     setPagamentoStatus(p.pagamento_status ?? 'devendo')
     setPesoKg(String(p.peso_kg ?? ''))
+    setFotoDriveIdExistente(p.foto_drive_id ?? null)
+    setFotoFile(null)
+    setFotoPreview(null)
 
     const temFixo = p.preco_fixo != null
     const temKg = p.preco_por_kg != null
@@ -236,7 +249,6 @@ export function CriarPedidoPage() {
     if (dataPedido) setDataPrev(addDaysIso(dataPedido, 2))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataPedido, editandoId])
-
   async function salvarPedido() {
     setErro(null)
     setMsg(null)
@@ -279,6 +291,37 @@ export function CriarPedidoPage() {
       return
     }
 
+    let uploadedFileId: string | null = null
+    if (fotoFile) {
+      setEnviandoFoto(true)
+      try {
+        const compressedBlob = await compressImage(fotoFile)
+        const clientObj = clientes.find((c) => c.id === clienteId)
+        const clientName = clientObj ? clientObj.nome : 'Cliente Desconhecido'
+
+        // Criar FormData para enviar para a Edge Function
+        const formData = new FormData()
+        formData.append('clientName', clientName)
+        formData.append('date', dataPedido)
+        formData.append('file', compressedBlob, `pesagem_${Date.now()}.jpg`)
+
+        const { data, error: uploadError } = await supabase.functions.invoke('upload-to-drive', {
+          body: formData,
+        })
+
+        if (uploadError || !data || !data.success) {
+          throw new Error(uploadError?.message || data?.error || 'Erro ao enviar foto para o Google Drive.')
+        }
+
+        uploadedFileId = data.fileId
+      } catch (err: any) {
+        setErro(`Erro no upload da foto: ${err.message}`)
+        setEnviandoFoto(false)
+        return
+      }
+      setEnviandoFoto(false)
+    }
+
     const pedidoBase = {
       cliente_id: clienteId,
       data_pedido: dataPedido,
@@ -289,12 +332,17 @@ export function CriarPedidoPage() {
       preco_por_kg,
       preco_fixo,
       observacoes: observacoes.trim().length === 0 ? null : observacoes.trim(),
+      foto_drive_id: uploadedFileId || fotoDriveIdExistente,
     }
 
     if (editandoId) {
       const { error: u } = await updatePedido(editandoId, pedidoBase)
       if (u) {
-        setErro(u)
+        if (u.includes('foto_drive_id')) {
+          setErro('Erro no banco: a coluna "foto_drive_id" não existe. Por favor, execute o script SQL de migração no painel do Supabase.')
+        } else {
+          setErro(u)
+        }
         return
       }
       const { error: r } = await replaceItensPedido(editandoId, itensLimpos)
@@ -310,7 +358,11 @@ export function CriarPedidoPage() {
         itens: itensLimpos,
       })
       if (ins) {
-        setErro(ins)
+        if (ins.includes('foto_drive_id')) {
+          setErro('Erro no banco: a coluna "foto_drive_id" não existe. Por favor, execute o script SQL de migração no painel do Supabase.')
+        } else {
+          setErro(ins)
+        }
         return
       }
       setMsg('Pedido criado.')
@@ -319,9 +371,7 @@ export function CriarPedidoPage() {
     }
 
     await reloadAll()
-  }
-
-  useEffect(() => {
+  }  useEffect(() => {
     setItensLinhas((xs) =>
       xs.map((l) =>
         !l.tipo_peca_id && primeiraPecaDisponível
@@ -463,6 +513,73 @@ export function CriarPedidoPage() {
             </div>
           </div>
 
+          <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
+            <div className="field" style={{ flex: '1 1 300px' }}>
+              <label htmlFor="foto">Foto da Pesagem {fotoDriveIdExistente ? '(Já existe foto no Drive)' : '(Opcional)'}</label>
+              <input
+                id="foto"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={enviandoFoto}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    setFotoFile(file)
+                    setFotoPreview(URL.createObjectURL(file))
+                  }
+                }}
+              />
+              {fotoDriveIdExistente && (
+                <div style={{ marginTop: 8 }}>
+                  <a
+                    href={`https://drive.google.com/file/d/${fotoDriveIdExistente}/view?usp=drivesdk`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn"
+                    style={{ fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                    Ver foto atual no Google Drive
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {fotoPreview && (
+              <div className="field" style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <label>Pré-visualização da Pesagem</label>
+                <div style={{ position: 'relative', marginTop: 8 }}>
+                  <img
+                    src={fotoPreview}
+                    alt="Preview da pesagem"
+                    style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 8, border: '1px solid var(--border)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFotoFile(null)
+                      setFotoPreview(null)
+                    }}
+                    style={{
+                      position: 'absolute', top: -8, right: -8,
+                      background: 'var(--danger)', color: 'white', border: 'none',
+                      borderRadius: '50%', width: 24, height: 24, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: 'var(--shadow)', fontWeight: 'bold'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <section className="panel" style={{ boxShadow: 'none' }}>
             <div className="panelHeader">
               <h3 style={{ fontSize: 15 }}>Peças (escolha o tipo e a quantidade)</h3>
@@ -546,8 +663,14 @@ export function CriarPedidoPage() {
             </div>
           </section>
 
-          <button className="btn btnPrimary" type="button" onClick={() => void salvarPedido()}>
-            Salvar pedido
+          <button 
+            className="btn btnPrimary" 
+            type="button" 
+            disabled={enviandoFoto} 
+            onClick={() => void salvarPedido()}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            {enviandoFoto ? 'Enviando foto ao Google Drive...' : 'Salvar pedido'}
           </button>
         </div>
       </section>
