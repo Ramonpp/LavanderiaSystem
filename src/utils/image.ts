@@ -10,9 +10,9 @@
  */
 export function compressImage(
   file: File,
-  maxWidth = 1280,
-  maxHeight = 1280,
-  quality = 0.8
+  maxWidth = 1920,
+  maxHeight = 1920,
+  quality = 0.95
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     // Verificar se o arquivo é realmente uma imagem
