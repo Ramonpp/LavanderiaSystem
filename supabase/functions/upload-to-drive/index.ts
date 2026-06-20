@@ -23,19 +23,12 @@ interface ServiceAccountKey {
 async function getGoogleAccessToken(serviceAccountJson: string): Promise<string> {
   const sa: ServiceAccountKey = JSON.parse(serviceAccountJson);
   
-  // Limpar a chave privada PEM para o formato adequado do importKey (PKCS8)
-  const pemHeader = "-----BEGIN PRIVATE KEY-----\n";
-  const pemFooter = "\n-----END PRIVATE KEY-----";
-  
+  // Limpar a chave privada PEM de forma robusta
   let pemContents = sa.private_key;
-  // Extrair o conteúdo interno da chave PEM se ela tiver cabeçalhos
-  if (pemContents.includes(pemHeader)) {
-    const startIdx = pemContents.indexOf(pemHeader) + pemHeader.length;
-    const endIdx = pemContents.indexOf(pemFooter);
-    pemContents = pemContents.substring(startIdx, endIdx);
-  }
-  // Remover quebras de linha e espaços em branco
-  pemContents = pemContents.replace(/\s/g, "");
+  pemContents = pemContents
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s+/g, "");
 
   // Converter base64 para ArrayBuffer
   const binaryDerString = atob(pemContents);

@@ -520,7 +520,6 @@ export function CriarPedidoPage() {
                 id="foto"
                 type="file"
                 accept="image/*"
-                capture="environment"
                 disabled={enviandoFoto}
                 onChange={(e) => {
                   const file = e.target.files?.[0]
