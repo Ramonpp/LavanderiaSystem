@@ -307,6 +307,9 @@ export function CriarPedidoPage() {
         const formData = new FormData()
         formData.append('clientName', clientName)
         formData.append('date', dataPedido)
+        formData.append('apartamento', clientObj?.apartamento || '')
+        formData.append('bloco', clientObj?.bloco || '')
+        formData.append('peso', String(peso))
         formData.append('file', compressedBlob, `pesagem_${Date.now()}.jpg`)
 
         const response = await fetch(webhookUrl, {
