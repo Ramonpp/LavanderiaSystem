@@ -12,7 +12,6 @@ import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
 import { compressImage } from '../utils/image'
-import { supabase } from '../lib/supabase'
 
 type ItemLinha = {
   key: string
@@ -299,21 +298,37 @@ export function CriarPedidoPage() {
         const clientObj = clientes.find((c) => c.id === clienteId)
         const clientName = clientObj ? clientObj.nome : 'Cliente Desconhecido'
 
-        // Criar FormData para enviar para a Edge Function
+        const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
+        if (!webhookUrl) {
+          throw new Error('Webhook do N8N não configurado. Por favor, adicione VITE_N8N_WEBHOOK_URL no seu arquivo .env.local.')
+        }
+
+        // Criar FormData para enviar para o N8N
         const formData = new FormData()
         formData.append('clientName', clientName)
         formData.append('date', dataPedido)
         formData.append('file', compressedBlob, `pesagem_${Date.now()}.jpg`)
 
-        const { data, error: uploadError } = await supabase.functions.invoke('upload-to-drive', {
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
           body: formData,
         })
 
-        if (uploadError || !data || !data.success) {
-          throw new Error(uploadError?.message || data?.error || 'Erro ao enviar foto para o Google Drive.')
+        if (!response.ok) {
+          throw new Error(`Erro de resposta do Webhook N8N: Status ${response.status}`)
         }
 
-        uploadedFileId = data.fileId
+        // Se o N8N retornar o ID do arquivo (opcional), salvamos no banco
+        try {
+          const resData = await response.json()
+          // Trata tanto um objeto quanto um array com um objeto que é comum no n8n
+          const firstItem = Array.isArray(resData) ? resData[0] : resData
+          if (firstItem && firstItem.fileId) {
+            uploadedFileId = firstItem.fileId
+          }
+        } catch (e) {
+          // Ignorar se n8n responder com texto simples (ex: "Workflow started")
+        }
       } catch (err: any) {
         setErro(`Erro no upload da foto: ${err.message}`)
         setEnviandoFoto(false)

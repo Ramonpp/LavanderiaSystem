@@ -117,7 +117,7 @@ async function getOrCreateFolder(
   // 1. Procurar se a pasta já existe
   const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
     query
-  )}&fields=files(id)`;
+  )}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
   
   const searchResponse = await fetch(searchUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -134,7 +134,7 @@ async function getOrCreateFolder(
   }
 
   // 2. Se não existir, criar a pasta
-  const createResponse = await fetch("https://www.googleapis.com/drive/v3/files", {
+  const createResponse = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -234,7 +234,7 @@ serve(async (req) => {
       offset += part.length;
     }
 
-    const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+    const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true";
     const uploadResponse = await fetch(uploadUrl, {
       method: "POST",
       headers: {
