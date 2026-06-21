@@ -83,6 +83,11 @@ export function DashboardPage() {
   const [consumoMesValor, setConsumoMesValor] = useState(0)
   const [consumoAnoValor, setConsumoAnoValor] = useState(0)
   const [resumosMensais, setResumosMensais] = useState<ResumoMensal[]>([])
+  
+  const [custoEnergiaMes, setCustoEnergiaMes] = useState(0)
+  const [custoAguaMes, setCustoAguaMes] = useState(0)
+  const [kwhMaq753, setKwhMaq753] = useState(0)
+  const [kwhMaq789, setKwhMaq789] = useState(0)
 
   useEffect(() => {
     ;(async () => {
@@ -141,44 +146,81 @@ export function DashboardPage() {
       setDespesasAno(somaDespesas(desps))
       
       const tarifaKwh = Math.max(0, Number(lsGet('lav_custos_tarifaKwh', '0.85').replace(',', '.')) || 0)
-      const tarifaAguaM3 = Math.max(0, Number(lsGet('lav_custos_tarifaAguaM3', '8.00').replace(',', '.')) || 0)
 
-      let custoMes = 0;
-      let custoAno = 0;
+      function calcularCustoAguaDemaisCidades(vM3: number): number {
+        if (vM3 <= 0) return 0
+        if (vM3 <= 10) return 170.40
+        if (vM3 <= 15) return vM3 * 22.32
+        if (vM3 <= 25) return vM3 * 35.74
+        if (vM3 <= 35) return vM3 * 42.88
+        if (vM3 <= 45) return vM3 * 51.46
+        if (vM3 <= 55) return vM3 * 63.18
+        if (vM3 <= 65) return vM3 * 80.25
+        return vM3 * 91.26
+      }
+
+      // Mês atual selecionado
+      let totalKwhMes = 0
+      let totalLitrosMes = 0
+      let k1 = 0
+      let k2 = 0
 
       for (const maq of ['maq_753', 'maq_789']) {
         const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
-
-        // Mês atual selecionado
         const whMesStr = lsGet(`lav_${maq}_wh_${monthValue}`, '')
         const ciclosMesStr = lsGet(`lav_${maq}_ciclos_${monthValue}`, '')
+        
+        let kwhTotal = 0
         if (whMesStr !== '') {
-          const wh = Number(whMesStr)
-          const ciclos = Math.max(1, Number(ciclosMesStr) || 0)
-          const kwhTotal = wh / 1000
-          const custoEnergia = kwhTotal * tarifaKwh
-          const custoAgua = (litros / 1000) * ciclos * tarifaAguaM3
-          if (ciclos > 0) custoMes += (custoEnergia + custoAgua)
+          kwhTotal = Number(whMesStr) / 1000
+          totalKwhMes += kwhTotal
         }
+        if (maq === 'maq_753') k1 = kwhTotal
+        else k2 = kwhTotal
 
-        // Ano todo
-        const year = monthValue.split('-')[0]
-        for (let m = 1; m <= 12; m++) {
-          const mesAno = `${year}-${String(m).padStart(2, '0')}`
-          const whAnoStr = lsGet(`lav_${maq}_wh_${mesAno}`, '')
-          const ciclosAnoStr = lsGet(`lav_${maq}_ciclos_${mesAno}`, '')
-          if (whAnoStr !== '') {
-            const wh = Number(whAnoStr)
-            const ciclos = Math.max(1, Number(ciclosAnoStr) || 0)
-            const kwhTotal = wh / 1000
-            const custoEnergia = kwhTotal * tarifaKwh
-            const custoAgua = (litros / 1000) * ciclos * tarifaAguaM3
-            if (ciclos > 0) custoAno += (custoEnergia + custoAgua)
-          }
+        if (ciclosMesStr !== '') {
+          const ciclos = Math.max(0, Number(ciclosMesStr) || 0)
+          totalLitrosMes += litros * ciclos
         }
       }
-      
+
+      const cEnergiaMes = totalKwhMes * tarifaKwh
+      const cAguaMes = calcularCustoAguaDemaisCidades(totalLitrosMes / 1000)
+      const custoMes = cEnergiaMes + cAguaMes
+
+      setKwhMaq753(k1)
+      setKwhMaq789(k2)
+      setCustoEnergiaMes(cEnergiaMes)
+      setCustoAguaMes(cAguaMes)
       setConsumoMesValor(custoMes)
+
+      // Ano todo
+      const year = monthValue.split('-')[0]
+      let custoAno = 0
+      for (let m = 1; m <= 12; m++) {
+        const mesAno = `${year}-${String(m).padStart(2, '0')}`
+        let totalKwhAnoMes = 0
+        let totalLitrosAnoMes = 0
+
+        for (const maq of ['maq_753', 'maq_789']) {
+          const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
+          const whAnoStr = lsGet(`lav_${maq}_wh_${mesAno}`, '')
+          const ciclosAnoStr = lsGet(`lav_${maq}_ciclos_${mesAno}`, '')
+
+          if (whAnoStr !== '') {
+            totalKwhAnoMes += Number(whAnoStr) / 1000
+          }
+          if (ciclosAnoStr !== '') {
+            const ciclos = Math.max(0, Number(ciclosAnoStr) || 0)
+            totalLitrosAnoMes += litros * ciclos
+          }
+        }
+
+        const custoEnergiaAnoMes = totalKwhAnoMes * tarifaKwh
+        const custoAguaAnoMes = calcularCustoAguaDemaisCidades(totalLitrosAnoMes / 1000)
+        custoAno += (custoEnergiaAnoMes + custoAguaAnoMes)
+      }
+      
       setConsumoAnoValor(custoAno)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -356,17 +398,31 @@ export function DashboardPage() {
           <section className="panel">
             <div className="panelHeader">
               <h2 style={{ fontSize: 16 }}>Custos de utilidades do mês</h2>
-              <span className="hint" style={{ fontSize: 12 }}>Energia + Água (Custos &gt; Registrar no histórico)</span>
+              <span className="hint" style={{ fontSize: 12 }}>Energia + Água (Sincronizado com o menu de Custos)</span>
             </div>
-            <div className="panelBody">
-              <div className="row" style={{ alignItems: 'flex-start', gap: 24 }}>
+            <div className="panelBody grid" style={{ gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
                 <div>
-                  <div className="statLabel">Utilidades — {formatMesAno(monthValue)}</div>
-                  <div className="statValSm valNegative">{formatBRL(consumoMesValor)}</div>
+                  <div className="statLabel">Custo total / mês</div>
+                  <div className="statVal" style={{ color: 'var(--accent)' }}>{formatBRL(consumoMesValor)}</div>
+                  <div className="hint" style={{ marginTop: 4 }}>
+                    Ano todo: {formatBRL(consumoAnoValor)}
+                  </div>
                 </div>
                 <div>
-                  <div className="statLabel">Utilidades — Ano {monthValue.split('-')[0]}</div>
-                  <div className="statValSm valNegative">{formatBRL(consumoAnoValor)}</div>
+                  <div className="statLabel">Energia (Luz)</div>
+                  <div className="statValSm" style={{ color: 'var(--accent)', fontWeight: 700 }}>{formatBRL(custoEnergiaMes)}</div>
+                  <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
+                    {lsGet('lav_maq_753_apelido', '') || 'Lavadora 753'}: {kwhMaq753.toFixed(2)} kWh<br />
+                    {lsGet('lav_maq_789_apelido', '') || 'Lavadora 789'}: {kwhMaq789.toFixed(2)} kWh
+                  </div>
+                </div>
+                <div>
+                  <div className="statLabel">Água</div>
+                  <div className="statValSm" style={{ color: 'var(--ok)', fontWeight: 700 }}>{formatBRL(custoAguaMes)}</div>
+                  <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
+                    Baseado na tabela de faixas Prolagos (Demais Cidades)
+                  </div>
                 </div>
               </div>
             </div>

@@ -80,7 +80,6 @@ export function CustosMaquinasPage() {
   const [mes, setMes] = useState(currentMonth)
 
   const [tarifaKwh, setTarifaKwh] = useState(() => lsGet('lav_custos_tarifaKwh', '0.85'))
-  const [tarifaAguaM3, setTarifaAguaM3] = useState(() => lsGet('lav_custos_tarifaAguaM3', '8.00'))
 
   const [machineData, setMachineData] = useState<Record<MaqKey, MachineData>>(() => ({
     maq_753: loadMachineData('maq_753'),
@@ -102,7 +101,6 @@ export function CustosMaquinasPage() {
   const [salvando, setSalvando] = useState(false)
 
   const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
-  const m3 = Math.max(0, Number(tarifaAguaM3.replace(',', '.')) || 0)
 
   function handleMesChange(novoMes: string) {
     setMes(novoMes)
@@ -130,8 +128,7 @@ export function CustosMaquinasPage() {
 
   function salvarTarifas() {
     lsSet('lav_custos_tarifaKwh', tarifaKwh)
-    lsSet('lav_custos_tarifaAguaM3', tarifaAguaM3)
-    setMsg('Tarifas salvas.')
+    setMsg('Tarifa de energia salva.')
   }
 
   async function buscarLg(key: MaqKey, deviceId: string, nome: string) {
@@ -159,11 +156,46 @@ export function CustosMaquinasPage() {
     }
   }
 
+  /* ── Cálculos de Água Global (Tabela Demais Cidades Prolagos) ── */
+  const totalLitros = (Object.keys(monthData) as MaqKey[]).reduce((acc, key) => {
+    const md = monthData[key]
+    const machine = machineData[key]
+    const ciclos = Math.max(0, Number(md.ciclos) || 0)
+    const litros = Math.max(0, Number(machine.litros_ciclo.replace(',', '.')) || 0)
+    return acc + (litros * ciclos)
+  }, 0)
+
+  const totalM3 = totalLitros / 1000
+
+  function calcularCustoAgua(vM3: number): { custo: number; faixa: string; tarifa: number } {
+    if (vM3 <= 0) return { custo: 0, faixa: 'Sem consumo', tarifa: 0 }
+    if (vM3 <= 10) {
+      return { custo: 170.40, faixa: '0 a 10 m³', tarifa: 17.04 }
+    } else if (vM3 <= 15) {
+      return { custo: vM3 * 22.32, faixa: '11 a 15 m³', tarifa: 22.32 }
+    } else if (vM3 <= 25) {
+      return { custo: vM3 * 35.74, faixa: '16 a 25 m³', tarifa: 35.74 }
+    } else if (vM3 <= 35) {
+      return { custo: vM3 * 42.88, faixa: '26 a 35 m³', tarifa: 42.88 }
+    } else if (vM3 <= 45) {
+      return { custo: vM3 * 51.46, faixa: '36 a 45 m³', tarifa: 51.46 }
+    } else if (vM3 <= 55) {
+      return { custo: vM3 * 63.18, faixa: '46 a 55 m³', tarifa: 63.18 }
+    } else if (vM3 <= 65) {
+      return { custo: vM3 * 80.25, faixa: '56 a 65 m³', tarifa: 80.25 }
+    } else {
+      return { custo: vM3 * 91.26, faixa: 'Acima 65 m³', tarifa: 91.26 }
+    }
+  }
+
+  const waterCalculated = calcularCustoAgua(totalM3)
+  const custoAguaTotal = waterCalculated.custo
+
   /* ── Cálculos por máquina ──────────────────────────────── */
   type Resultado = {
-    kwh_total: number
-    kwh_ciclo: number
-    custo_energia_ciclo: number
+    kwh_total: number | null
+    kwh_ciclo: number | null
+    custo_energia_ciclo: number | null
     custo_agua_ciclo: number
     custo_total_ciclo: number
     custo_energia_mes: number
@@ -171,24 +203,26 @@ export function CustosMaquinasPage() {
     custo_total_mes: number
     ciclos: number
     litros: number
-  } | null
+  }
 
   function calcular(key: MaqKey): Resultado {
     const md = monthData[key]
     const machine = machineData[key]
-    if (md.consumo_wh === null) return null
-    const ciclos = Math.max(1, Number(md.ciclos) || 0)
-    if (ciclos === 0) return null
+    const ciclos = Math.max(0, Number(md.ciclos) || 0)
 
-    const kwh_total = md.consumo_wh / 1000
-    const kwh_ciclo = kwh_total / ciclos
-    const litros = Math.max(0, Number(machine.litros_ciclo.replace(',', '.')) || 0)
+    const kwh_total = md.consumo_wh !== null ? md.consumo_wh / 1000 : null
+    const kwh_ciclo = (kwh_total !== null && ciclos > 0) ? kwh_total / ciclos : null
+    const litrosVal = Math.max(0, Number(machine.litros_ciclo.replace(',', '.')) || 0)
 
-    const custo_energia_ciclo = kwh_ciclo * kwh
-    const custo_agua_ciclo = (litros / 1000) * m3
+    const custo_energia_mes = kwh_total !== null ? kwh_total * kwh : 0
+    const custo_energia_ciclo = kwh_ciclo !== null ? kwh_ciclo * kwh : 0
+
+    // Proporcionalização do custo de água
+    const litrosMaq = litrosVal * ciclos
+    const custo_agua_mes = totalLitros > 0 ? (custoAguaTotal * litrosMaq) / totalLitros : 0
+    const custo_agua_ciclo = ciclos > 0 ? custo_agua_mes / ciclos : 0
+
     const custo_total_ciclo = custo_energia_ciclo + custo_agua_ciclo
-    const custo_energia_mes = kwh_total * kwh
-    const custo_agua_mes = (litros / 1000) * ciclos * m3
     const custo_total_mes = custo_energia_mes + custo_agua_mes
 
     return {
@@ -201,7 +235,7 @@ export function CustosMaquinasPage() {
       custo_agua_mes,
       custo_total_mes,
       ciclos,
-      litros,
+      litros: litrosVal,
     }
   }
 
@@ -210,11 +244,11 @@ export function CustosMaquinasPage() {
     maq_789: calcular('maq_789'),
   }
 
-  const totalMes = (resultados.maq_753?.custo_total_mes ?? 0) + (resultados.maq_789?.custo_total_mes ?? 0)
   const totalEnergiaMes = (resultados.maq_753?.custo_energia_mes ?? 0) + (resultados.maq_789?.custo_energia_mes ?? 0)
-  const totalAguaMes = (resultados.maq_753?.custo_agua_mes ?? 0) + (resultados.maq_789?.custo_agua_mes ?? 0)
+  const totalAguaMes = custoAguaTotal
+  const totalMes = totalEnergiaMes + totalAguaMes
   const totalCiclos = (resultados.maq_753?.ciclos ?? 0) + (resultados.maq_789?.ciclos ?? 0)
-  const totalKwh = (resultados.maq_753?.kwh_total ?? 0) + (resultados.maq_789?.kwh_total ?? 0)
+
 
   async function salvarResumo() {
     setSalvando(true)
@@ -266,11 +300,11 @@ export function CustosMaquinasPage() {
         <div className="panelHeader">
           <h2 style={{ fontSize: 15 }}>Tarifas e período</h2>
           <button className="btn btnPrimary" type="button" onClick={salvarTarifas}>
-            Salvar tarifas
+            Salvar tarifa energia
           </button>
         </div>
         <div className="panelBody">
-          <div className="row">
+          <div className="row" style={{ alignItems: 'center' }}>
             <div className="field">
               <label htmlFor="kwh">Tarifa energia (R$/kWh)</label>
               <input
@@ -281,15 +315,22 @@ export function CustosMaquinasPage() {
                 placeholder="0.85"
               />
             </div>
-            <div className="field">
-              <label htmlFor="agua">Tarifa água (R$/m³)</label>
-              <input
-                id="agua"
-                inputMode="decimal"
-                value={tarifaAguaM3}
-                onChange={(e) => setTarifaAguaM3(e.target.value)}
-                placeholder="8.00"
-              />
+            <div className="field" style={{ minWidth: 280 }}>
+              <label>Tarifa de Água (Demais Cidades)</label>
+              <div style={{ 
+                padding: '10px 12px', 
+                background: 'var(--code-bg)', 
+                borderRadius: 8, 
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--text-h)',
+                border: '1px solid var(--border)',
+                minHeight: 38,
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                Prolagos: {waterCalculated.faixa} → {waterCalculated.tarifa > 0 ? `R$ ${fmt2(waterCalculated.tarifa)}/m³` : '—'}
+              </div>
             </div>
             <div className="field">
               <label htmlFor="mes">Mês de referência</label>
@@ -400,7 +441,7 @@ export function CustosMaquinasPage() {
                 )}
 
                 {/* Resultado calculado */}
-                {r ? (
+                {r.ciclos > 0 || r.kwh_total !== null ? (
                   <div style={{ display: 'grid', gap: 8 }}>
                     {/* Linha: energia + água por ciclo */}
                     <div style={{
@@ -411,10 +452,10 @@ export function CustosMaquinasPage() {
                       <div style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '10px 12px' }}>
                         <div className="hint" style={{ fontSize: 11 }}>kWh / ciclo (média)</div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-h)', marginTop: 2 }}>
-                          {fmt2(r.kwh_ciclo)} kWh
+                          {r.kwh_ciclo !== null ? `${fmt2(r.kwh_ciclo)} kWh` : '—'}
                         </div>
                         <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
-                          = {formatBRL(r.custo_energia_ciclo)}
+                          = {r.custo_energia_ciclo !== null ? formatBRL(r.custo_energia_ciclo) : '—'}
                         </div>
                       </div>
                       <div style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '10px 12px' }}>
@@ -476,11 +517,9 @@ export function CustosMaquinasPage() {
                     </div>
                   </div>
                 ) : (
-                  month.consumo_wh !== null && (
-                    <div className="hint" style={{ fontSize: 12 }}>
-                      Informe o número de ciclos para ver o custo por ciclo.
-                    </div>
-                  )
+                  <div className="hint" style={{ fontSize: 12 }}>
+                    Busque o consumo LG ou informe o número de ciclos para calcular os custos desta máquina.
+                  </div>
                 )}
               </div>
             </section>
@@ -509,13 +548,20 @@ export function CustosMaquinasPage() {
                 <div className="statVal">{formatBRL(totalMes)}</div>
               </div>
               <div>
-                <div className="statLabel">Energia</div>
+                <div className="statLabel">Energia (Luz)</div>
                 <div className="statValSm" style={{ color: 'var(--accent)' }}>{formatBRL(totalEnergiaMes)}</div>
-                <div className="hint" style={{ fontSize: 11 }}>{fmt2(totalKwh)} kWh</div>
+                <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
+                  {machineData.maq_753.apelido || 'Lavadora 753'}: {resultados.maq_753?.kwh_total !== null ? `${fmt2(resultados.maq_753.kwh_total)} kWh` : '—'}<br />
+                  {machineData.maq_789.apelido || 'Lavadora 789'}: {resultados.maq_789?.kwh_total !== null ? `${fmt2(resultados.maq_789.kwh_total)} kWh` : '—'}
+                </div>
               </div>
               <div>
                 <div className="statLabel">Água</div>
                 <div className="statValSm" style={{ color: 'var(--ok)' }}>{formatBRL(totalAguaMes)}</div>
+                <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
+                  Total: {fmt2(totalM3)} m³ ({waterCalculated.faixa})<br />
+                  Vol. Total: {(totalLitros).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L
+                </div>
               </div>
               <div>
                 <div className="statLabel">Total de ciclos</div>
