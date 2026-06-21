@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchDespesasPorPeriodo } from '../data/despesas'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
-import { fetchConsumos, fetchConsumosAno } from '../data/consumo_maquina'
 import { fetchMaquinas } from '../data/maquinas'
+import { fetchResumosMensais } from '../data/resumo_mensal'
+import type { ResumoMensal } from '../types/models'
 
 
 import { receitaPedido, somaDespesas } from '../domain/finance'
@@ -28,6 +29,10 @@ function lastNMonths(endYearMonth: string, n: number): string[] {
 function defaultMonth(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function lsGet(key: string, fallback: string) {
+  try { return localStorage.getItem(key) ?? fallback } catch { return fallback }
 }
 
 export function DashboardPage() {
@@ -75,8 +80,9 @@ export function DashboardPage() {
   const [despesasAno, setDespesasAno] = useState(0)
   const [kgAno, setKgAno] = useState(0)
   
-  const [consumoMesWh, setConsumoMesWh] = useState(0)
-  const [consumoAnoWh, setConsumoAnoWh] = useState(0)
+  const [consumoMesValor, setConsumoMesValor] = useState(0)
+  const [consumoAnoValor, setConsumoAnoValor] = useState(0)
+  const [resumosMensais, setResumosMensais] = useState<ResumoMensal[]>([])
 
   useEffect(() => {
     ;(async () => {
@@ -123,10 +129,9 @@ export function DashboardPage() {
       const y = monthValue.split('-')[0]
       const startDate = `${y}-01-01`
       const endDate = `${y}-12-31`
-      const [{ data: peds }, { data: desps }, { data: consAno }] = await Promise.all([
+      const [{ data: peds }, { data: desps }] = await Promise.all([
         fetchPedidosPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
-        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
-        fetchConsumosAno(y)
+        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate })
       ])
       
       const pedsAtivos = peds.filter((p) => p.status !== 'cancelado')
@@ -135,24 +140,70 @@ export function DashboardPage() {
 
       setDespesasAno(somaDespesas(desps))
       
-      const { data: consMes } = await fetchConsumos(monthValue)
+      const tarifaKwh = Math.max(0, Number(lsGet('lav_custos_tarifaKwh', '0.85').replace(',', '.')) || 0)
+      const tarifaAguaM3 = Math.max(0, Number(lsGet('lav_custos_tarifaAguaM3', '8.00').replace(',', '.')) || 0)
+
+      let custoMes = 0;
+      let custoAno = 0;
+
+      for (const maq of ['maq_753', 'maq_789']) {
+        const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
+
+        // Mês atual selecionado
+        const whMesStr = lsGet(`lav_${maq}_wh_${monthValue}`, '')
+        const ciclosMesStr = lsGet(`lav_${maq}_ciclos_${monthValue}`, '')
+        if (whMesStr !== '') {
+          const wh = Number(whMesStr)
+          const ciclos = Math.max(1, Number(ciclosMesStr) || 0)
+          const kwhTotal = wh / 1000
+          const custoEnergia = kwhTotal * tarifaKwh
+          const custoAgua = (litros / 1000) * ciclos * tarifaAguaM3
+          if (ciclos > 0) custoMes += (custoEnergia + custoAgua)
+        }
+
+        // Ano todo
+        const year = monthValue.split('-')[0]
+        for (let m = 1; m <= 12; m++) {
+          const mesAno = `${year}-${String(m).padStart(2, '0')}`
+          const whAnoStr = lsGet(`lav_${maq}_wh_${mesAno}`, '')
+          const ciclosAnoStr = lsGet(`lav_${maq}_ciclos_${mesAno}`, '')
+          if (whAnoStr !== '') {
+            const wh = Number(whAnoStr)
+            const ciclos = Math.max(1, Number(ciclosAnoStr) || 0)
+            const kwhTotal = wh / 1000
+            const custoEnergia = kwhTotal * tarifaKwh
+            const custoAgua = (litros / 1000) * ciclos * tarifaAguaM3
+            if (ciclos > 0) custoAno += (custoEnergia + custoAgua)
+          }
+        }
+      }
       
-      setConsumoAnoWh(consAno.reduce((acc, c) => acc + Number(c.consumo_wh), 0))
-      setConsumoMesWh(consMes.reduce((acc, c) => acc + Number(c.consumo_wh), 0))
+      setConsumoMesValor(custoMes)
+      setConsumoAnoValor(custoAno)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthValue, maquinas])
 
-  const { receita, kgLavados, lucroMesSimples, pagamentos } = useMemo(() => {
+  useEffect(() => {
+    fetchResumosMensais(12).then(({ data }) => setResumosMensais(data))
+  }, [])
+
+  const { receita, kgLavados, lucroMesSimples, pagamentos, statusPedidos } = useMemo(() => {
     const ativosMes = pedidosMes.filter((p) => p.status !== 'cancelado')
     const receitaVal = ativosMes.reduce((acc, p) => acc + receitaPedido(p), 0)
     const kgVal = ativosMes.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0)
-    const luc = receitaVal - despesasValor
+    // O lucro aqui deduz as despesas + custo das máquinas local
+    const luc = receitaVal - despesasValor - consumoMesValor
     
     let qtdPagos = 0
     let valPagos = 0
     let qtdDevendo = 0
     let valDevendo = 0
+
+    let qtdRecebido = 0
+    let qtdLavagem = 0
+    let qtdPronto = 0
+    let qtdEntregue = 0
 
     for (const p of ativosMes) {
       const valor = receitaPedido(p)
@@ -163,15 +214,21 @@ export function DashboardPage() {
         qtdDevendo++
         valDevendo += valor
       }
+
+      if (p.status === 'recebido') qtdRecebido++
+      if (p.status === 'em_lavagem') qtdLavagem++
+      if (p.status === 'pronto') qtdPronto++
+      if (p.status === 'entregue') qtdEntregue++
     }
 
     return { 
       receita: receitaVal, 
       kgLavados: kgVal, 
       lucroMesSimples: luc,
-      pagamentos: { qtdPagos, valPagos, qtdDevendo, valDevendo }
+      pagamentos: { qtdPagos, valPagos, qtdDevendo, valDevendo },
+      statusPedidos: { recebido: qtdRecebido, lavagem: qtdLavagem, pronto: qtdPronto, entregue: qtdEntregue }
     }
-  }, [pedidosMes, despesasValor])
+  }, [pedidosMes, despesasValor, consumoMesValor])
 
   return (
     <div className="grid" style={{ gap: 14 }}>
@@ -243,66 +300,158 @@ export function DashboardPage() {
               </div>
             </section>
 
-            <section className="panel">
-              <div className="panelHeader">
-                <h2 style={{ fontSize: 16 }}>Status de Pagamentos</h2>
-                <span className="hint" style={{ fontSize: 12 }}>Valores baseados nos pedidos ativos do mês</span>
-              </div>
-              <div className="panelBody grid" style={{ gap: 14 }}>
-                <div className="row" style={{ alignItems: 'flex-start' }}>
-                  <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Pedidos Pagos</div>
-                    <div className="statValSm valPositive">
-                      {pagamentos.qtdPagos} ({formatBRL(pagamentos.valPagos)})
+            <div className="grid">
+              <section className="panel">
+                <div className="panelHeader">
+                  <h2 style={{ fontSize: 16 }}>Status de Pagamentos</h2>
+                  <span className="hint" style={{ fontSize: 12 }}>Valores baseados nos pedidos ativos do mês</span>
+                </div>
+                <div className="panelBody grid" style={{ gap: 14 }}>
+                  <div className="row" style={{ alignItems: 'flex-start' }}>
+                    <div style={{ flex: '1 1 160px' }}>
+                      <div className="statLabel">Pedidos Pagos</div>
+                      <div className="statValSm valPositive">
+                        {pagamentos.qtdPagos} ({formatBRL(pagamentos.valPagos)})
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Pedidos Devendo</div>
-                    <div className="statValSm valNegative">
-                      {pagamentos.qtdDevendo} ({formatBRL(pagamentos.valDevendo)})
+                    <div style={{ flex: '1 1 160px' }}>
+                      <div className="statLabel">Pedidos Devendo</div>
+                      <div className="statValSm valNegative">
+                        {pagamentos.qtdDevendo} ({formatBRL(pagamentos.valDevendo)})
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </section>
-          </div>
+              </section>
 
-          <div className="grid gridCols2">
-            <section className="panel">
-              <div className="panelHeader">
-                <h2 style={{ fontSize: 16 }}>Consumo de Máquinas (Energia)</h2>
-                <span className="hint" style={{ fontSize: 12 }}>Dados reais extraídos da LG ThinQ</span>
-              </div>
-              <div className="panelBody grid" style={{ gap: 14 }}>
-                <div className="row" style={{ alignItems: 'flex-start' }}>
-                  <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Consumo do Mês</div>
-                    <div className="statValSm valNegative">
-                      {(consumoMesWh / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh
+              <section className="panel">
+                <div className="panelHeader">
+                  <h2 style={{ fontSize: 16 }}>Status dos Pedidos</h2>
+                  <span className="hint" style={{ fontSize: 12 }}>Quantidade por etapa no mês</span>
+                </div>
+                <div className="panelBody grid" style={{ gap: 14 }}>
+                  <div className="row" style={{ alignItems: 'flex-start' }}>
+                    <div style={{ flex: '1 1 80px' }}>
+                      <div className="statLabel">Recebidos</div>
+                      <div className="statValSm">{statusPedidos.recebido}</div>
                     </div>
-                  </div>
-                  <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Consumo do Ano</div>
-                    <div className="statValSm valNegative">
-                      {(consumoAnoWh / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kWh
+                    <div style={{ flex: '1 1 80px' }}>
+                      <div className="statLabel">Em Lavagem</div>
+                      <div className="statValSm">{statusPedidos.lavagem}</div>
+                    </div>
+                    <div style={{ flex: '1 1 80px' }}>
+                      <div className="statLabel">Prontos</div>
+                      <div className="statValSm" style={{ color: 'var(--accent)' }}>{statusPedidos.pronto}</div>
+                    </div>
+                    <div style={{ flex: '1 1 80px' }}>
+                      <div className="statLabel">Entregues</div>
+                      <div className="statValSm" style={{ color: 'var(--ok)' }}>{statusPedidos.entregue}</div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
           </div>
 
           <section className="panel">
             <div className="panelHeader">
-              <h2 style={{ fontSize: 16 }}>Receita e lucro — ultimos 6 meses</h2>
-              <span className="hint" style={{ fontSize: 12 }}>passando o mouse sobre o grafico voce ve os valores</span>
+              <h2 style={{ fontSize: 16 }}>Custos de utilidades do mês</h2>
+              <span className="hint" style={{ fontSize: 12 }}>Energia + Água (Custos &gt; Registrar no histórico)</span>
+            </div>
+            <div className="panelBody">
+              <div className="row" style={{ alignItems: 'flex-start', gap: 24 }}>
+                <div>
+                  <div className="statLabel">Utilidades — {formatMesAno(monthValue)}</div>
+                  <div className="statValSm valNegative">{formatBRL(consumoMesValor)}</div>
+                </div>
+                <div>
+                  <div className="statLabel">Utilidades — Ano {monthValue.split('-')[0]}</div>
+                  <div className="statValSm valNegative">{formatBRL(consumoAnoValor)}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panelHeader">
+              <h2 style={{ fontSize: 16 }}>Receita e lucro — últimos 6 meses</h2>
+              <span className="hint" style={{ fontSize: 12 }}>Passe o mouse sobre o gráfico para ver os valores</span>
             </div>
             <div className="panelBody">
               <GraficoMeses dados={dadosGrafico} />
             </div>
           </section>
+
+          {resumosMensais.length > 0 && (
+            <section className="panel">
+              <div className="panelHeader">
+                <h2 style={{ fontSize: 16 }}>Histórico mensal — Energia &amp; Água</h2>
+                <span className="hint" style={{ fontSize: 12 }}>Salvo via menu Custos · últimos 12 meses</span>
+              </div>
+              <div className="panelBody">
+                <div className="tableWrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Mês</th>
+                        <th style={{ textAlign: 'right' }}>Pedidos</th>
+                        <th style={{ textAlign: 'right' }}>Kg lavados</th>
+                        <th style={{ textAlign: 'right' }}>Luz (R$)</th>
+                        <th style={{ textAlign: 'right' }}>Água (R$)</th>
+                        <th style={{ textAlign: 'right' }}>Total utilid.</th>
+                        <th style={{ textAlign: 'right' }}>R$/kg</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resumosMensais.map((r) => {
+                        const totalUtil = r.custo_energia + r.custo_agua
+                        const custoPorKg = r.total_kg > 0 ? totalUtil / r.total_kg : 0
+                        return (
+                          <tr key={r.mes_ano}>
+                            <td style={{ fontWeight: 600 }}>{formatMesAno(r.mes_ano)}</td>
+                            <td style={{ textAlign: 'right' }}>{r.total_pedidos}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              {Number(r.total_kg).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+                            </td>
+                            <td style={{ textAlign: 'right', color: 'var(--accent)' }}>{formatBRL(r.custo_energia)}</td>
+                            <td style={{ textAlign: 'right', color: 'var(--ok)' }}>{formatBRL(r.custo_agua)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatBRL(totalUtil)}</td>
+                            <td style={{ textAlign: 'right' }}>{custoPorKg > 0 ? formatBRL(custoPorKg) : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    {resumosMensais.length > 1 && (() => {
+                      const totPedidos = resumosMensais.reduce((a, r) => a + r.total_pedidos, 0)
+                      const totKg = resumosMensais.reduce((a, r) => a + Number(r.total_kg), 0)
+                      const totEnergia = resumosMensais.reduce((a, r) => a + r.custo_energia, 0)
+                      const totAgua = resumosMensais.reduce((a, r) => a + r.custo_agua, 0)
+                      const totUtil = totEnergia + totAgua
+                      const mediaCustoPorKg = totKg > 0 ? totUtil / totKg : 0
+                      return (
+                        <tfoot>
+                          <tr style={{ fontWeight: 700 }}>
+                            <td>Total ({resumosMensais.length} meses)</td>
+                            <td style={{ textAlign: 'right' }}>{totPedidos}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              {totKg.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
+                            </td>
+                            <td style={{ textAlign: 'right', color: 'var(--accent)' }}>{formatBRL(totEnergia)}</td>
+                            <td style={{ textAlign: 'right', color: 'var(--ok)' }}>{formatBRL(totAgua)}</td>
+                            <td style={{ textAlign: 'right' }}>{formatBRL(totUtil)}</td>
+                            <td style={{ textAlign: 'right' }}>{mediaCustoPorKg > 0 ? formatBRL(mediaCustoPorKg) : '—'}</td>
+                          </tr>
+                        </tfoot>
+                      )
+                    })()}
+                  </table>
+                </div>
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>
   )
 }
+

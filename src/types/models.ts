@@ -112,3 +112,14 @@ export type ConsumoMaquina = {
   consumo_wh: number
   criado_em: string
 }
+
+export type ResumoMensal = {
+  id: UUID
+  mes_ano: string
+  total_pedidos: number
+  total_kg: number
+  custo_energia: number
+  custo_agua: number
+  criado_em: string
+  atualizado_em: string
+}

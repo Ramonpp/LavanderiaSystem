@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { fetchLgEnergyUsage } from '../lib/lgThinq'
 import { StatusBanner } from '../components/StatusBanner'
 import { formatBRL } from '../lib/format'
+import { upsertResumoMensal } from '../data/resumo_mensal'
+import { fetchPedidosPorPeriodo } from '../data/pedidos'
+import { monthBoundsLocal } from '../lib/dates'
 
 /* ── Máquinas fixas ────────────────────────────────────────── */
 const MAQUINAS = [
@@ -96,6 +99,7 @@ export function CustosMaquinasPage() {
 
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
   const m3 = Math.max(0, Number(tarifaAguaM3.replace(',', '.')) || 0)
@@ -212,8 +216,37 @@ export function CustosMaquinasPage() {
   const totalCiclos = (resultados.maq_753?.ciclos ?? 0) + (resultados.maq_789?.ciclos ?? 0)
   const totalKwh = (resultados.maq_753?.kwh_total ?? 0) + (resultados.maq_789?.kwh_total ?? 0)
 
+  async function salvarResumo() {
+    setSalvando(true)
+    setErro(null)
+    setMsg(null)
+    try {
+      const [y, m] = mes.split('-').map(Number)
+      const bounds = monthBoundsLocal(y, m)
+      const { data: peds } = await fetchPedidosPorPeriodo({ inicioIsoDate: bounds.start, fimIsoDate: bounds.end })
+      const ativos = peds.filter((p) => p.status !== 'cancelado')
+      const { error } = await upsertResumoMensal({
+        mes_ano: mes,
+        total_pedidos: ativos.length,
+        total_kg: Math.round(ativos.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0) * 100) / 100,
+        custo_energia: Math.round(totalEnergiaMes * 100) / 100,
+        custo_agua: Math.round(totalAguaMes * 100) / 100,
+      })
+      if (error) setErro(error)
+      else setMsg(`Resumo de ${mesLabel} salvo no histórico.`)
+    } catch (err) {
+      setErro(String(err))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
   const mesLabel = mes
-    ? new Date(mes + '-01').toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+    ? (() => {
+        const [ano, mm] = mes.split('-')
+        return `${MESES_PT[parseInt(mm, 10) - 1]} de ${ano}`
+      })()
     : ''
 
   return (
@@ -460,6 +493,14 @@ export function CustosMaquinasPage() {
         <section className="panel">
           <div className="panelHeader">
             <h2 style={{ fontSize: 15 }}>Consolidado — {mesLabel}</h2>
+            <button
+              className="btn btnPrimary"
+              type="button"
+              onClick={salvarResumo}
+              disabled={salvando}
+            >
+              {salvando ? 'Salvando...' : 'Registrar no histórico'}
+            </button>
           </div>
           <div className="panelBody">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
