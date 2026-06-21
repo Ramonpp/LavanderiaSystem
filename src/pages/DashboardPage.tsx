@@ -88,6 +88,7 @@ export function DashboardPage() {
   const [custoAguaMes, setCustoAguaMes] = useState(0)
   const [kwhMaq753, setKwhMaq753] = useState(0)
   const [kwhMaq789, setKwhMaq789] = useState(0)
+  const [isConsumoLoadedFromDb, setIsConsumoLoadedFromDb] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -134,10 +135,15 @@ export function DashboardPage() {
       const y = monthValue.split('-')[0]
       const startDate = `${y}-01-01`
       const endDate = `${y}-12-31`
-      const [{ data: peds }, { data: desps }] = await Promise.all([
+      const [{ data: peds }, { data: desps }, { data: resumosDb }] = await Promise.all([
         fetchPedidosPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
-        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate })
+        fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
+        fetchResumosMensais(36)
       ])
+      
+      if (resumosDb) {
+        setResumosMensais(resumosDb)
+      }
       
       const pedsAtivos = peds.filter((p) => p.status !== 'cancelado')
       setReceitaAno(pedsAtivos.reduce((acc, p) => acc + receitaPedido(p), 0))
@@ -184,8 +190,20 @@ export function DashboardPage() {
         }
       }
 
-      const cEnergiaMes = totalKwhMes * tarifaKwh
-      const cAguaMes = calcularCustoAguaDemaisCidades(totalLitrosMes / 1000)
+      // Check if a saved record exists in Supabase
+      const dbRecord = resumosDb?.find((r) => r.mes_ano === monthValue)
+      let cEnergiaMes = 0
+      let cAguaMes = 0
+      let loadedFromDb = false
+
+      if (dbRecord) {
+        cEnergiaMes = Number(dbRecord.custo_energia)
+        cAguaMes = Number(dbRecord.custo_agua)
+        loadedFromDb = true
+      } else {
+        cEnergiaMes = totalKwhMes * tarifaKwh
+        cAguaMes = calcularCustoAguaDemaisCidades(totalLitrosMes / 1000)
+      }
       const custoMes = cEnergiaMes + cAguaMes
 
       setKwhMaq753(k1)
@@ -193,38 +211,46 @@ export function DashboardPage() {
       setCustoEnergiaMes(cEnergiaMes)
       setCustoAguaMes(cAguaMes)
       setConsumoMesValor(custoMes)
+      setIsConsumoLoadedFromDb(loadedFromDb)
 
       // Ano todo
       const year = monthValue.split('-')[0]
       let custoAno = 0
       for (let m = 1; m <= 12; m++) {
         const mesAno = `${year}-${String(m).padStart(2, '0')}`
-        let totalKwhAnoMes = 0
-        let totalLitrosAnoMes = 0
+        const dbRecAno = resumosDb?.find((r) => r.mes_ano === mesAno)
 
-        for (const maq of ['maq_753', 'maq_789']) {
-          const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
-          const whAnoStr = lsGet(`lav_${maq}_wh_${mesAno}`, '')
-          const ciclosAnoStr = lsGet(`lav_${maq}_ciclos_${mesAno}`, '')
+        if (dbRecAno) {
+          custoAno += (Number(dbRecAno.custo_energia) + Number(dbRecAno.custo_agua))
+        } else {
+          let totalKwhAnoMes = 0
+          let totalLitrosAnoMes = 0
 
-          if (whAnoStr !== '') {
-            totalKwhAnoMes += Number(whAnoStr) / 1000
+          for (const maq of ['maq_753', 'maq_789']) {
+            const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
+            const whAnoStr = lsGet(`lav_${maq}_wh_${mesAno}`, '')
+            const ciclosAnoStr = lsGet(`lav_${maq}_ciclos_${mesAno}`, '')
+
+            if (whAnoStr !== '') {
+              totalKwhAnoMes += Number(whAnoStr) / 1000
+            }
+            if (ciclosAnoStr !== '') {
+              const ciclos = Math.max(0, Number(ciclosAnoStr) || 0)
+              totalLitrosAnoMes += litros * ciclos
+            }
           }
-          if (ciclosAnoStr !== '') {
-            const ciclos = Math.max(0, Number(ciclosAnoStr) || 0)
-            totalLitrosAnoMes += litros * ciclos
-          }
+
+          const custoEnergiaAnoMes = totalKwhAnoMes * tarifaKwh
+          const custoAguaAnoMes = calcularCustoAguaDemaisCidades(totalLitrosAnoMes / 1000)
+          custoAno += (custoEnergiaAnoMes + custoAguaAnoMes)
         }
-
-        const custoEnergiaAnoMes = totalKwhAnoMes * tarifaKwh
-        const custoAguaAnoMes = calcularCustoAguaDemaisCidades(totalLitrosAnoMes / 1000)
-        custoAno += (custoEnergiaAnoMes + custoAguaAnoMes)
       }
       
       setConsumoAnoValor(custoAno)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthValue, maquinas])
+
 
   useEffect(() => {
     fetchResumosMensais(12).then(({ data }) => setResumosMensais(data))
@@ -396,10 +422,31 @@ export function DashboardPage() {
           </div>
 
           <section className="panel">
-            <div className="panelHeader">
-              <h2 style={{ fontSize: 16 }}>Custos de utilidades do mês</h2>
-              <span className="hint" style={{ fontSize: 12 }}>Energia + Água (Sincronizado com o menu de Custos)</span>
+            <div className="panelHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h2 style={{ fontSize: 16, margin: 0 }}>Custos de utilidades do mês</h2>
+                  {isConsumoLoadedFromDb && (
+                    <span 
+                      style={{ 
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                        color: 'rgb(16, 185, 129)', 
+                        fontSize: 10, 
+                        fontWeight: 'bold',
+                        padding: '2px 8px', 
+                        borderRadius: 99,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}
+                    >
+                      Histórico Salvo
+                    </span>
+                  )}
+                </div>
+                <span className="hint" style={{ fontSize: 12, marginTop: 2, display: 'block' }}>Energia + Água (Sincronizado com o menu de Custos)</span>
+              </div>
             </div>
+
             <div className="panelBody grid" style={{ gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 20 }}>
                 <div>

@@ -22,3 +22,13 @@ export async function fetchResumosMensais(limit = 12): Promise<{ data: ResumoMen
     .limit(limit)
   return { data: (data ?? []) as ResumoMensal[], error: error?.message ?? null }
 }
+
+export async function fetchResumoPorMes(mesAno: string): Promise<{ data: ResumoMensal | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('resumo_mensal')
+    .select('*')
+    .eq('mes_ano', mesAno)
+    .maybeSingle()
+  return { data: data as ResumoMensal | null, error: error?.message ?? null }
+}
+

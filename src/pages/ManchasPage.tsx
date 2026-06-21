@@ -1,261 +1,247 @@
 import { useState } from 'react'
 
+/* ── Dados ──────────────────────────────────────────────── */
 const stainData = [
   {
     color: '#E8A030',
     colorName: 'Amarela / Alaranjada',
-    dot: 'linear-gradient(135deg, #E8A030, #D4782F)',
-    causes: [
-      { name: 'Protetor solar', detail: 'Avobenzona + ferro da água = oxidação alaranjada' },
-      { name: 'Suor / sebo corporal', detail: 'Oleosidade + suor acumulado no travesseiro e lençol' },
-      { name: 'Desodorante', detail: 'Alumínio do antitranspirante reage com suor' },
-      { name: 'Autobronzeador / bronzeador', detail: 'DHA (di-hidroxiacetona) pigmenta o tecido' },
+    gradient: 'linear-gradient(135deg, #E8A030, #D4782F)',
+    causas: [
+      { nome: 'Protetor solar', detalhe: 'Avobenzona + ferro da água → oxidação alaranjada' },
+      { nome: 'Suor / sebo', detalhe: 'Oleosidade acumulada no travesseiro e lençol' },
+      { nome: 'Desodorante', detalhe: 'Alumínio do antitranspirante reage com suor' },
+      { nome: 'Autobronzeador', detalhe: 'DHA pigmenta o tecido permanentemente se fixar' },
     ],
-    steps: [
-      { produto: 'Solvfresh', acao: 'Pingar direto na mancha seca, esfregar leve com escova macia', tempo: '10–15 min' },
-      { produto: 'Azulim Tira Ferrugem', acao: 'Gotas sobre o tom alaranjado que restou (se houver)', tempo: '5 min, enxaguar bem' },
+    passos: [
+      { produto: 'Solvfresh', acao: 'Pingar direto na mancha seca, esfregar com escova macia', tempo: '10–15 min' },
+      { produto: 'Azulim Tira Ferrugem', acao: 'Gotas sobre o tom alaranjado restante (se houver)', tempo: '5 min + enxaguar bem' },
       { produto: 'Alvfresh ou Percarbonato', acao: 'Molho em água quente 50–60 °C na máquina', tempo: '30–40 min' },
     ],
-    tip: 'Nunca seque antes de tratar. Calor fixa a oxidação de vez.',
+    atencao: 'Nunca seque antes de tratar. Calor fixa a oxidação de vez.',
   },
   {
     color: '#D9587B',
     colorName: 'Rosa / Avermelhada',
-    dot: 'linear-gradient(135deg, #D9587B, #C24466)',
-    causes: [
-      { name: 'Protetor solar + ferro', detail: 'Variação rosada da mesma reação da avobenzona' },
-      { name: 'Batom / blush / base', detail: 'Pigmento cosmético à base de óxido de ferro' },
-      { name: 'Vinho tinto / suco de uva', detail: 'Antocianina — pigmento vegetal intenso' },
-      { name: 'Bactéria Serratia marcescens', detail: 'Biofilme rosa em peça guardada úmida/dobrada' },
-      { name: 'Sangue mal lavado', detail: 'Hemoglobina oxidada fica rosada/marrom' },
+    gradient: 'linear-gradient(135deg, #D9587B, #C24466)',
+    causas: [
+      { nome: 'Protetor solar + ferro', detalhe: 'Variação rosada da mesma reação da avobenzona' },
+      { nome: 'Batom / blush / base', detalhe: 'Pigmento cosmético à base de óxido de ferro' },
+      { nome: 'Vinho tinto / suco de uva', detalhe: 'Antocianina — pigmento vegetal intenso' },
+      { nome: 'Bactéria (Serratia)', detalhe: 'Biofilme rosa em peça guardada úmida ou dobrada' },
+      { nome: 'Sangue mal lavado', detalhe: 'Hemoglobina oxidada fica rosada/marrom' },
     ],
-    steps: [
+    passos: [
       { produto: 'Solvfresh', acao: 'Se houver componente oleoso (cosmético), tratar primeiro', tempo: '10 min' },
-      { produto: 'Azulim Tira Ferrugem', acao: 'Para tom rosado de ferro/protetor — gotas localizadas', tempo: '5 min, enxaguar' },
+      { produto: 'Azulim Tira Ferrugem', acao: 'Para tom rosado de ferro/protetor — gotas localizadas', tempo: '5 min + enxaguar' },
       { produto: 'Percarbonato', acao: 'Molho em água quente para pigmento vegetal ou sangue', tempo: '30–60 min' },
     ],
-    tip: 'Se a mancha rosa vem de peça guardada úmida, é bactéria. Trate com percarbonato quente e nunca guarde úmido.',
+    atencao: 'Mancha rosa em peça que ficou úmida = bactéria. Trate com percarbonato quente e nunca guarde úmido.',
   },
   {
-    color: '#8B6914',
+    color: '#7B5A14',
     colorName: 'Marrom / Encardida',
-    dot: 'linear-gradient(135deg, #8B6914, #6B4F10)',
-    causes: [
-      { name: 'Café / chá', detail: 'Taninos — pigmento vegetal escuro' },
-      { name: 'Chocolate / açaí', detail: 'Gordura + pigmento vegetal combinados' },
-      { name: 'Fezes / vômito', detail: 'Proteína + pigmento orgânico' },
-      { name: 'Terra / barro', detail: 'Partícula mineral impregnada' },
-      { name: 'Encardido geral', detail: 'Acúmulo de suor, poeira e sabão mal enxaguado' },
+    gradient: 'linear-gradient(135deg, #8B6914, #6B4F10)',
+    causas: [
+      { nome: 'Café / chá', detalhe: 'Taninos — pigmento vegetal escuro e penetrante' },
+      { nome: 'Chocolate / açaí', detalhe: 'Gordura + pigmento vegetal combinados' },
+      { nome: 'Fezes / vômito', detalhe: 'Proteína + pigmento orgânico — enxágue frio primeiro' },
+      { nome: 'Terra / barro', detalhe: 'Partícula mineral impregnada na fibra' },
+      { nome: 'Encardido geral', detalhe: 'Acúmulo de suor, poeira e sabão mal enxaguado' },
     ],
-    steps: [
+    passos: [
       { produto: 'Sabão de coco', acao: 'Esfregar ponto a ponto com escova macia, pré-tratar', tempo: '5–10 min' },
       { produto: 'Solvfresh', acao: 'Se tiver gordura (chocolate, açaí), aplicar direto', tempo: '10 min' },
-      { produto: 'Alvfresh', acao: 'Molho em água quente — o peróxido quebra tanino', tempo: '30–40 min' },
+      { produto: 'Alvfresh', acao: 'Molho em água quente — o peróxido quebra o tanino', tempo: '30–40 min' },
     ],
-    tip: 'Para fezes/vômito: enxágue frio primeiro (proteína coagula no calor), depois siga a sequência.',
+    atencao: 'Fezes/vômito: enxágue FRIO primeiro (proteína coagula no calor). Só depois aplique os produtos.',
   },
   {
     color: '#4A4A4A',
     colorName: 'Cinza / Preta',
-    dot: 'linear-gradient(135deg, #5A5A5A, #333)',
-    causes: [
-      { name: 'Maquiagem escura (rímel, delineador)', detail: 'Cera + pigmento preto de carbono' },
-      { name: 'Graxa / óleo mecânico', detail: 'Hidrocarboneto pesado' },
-      { name: 'Mofo seco', detail: 'Fungo morto — mancha residual acinzentada' },
-      { name: 'Transferência de jeans', detail: 'Índigo transferido no contato ou na lavagem' },
-      { name: 'Encardido de sabão + dureza', detail: 'Residual de sabão em barra com cálcio da água' },
+    gradient: 'linear-gradient(135deg, #5A5A5A, #333)',
+    causas: [
+      { nome: 'Rímel / delineador', detalhe: 'Cera + pigmento preto de carbono' },
+      { nome: 'Graxa / óleo mecânico', detalhe: 'Hidrocarboneto pesado — precisa de solvente' },
+      { nome: 'Mofo seco', detalhe: 'Fungo morto — mancha residual acinzentada' },
+      { nome: 'Transferência de jeans', detalhe: 'Índigo transferido no contato ou na lavagem' },
     ],
-    steps: [
+    passos: [
       { produto: 'Solvfresh', acao: 'Direto na mancha — dissolve cera, graxa e pigmento oleoso', tempo: '15 min' },
       { produto: 'Sabão de coco', acao: 'Reforçar esfregação local se persistir', tempo: '5 min' },
       { produto: 'Percarbonato', acao: 'Molho quente para clarear o residual', tempo: '40–60 min' },
     ],
-    tip: 'Mofo: além de tirar a mancha, seque ao sol. Sol mata esporo. Revise o local de armazenamento.',
+    atencao: 'Mofo: além de tirar a mancha, seque ao sol — o UV mata esporos. Revise onde a peça fica armazenada.',
   },
   {
-    color: '#C4A82F',
-    colorName: 'Amarela clara / Esverdeada',
-    dot: 'linear-gradient(135deg, #C4A82F, #8B9A2F)',
-    causes: [
-      { name: 'Urina', detail: 'Ureia + ácido úrico — amarelado, cheiro forte' },
-      { name: 'Repelente de insetos', detail: 'DEET e óleos mancham e amarelam' },
-      { name: 'Cloro da piscina + protetor', detail: 'Reação química dupla — amarelado/esverdeado' },
-      { name: 'Grama / folha', detail: 'Clorofila — pigmento vegetal verde' },
+    color: '#8B9A10',
+    colorName: 'Amarelo-esverdeada',
+    gradient: 'linear-gradient(135deg, #C4A82F, #8B9A2F)',
+    causas: [
+      { nome: 'Urina', detalhe: 'Ureia + ácido úrico — amarelado, cheiro forte' },
+      { nome: 'Repelente de insetos', detalhe: 'DEET e óleos mancham e amarelam o tecido' },
+      { nome: 'Cloro de piscina + protetor', detalhe: 'Reação química dupla — amarelado/esverdeado' },
+      { nome: 'Grama / folha', detalhe: 'Clorofila — pigmento vegetal verde' },
     ],
-    steps: [
-      { produto: 'Solvfresh', acao: 'Para repelente e componente oleoso', tempo: '10 min' },
+    passos: [
+      { produto: 'Solvfresh', acao: 'Para repelente e qualquer componente oleoso', tempo: '10 min' },
       { produto: 'Percarbonato', acao: 'Molho morno a quente — quebra urina e clorofila', tempo: '30 min' },
       { produto: 'Alvfresh', acao: 'Reforço final em água quente se a mancha persistir', tempo: '20–30 min' },
     ],
-    tip: 'Urina: enxágue frio antes. Água quente direto fixa o cheiro.',
+    atencao: 'Urina: enxágue com água FRIA antes. Água quente direto fixa o cheiro na fibra.',
   },
   {
     color: '#7B3F00',
     colorName: 'Ferrugem / Ocre',
-    dot: 'linear-gradient(135deg, #B85C1E, #7B3F00)',
-    causes: [
-      { name: 'Água com ferro (poço/caixa velha)', detail: 'Ferro dissolvido precipita e mancha tudo' },
-      { name: 'Varal/cabide/mola enferrujada', detail: 'Contato direto com metal oxidado' },
-      { name: 'Botão/zíper de outra peça', detail: 'Transferência de ferrugem na lavagem' },
+    gradient: 'linear-gradient(135deg, #B85C1E, #7B3F00)',
+    causas: [
+      { nome: 'Água com ferro', detalhe: 'Ferro dissolvido precipita e mancha tudo durante a lavagem' },
+      { nome: 'Varal / cabide enferrujado', detalhe: 'Contato direto com metal oxidado' },
+      { nome: 'Botão / zíper de outra peça', detalhe: 'Transferência de ferrugem dentro da máquina' },
     ],
-    steps: [
-      { produto: 'Azulim Tira Ferrugem', acao: 'Gotas direto na mancha — é o produto-chave aqui', tempo: '5 min, enxaguar muito bem' },
+    passos: [
+      { produto: 'Azulim Tira Ferrugem', acao: 'Gotas direto na mancha — único produto que resolve', tempo: '5 min + enxaguar muito bem' },
       { produto: 'Alvfresh', acao: 'Se restar sombra, molho em água quente', tempo: '20–30 min' },
     ],
-    tip: 'NUNCA use alvejante antes do ácido em ferrugem. O oxidante fixa o óxido de ferro de vez.',
+    atencao: 'NUNCA use alvejante ANTES do ácido em ferrugem. O oxidante fixa o óxido de ferro de vez.',
   },
 ]
 
-const procedureSteps = [
-  {
-    num: 1,
-    title: 'Triagem a seco',
-    desc: 'Separe as peças. Identifique e marque cada mancha antes de molhar. Agrupe: oleosas (protetor, maquiagem), proteicas (sangue, vômito), pigmento (café, vinho) e ferrugem.',
-    machine: false,
-  },
-  {
-    num: 2,
-    title: 'Spotting — Desengordure',
-    desc: 'Solvfresh ou sabão de coco direto na mancha seca. Escova macia, movimentos circulares. Deixe 10–15 min. Enxágue morno.',
-    machine: false,
-    dosagem: 'Solvfresh puro na mancha',
-  },
-  {
-    num: 3,
-    title: 'Spotting — Ácido (se houver tom laranja/rosa/ferrugem)',
-    desc: 'Azulim Tira Ferrugem em gotas sobre o ponto. Máximo 5 min. Enxágue abundante com água fria. Use luvas!',
-    machine: false,
-    dosagem: 'Gotas localizadas — nunca em molho',
-    warning: 'Nunca misture com Alvfresh ou percarbonato no mesmo passo.',
-  },
-  {
-    num: 4,
-    title: 'Lavagem principal na máquina',
-    desc: 'Carga de até 10–11 kg (80% da capacidade). Ciclo pesado/algodão, água quente. Use detergente de lavanderia.',
-    machine: true,
-    dosagem: 'Detergente conforme rótulo (~30–50 mL p/ 10 kg)',
-  },
-  {
-    num: 5,
-    title: 'Alvejamento com oxigênio',
-    desc: 'Adicione Alvfresh ou percarbonato na mesma lavagem (compartimento de alvejante) ou em molho separado. Água 50–60 °C, mínimo 20–30 min de contato.',
-    machine: true,
-    dosagem: 'Alvfresh: 70–150 mL por carga (7–15 mL/kg) · Percarbonato: 50–100 g por carga',
-  },
-  {
-    num: 6,
-    title: 'Enxágue final + neutralização',
-    desc: 'Último enxágue: adicione neutralizante ácido (sour) ou 50 mL de vinagre branco. Baixa o pH, protege a fibra, mantém o branco vivo.',
-    machine: true,
-    dosagem: 'Vinagre branco: ~50 mL no último enxágue',
-  },
-  {
-    num: 7,
-    title: 'Conferência antes de secar',
-    desc: 'Tire da máquina e confira cada peça sob boa luz. Mancha visível? Volte ao passo 2. Só seque/passe depois de aprovada.',
-    machine: false,
-    warning: 'Calor (secadora, ferro, sol) fixa mancha não tratada permanentemente.',
-  },
+const procedimento = [
+  { num: 1, local: false, titulo: 'Triagem a seco', desc: 'Separe as peças manchadas antes de molhar. Marque cada mancha com grampo ou fita. Agrupe: oleosas (protetor, maquiagem), proteicas (sangue, vômito), pigmento (café, vinho) e ferrugem.', dosagem: null, alerta: null },
+  { num: 2, local: false, titulo: 'Spotting — Desengordure', desc: 'Solvfresh ou sabão de coco direto na mancha seca. Escova macia em movimentos circulares. Deixe agir e enxágue morno.', dosagem: 'Solvfresh puro direto na mancha', alerta: null },
+  { num: 3, local: false, titulo: 'Spotting — Ácido (se tom laranja, rosa ou ferrugem)', desc: 'Azulim Tira Ferrugem em gotas apenas sobre o ponto manchado. Máximo 5 min. Enxágue com água fria em abundância. Use luvas!', dosagem: 'Gotas localizadas — nunca em molho', alerta: 'Nunca misture com Alvfresh ou percarbonato no mesmo passo.' },
+  { num: 4, local: true,  titulo: 'Lavagem principal', desc: 'Carga de até 10–11 kg (80% da capacidade). Ciclo pesado / algodão, água quente. Use detergente de lavanderia.', dosagem: 'Detergente conforme rótulo (~30–50 mL p/ 10 kg)', alerta: null },
+  { num: 5, local: true,  titulo: 'Alvejamento com oxigênio', desc: 'Adicione Alvfresh ou percarbonato no compartimento de alvejante ou em molho separado. Água 50–60 °C, mínimo 20–30 min de contato.', dosagem: 'Alvfresh: 70–150 mL / carga · Percarbonato: 50–100 g / carga', alerta: null },
+  { num: 6, local: true,  titulo: 'Enxágue final + neutralização', desc: 'Último enxágue com 50 mL de vinagre branco ou neutralizante ácido (sour). Baixa o pH, protege a fibra e mantém o branco vivo.', dosagem: 'Vinagre branco: ~50 mL no último enxágue', alerta: null },
+  { num: 7, local: false, titulo: 'Conferência antes de secar', desc: 'Retire da máquina e confira cada peça sob boa luz. Mancha visível? Volte ao passo 2. Só seque ou passe depois de aprovada.', dosagem: null, alerta: 'Calor (secadora, ferro, sol) fixa mancha não tratada permanentemente.' },
 ]
 
 const produtos = [
   {
-    nome: 'Solvfresh (Spartan)',
+    nome: 'Solvfresh',
+    fabricante: 'Spartan',
     tipo: 'Desengordurante solvente',
     cor: '#E67E22',
-    funcao: 'Dissolve óleo, graxa, batom, protetor solar, cera. Sempre o 1º passo em mancha oleosa.',
+    funcao: 'Dissolve óleo, graxa, batom, protetor solar e cera. Sempre o 1º passo em mancha oleosa.',
     dose: 'Puro na mancha (spotting) ou 5–10 mL/kg na máquina para carga oleosa',
-    regra: 'Pode ser usado junto com detergente na máquina. Não misture com Azulim.',
+    regra: 'Pode ir junto com detergente na máquina. Não misture com Azulim.',
+    usarEm: ['Amarela', 'Rosa', 'Marrom', 'Cinza', 'Esverdeada'],
   },
   {
     nome: 'Azulim Tira Ferrugem',
-    tipo: 'Ácido oxálico — removedor de ferro',
+    fabricante: '',
+    tipo: 'Ácido oxálico',
     cor: '#C0392B',
-    funcao: 'Dissolve óxido de ferro, ferrugem, tom alaranjado/rosado de protetor solar.',
-    dose: 'Gotas localizadas, máx. 5 min. Sempre enxaguar muito bem depois.',
-    regra: 'NUNCA no mesmo banho que Alvfresh ou percarbonato. NUNCA sem luvas. Só spotting localizado.',
+    funcao: 'Dissolve óxido de ferro, ferrugem e tom alaranjado/rosado de protetor solar.',
+    dose: 'Gotas localizadas, máx. 5 min. Enxaguar muito bem depois.',
+    regra: 'NUNCA no mesmo banho que Alvfresh ou percarbonato. NUNCA sem luvas.',
+    usarEm: ['Amarela', 'Rosa', 'Ferrugem'],
   },
   {
-    nome: 'Alvfresh (Spartan)',
-    tipo: 'Alvejante — peróxido de hidrogênio líquido',
+    nome: 'Alvfresh',
+    fabricante: 'Spartan',
+    tipo: 'Alvejante — peróxido líquido',
     cor: '#2980B9',
     funcao: 'Alveja e remove pigmento: café, chá, vinho, sangue, suor. Seguro para branco e colorido.',
-    dose: '70–150 mL por carga (7–15 mL/kg) · Água 50–60 °C · 20–40 min de contato',
-    regra: 'Compartimento de alvejante da máquina. Não misture com Azulim. Rendimento melhor em água quente.',
+    dose: '70–150 mL / carga (7–15 mL/kg) · Água 50–60 °C · 20–40 min de contato',
+    regra: 'Use no compartimento de alvejante. Rendimento melhor em água quente.',
+    usarEm: ['Amarela', 'Rosa', 'Marrom', 'Esverdeada', 'Ferrugem'],
   },
   {
     nome: 'Percarbonato de sódio',
-    tipo: 'Alvejante oxigenado em pó (booster)',
+    fabricante: 'Genérico',
+    tipo: 'Alvejante em pó (booster)',
     cor: '#8E44AD',
-    funcao: 'Mesmo princípio do Alvfresh, porém em pó e mais alcalino. Bom para molhos prolongados.',
-    dose: '50–100 g por carga · Só funciona acima de 40 °C — ideal 50–60 °C',
-    regra: 'Alternativa ao Alvfresh ou reforço. Dissolver na água antes de colocar a roupa. Não misture com ácido.',
+    funcao: 'Mesmo princípio do Alvfresh, em pó e mais alcalino. Ideal para molhos prolongados.',
+    dose: '50–100 g / carga · Só funciona acima de 40 °C — ideal 50–60 °C',
+    regra: 'Dissolva na água antes de colocar a roupa. Não misture com ácido (Azulim).',
+    usarEm: ['Rosa', 'Marrom', 'Cinza', 'Esverdeada'],
   },
   {
     nome: 'Sabão de coco',
+    fabricante: '',
     tipo: 'Sabão alcalino natural',
     cor: '#27AE60',
     funcao: 'Pré-tratamento manual em bancada. Bom para esfregar pontos localizados.',
     dose: 'Direto na mancha com escova macia',
     regra: 'Evite como detergente principal na máquina — em água dura forma resíduo que acinzenta o branco.',
+    usarEm: ['Marrom', 'Cinza'],
   },
 ]
 
 type View = 'manchas' | 'procedimento' | 'produtos'
 
+/* ── Componente ─────────────────────────────────────────── */
 export function ManchasPage() {
-  const [activeStain, setActiveStain] = useState(0)
   const [view, setView] = useState<View>('manchas')
+  const [stainIdx, setStainIdx] = useState(0)
 
-  const tabs: { id: View; label: string }[] = [
-    { id: 'manchas', label: 'Por Cor da Mancha' },
-    { id: 'procedimento', label: 'Procedimento Completo' },
-    { id: 'produtos', label: 'Meus Produtos' },
+  const stain = stainData[stainIdx]
+
+  const TABS: { id: View; label: string }[] = [
+    { id: 'manchas',      label: 'Por cor da mancha'    },
+    { id: 'procedimento', label: 'Procedimento completo' },
+    { id: 'produtos',     label: 'Produtos'              },
   ]
 
   return (
-    <div style={{ padding: '24px 16px', maxWidth: 720, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{
-          fontSize: 11,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: 'var(--muted)',
-          marginBottom: 6,
-        }}>
-          Guia de Referência — Lavanderia Enxoval Airbnb
-        </div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, lineHeight: 1.2, color: 'var(--text)' }}>
-          Identificação e Tratamento de Manchas
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '6px 0 0' }}>
-          Máquinas LG VC4 14 kg · Água de rede · Enxoval branco
-        </p>
-      </div>
+    <div className="grid" style={{ gap: 16 }}>
 
-      {/* Tabs */}
+      {/* ── Cabeçalho ── */}
+      <header>
+        <h1 style={{ fontSize: 22, letterSpacing: -0.3 }}>Guia de Manchas</h1>
+        <p className="hint" style={{ marginTop: 4 }}>
+          Enxoval branco · Máquinas LG VC4 14 kg · Identifique a cor e siga a sequência de tratamento
+        </p>
+      </header>
+
+      {/* ── Regra de ouro ── */}
       <div style={{
         display: 'flex',
-        gap: 0,
-        marginBottom: 24,
-        borderBottom: '2px solid var(--border)',
+        alignItems: 'center',
+        gap: 10,
+        padding: '10px 14px',
+        borderRadius: 'var(--radius)',
+        background: 'var(--accent-bg)',
+        border: '1px solid var(--accent-border)',
+        fontSize: 13,
+        fontWeight: 600,
+        color: 'var(--accent)',
+        flexWrap: 'wrap',
       }}>
-        {tabs.map(tab => (
+        <span>Regra de ouro:</span>
+        {['ÓLEO', '→', 'FERRO', '→', 'PIGMENTO', '→', 'NEUTRALIZAR'].map((t, i) => (
+          t === '→'
+            ? <span key={i} style={{ opacity: 0.5, fontWeight: 400 }}>→</span>
+            : <span key={i} className="badge badgeBlue" style={{ fontSize: 11 }}>{t}</span>
+        ))}
+        <span style={{ marginLeft: 'auto', fontWeight: 500, color: 'var(--muted)', fontSize: 12 }}>
+          Nunca seque antes de conferir
+        </span>
+      </div>
+
+      {/* ── Tabs ── */}
+      <div style={{
+        display: 'flex',
+        gap: 6,
+        padding: '4px',
+        background: 'var(--code-bg)',
+        borderRadius: 'var(--radius)',
+        border: '1px solid var(--border)',
+      }}>
+        {TABS.map(tab => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setView(tab.id)}
+            className={view === tab.id ? 'btn btnPrimary' : 'btn'}
             style={{
-              padding: '10px 14px',
+              flex: 1,
               fontSize: 13,
-              fontWeight: view === tab.id ? 700 : 500,
-              background: 'none',
+              padding: '8px 10px',
+              minHeight: 36,
+              boxShadow: view === tab.id ? undefined : 'none',
               border: 'none',
-              borderBottom: view === tab.id ? '2px solid var(--accent)' : '2px solid transparent',
-              marginBottom: -2,
-              cursor: 'pointer',
-              color: view === tab.id ? 'var(--accent)' : 'var(--muted)',
-              transition: 'all 0.15s',
             }}
           >
             {tab.label}
@@ -263,314 +249,328 @@ export function ManchasPage() {
         ))}
       </div>
 
-      {/* MANCHAS VIEW */}
+      {/* ════════════════════════════════════════════
+          VIEW: POR COR DA MANCHA
+      ════════════════════════════════════════════ */}
       {view === 'manchas' && (
-        <div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-            {stainData.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveStain(i)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  border: activeStain === i
-                    ? `2px solid ${s.color}`
-                    : '2px solid var(--border)',
-                  background: activeStain === i
-                    ? `${s.color}18`
-                    : 'var(--surface)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  fontSize: 12,
-                  fontWeight: activeStain === i ? 700 : 500,
-                  color: 'var(--text)',
-                }}
-              >
-                <span style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  background: s.dot,
-                  flexShrink: 0,
-                  boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.2)',
-                }} />
-                {s.colorName.split(' / ')[0]}
-              </button>
-            ))}
+        <>
+          {/* Seletor de cor */}
+          <section className="panel">
+            <div className="panelHeader">
+              <h2 style={{ fontSize: 15 }}>Qual é a cor da mancha?</h2>
+            </div>
+            <div className="panelBody">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {stainData.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setStainIdx(i)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '9px 14px',
+                      borderRadius: 'var(--radius)',
+                      border: stainIdx === i ? `2px solid ${s.color}` : '2px solid var(--border)',
+                      background: stainIdx === i ? `${s.color}15` : 'var(--panel)',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: stainIdx === i ? 700 : 500,
+                      color: 'var(--text-h)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: s.gradient,
+                      flexShrink: 0,
+                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.25)',
+                    }} />
+                    {s.colorName.split(' / ')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Banner da mancha selecionada */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            padding: '14px 16px',
+            borderRadius: 'var(--radius)',
+            background: stain.gradient,
+            color: '#fff',
+          }}>
+            <span style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.25)',
+              border: '2px solid rgba(255,255,255,0.5)',
+              flexShrink: 0,
+            }} />
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{stain.colorName}</div>
+              <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>
+                {stain.causas.length} causas conhecidas · {stain.passos.length} passos de tratamento
+              </div>
+            </div>
           </div>
 
-          {(() => {
-            const s = stainData[activeStain]
-            return (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <span style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: s.dot,
-                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.25)',
-                    flexShrink: 0,
-                  }} />
-                  <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
-                    {s.colorName}
-                  </h2>
-                </div>
-
-                {/* Causas */}
-                <div style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  padding: 16,
-                  marginBottom: 16,
-                }}>
-                  <div style={{
-                    fontSize: 11,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    color: 'var(--muted)',
-                    marginBottom: 10,
-                    fontWeight: 600,
+          <div className="grid gridCols2">
+            {/* Causas */}
+            <section className="panel">
+              <div className="panelHeader">
+                <h2 style={{ fontSize: 14 }}>Possíveis causas</h2>
+              </div>
+              <div className="panelBody" style={{ padding: 0 }}>
+                {stain.causas.map((c, i) => (
+                  <div key={i} style={{
+                    padding: '10px 16px',
+                    borderBottom: i < stain.causas.length - 1 ? '1px solid var(--border)' : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
                   }}>
-                    O que causa essa mancha
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)' }}>{c.nome}</span>
+                    <span className="hint">{c.detalhe}</span>
                   </div>
-                  {s.causes.map((c, j) => (
-                    <div key={j} style={{
-                      padding: '8px 0',
-                      borderBottom: j < s.causes.length - 1 ? '1px solid var(--border)' : 'none',
-                    }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{c.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{c.detail}</div>
-                    </div>
-                  ))}
-                </div>
+                ))}
+              </div>
+            </section>
 
-                {/* Passos */}
-                <div style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  padding: 16,
-                  marginBottom: 16,
-                }}>
-                  <div style={{
-                    fontSize: 11,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    color: 'var(--muted)',
-                    marginBottom: 10,
-                    fontWeight: 600,
-                  }}>
-                    Sequência de tratamento
-                  </div>
-                  {s.steps.map((step, j) => (
-                    <div key={j} style={{
-                      display: 'flex',
-                      gap: 12,
-                      padding: '10px 0',
-                      borderBottom: j < s.steps.length - 1 ? '1px solid var(--border)' : 'none',
-                    }}>
-                      <div style={{
+            {/* Passos */}
+            <div className="grid" style={{ gap: 8, alignContent: 'start' }}>
+              {stain.passos.map((p, i) => (
+                <section key={i} className="panel" style={{ borderLeft: `4px solid ${stain.color}` }}>
+                  <div className="panelBody" style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <span style={{
                         width: 24,
                         height: 24,
                         borderRadius: '50%',
-                        background: s.color,
+                        background: stain.color,
                         color: '#fff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: 12,
-                        fontWeight: 700,
+                        fontWeight: 800,
                         flexShrink: 0,
-                        marginTop: 2,
                       }}>
-                        {j + 1}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{step.produto}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text)', marginTop: 2 }}>{step.acao}</div>
-                        <div style={{ fontSize: 12, color: s.color, fontWeight: 600, marginTop: 4 }}>
-                          ⏱ {step.tempo}
-                        </div>
-                      </div>
+                        {i + 1}
+                      </span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h)' }}>{p.produto}</span>
                     </div>
-                  ))}
-                </div>
-
-                {/* Dica */}
-                <div style={{
-                  background: '#FFF8E6',
-                  border: '1px solid #F0D86E',
-                  borderRadius: 10,
-                  padding: '12px 16px',
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  color: '#6B5A00',
-                }}>
-                  <span style={{ fontWeight: 700 }}>⚠ Atenção: </span>
-                  {s.tip}
-                </div>
-              </div>
-            )
-          })()}
-        </div>
-      )}
-
-      {/* PROCEDIMENTO VIEW */}
-      {view === 'procedimento' && (
-        <div>
-          <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.6 }}>
-            Sequência completa para carga de enxoval branco nas LG VC4 14 kg.
-            Carga ideal: 10–11 kg (nunca lotada).
-          </p>
-
-          {procedureSteps.map((step, i) => (
-            <div key={i} style={{ display: 'flex', gap: 14, marginBottom: 4, position: 'relative' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 32, flexShrink: 0 }}>
-                <div style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: step.machine ? '#2563EB' : '#0D9488',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}>
-                  {step.num}
-                </div>
-                {i < procedureSteps.length - 1 && (
-                  <div style={{ width: 2, flex: 1, background: 'var(--border)', minHeight: 20 }} />
-                )}
-              </div>
-
-              <div style={{ flex: 1, paddingBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{step.title}</span>
-                  <span style={{
-                    fontSize: 10,
-                    padding: '2px 7px',
-                    borderRadius: 4,
-                    background: step.machine ? '#EFF6FF' : '#F0FDFA',
-                    color: step.machine ? '#2563EB' : '#0D9488',
-                    fontWeight: 600,
-                  }}>
-                    {step.machine ? 'MÁQUINA' : 'BANCADA'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>{step.desc}</div>
-                {step.dosagem && (
-                  <div style={{
-                    fontSize: 12,
-                    color: '#2563EB',
-                    fontWeight: 600,
-                    marginTop: 6,
-                    background: '#EFF6FF',
-                    padding: '6px 10px',
-                    borderRadius: 6,
-                    display: 'inline-block',
-                  }}>
-                    Dosagem: {step.dosagem}
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>{p.acao}</p>
+                    <div style={{
+                      marginTop: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: stain.color,
+                      background: `${stain.color}15`,
+                      padding: '3px 10px',
+                      borderRadius: 20,
+                    }}>
+                      ⏱ {p.tempo}
+                    </div>
                   </div>
-                )}
-                {step.warning && (
-                  <div style={{
-                    fontSize: 12,
-                    color: '#92400E',
-                    fontWeight: 500,
-                    marginTop: 6,
-                    background: '#FFF8E6',
-                    padding: '6px 10px',
-                    borderRadius: 6,
-                  }}>
-                    ⚠ {step.warning}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                </section>
+              ))}
 
-      {/* PRODUTOS VIEW */}
-      {view === 'produtos' && (
-        <div>
-          {produtos.map((p, i) => (
-            <div key={i} style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 16,
-              marginBottom: 12,
-              borderLeft: `4px solid ${p.cor}`,
-            }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2, color: 'var(--text)' }}>{p.nome}</div>
-              <div style={{ fontSize: 11, color: p.cor, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {p.tipo}
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.55, marginBottom: 6, color: 'var(--text)' }}>
-                <span style={{ fontWeight: 600 }}>Função: </span>{p.funcao}
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.55, marginBottom: 6, color: 'var(--text)' }}>
-                <span style={{ fontWeight: 600 }}>Dosagem: </span>{p.dose}
-              </div>
+              {/* Atenção */}
               <div style={{
-                fontSize: 12,
-                background: '#FFF8E6',
-                padding: '6px 10px',
-                borderRadius: 6,
-                color: '#6B5A00',
+                padding: '12px 14px',
+                borderRadius: 'var(--radius)',
+                background: 'color-mix(in srgb, var(--warning), transparent 88%)',
+                border: '1px solid color-mix(in srgb, var(--warning), transparent 60%)',
+                fontSize: 13,
                 lineHeight: 1.5,
+                color: 'var(--text-h)',
               }}>
-                <span style={{ fontWeight: 700 }}>Regra: </span>{p.regra}
+                <span style={{ fontWeight: 700, color: 'var(--warning)' }}>⚠ Atenção: </span>
+                {stain.atencao}
               </div>
             </div>
-          ))}
+          </div>
+        </>
+      )}
 
-          <div style={{
-            background: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            borderRadius: 10,
-            padding: 16,
-            marginTop: 20,
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#1E40AF', marginBottom: 8 }}>
-              O que ainda falta no seu kit
-            </div>
-            {[
-              { nome: 'Detergente enzimático de lavanderia', pq: 'Protease + lipase — ataca suor, sangue, sebo, comida. É o que mais faz diferença no dia a dia de enxoval.' },
-              { nome: 'Neutralizante ácido (sour) de lavanderia', pq: 'Último enxágue — baixa pH, preserva fibra, mantém alvura. Substituto caseiro: vinagre branco.' },
-              { nome: 'Sequestrante / abrandador de água', pq: 'Previne mancha de ferro e dureza na própria máquina. Reduz muito o retrabalho com Azulim.' },
-            ].map((item, i) => (
+      {/* ════════════════════════════════════════════
+          VIEW: PROCEDIMENTO COMPLETO
+      ════════════════════════════════════════════ */}
+      {view === 'procedimento' && (
+        <section className="panel">
+          <div className="panelHeader">
+            <h2 style={{ fontSize: 15 }}>Sequência completa de lavagem</h2>
+            <span className="hint" style={{ fontSize: 12 }}>LG VC4 14 kg · carga ideal 10–11 kg</span>
+          </div>
+          <div className="panelBody" style={{ padding: 0 }}>
+            {procedimento.map((step, i) => (
               <div key={i} style={{
-                padding: '8px 0',
-                borderBottom: i < 2 ? '1px solid #DBEAFE' : 'none',
+                display: 'flex',
+                gap: 0,
+                borderBottom: i < procedimento.length - 1 ? '1px solid var(--border)' : 'none',
               }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1E40AF' }}>{item.nome}</div>
-                <div style={{ fontSize: 12, color: '#3B5998', marginTop: 2 }}>{item.pq}</div>
+                {/* Número + linha */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  width: 52,
+                  flexShrink: 0,
+                  padding: '16px 0',
+                }}>
+                  <div style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: '50%',
+                    background: step.local ? 'var(--accent)' : 'var(--ok)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    flexShrink: 0,
+                  }}>
+                    {step.num}
+                  </div>
+                  {i < procedimento.length - 1 && (
+                    <div style={{ width: 2, flex: 1, background: 'var(--border)', marginTop: 6, minHeight: 16 }} />
+                  )}
+                </div>
+
+                {/* Conteúdo */}
+                <div style={{ flex: 1, padding: '16px 16px 16px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-h)' }}>{step.titulo}</span>
+                    <span className={`badge ${step.local ? 'badgeBlue' : 'badgeGreen'}`} style={{ fontSize: 10 }}>
+                      {step.local ? 'MÁQUINA' : 'BANCADA'}
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{step.desc}</p>
+
+                  {step.dosagem && (
+                    <div style={{
+                      display: 'inline-block',
+                      marginTop: 8,
+                      padding: '5px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--code-bg)',
+                      border: '1px solid var(--border)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: 'var(--text-h)',
+                    }}>
+                      Dosagem: {step.dosagem}
+                    </div>
+                  )}
+
+                  {step.alerta && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '6px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'color-mix(in srgb, var(--warning), transparent 88%)',
+                      border: '1px solid color-mix(in srgb, var(--warning), transparent 60%)',
+                      fontSize: 12,
+                      color: 'var(--text-h)',
+                    }}>
+                      <span style={{ fontWeight: 700, color: 'var(--warning)' }}>⚠ </span>{step.alerta}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      <div style={{
-        marginTop: 32,
-        padding: '12px 0',
-        borderTop: '1px solid var(--border)',
-        fontSize: 11,
-        color: 'var(--muted)',
-        textAlign: 'center',
-      }}>
-        Regra de ouro: ÓLEO → FERRO → PIGMENTO → NEUTRALIZAR · Nunca seque antes de conferir
-      </div>
+      {/* ════════════════════════════════════════════
+          VIEW: PRODUTOS
+      ════════════════════════════════════════════ */}
+      {view === 'produtos' && (
+        <>
+          {produtos.map((p, i) => (
+            <section key={i} className="panel" style={{ borderLeft: `4px solid ${p.cor}` }}>
+              <div className="panelHeader">
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-h)' }}>
+                    {p.nome}
+                    {p.fabricante && <span className="hint" style={{ fontSize: 12, marginLeft: 8, fontWeight: 400 }}>({p.fabricante})</span>}
+                  </div>
+                  <span className="badge badgeMuted" style={{ fontSize: 10, marginTop: 4, display: 'inline-block' }}>{p.tipo}</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-end' }}>
+                  {p.usarEm.map((u) => (
+                    <span key={u} className="badge" style={{ fontSize: 10, background: `${p.cor}15`, color: p.cor, borderColor: `${p.cor}40` }}>
+                      {u}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="panelBody grid" style={{ gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div className="statLabel" style={{ marginBottom: 4 }}>Função</div>
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text)' }}>{p.funcao}</p>
+                  </div>
+                  <div style={{ padding: '10px 12px', background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div className="statLabel" style={{ marginBottom: 4 }}>Dosagem</div>
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text)' }}>{p.dose}</p>
+                  </div>
+                </div>
+                <div style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'color-mix(in srgb, var(--warning), transparent 88%)',
+                  border: '1px solid color-mix(in srgb, var(--warning), transparent 60%)',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: 'var(--text-h)',
+                }}>
+                  <span style={{ fontWeight: 700, color: 'var(--warning)' }}>Regra: </span>{p.regra}
+                </div>
+              </div>
+            </section>
+          ))}
+
+          {/* Kit incompleto */}
+          <section className="panel">
+            <div className="panelHeader">
+              <h2 style={{ fontSize: 14 }}>O que ainda falta no kit</h2>
+              <span className="badge badgeBlue">Recomendado</span>
+            </div>
+            <div className="panelBody" style={{ padding: 0 }}>
+              {[
+                { nome: 'Detergente enzimático de lavanderia', pq: 'Protease + lipase — ataca suor, sangue, sebo e comida. É o que mais faz diferença no dia a dia de enxoval.' },
+                { nome: 'Neutralizante ácido (sour)', pq: 'Último enxágue — baixa pH, preserva fibra, mantém alvura. Substituto caseiro: vinagre branco.' },
+                { nome: 'Sequestrante / abrandador de água', pq: 'Previne mancha de ferro e dureza na própria máquina. Reduz muito o retrabalho com Azulim.' },
+              ].map((item, i, arr) => (
+                <div key={i} style={{
+                  padding: '12px 16px',
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-h)' }}>{item.nome}</span>
+                  <span className="hint">{item.pq}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   )
 }

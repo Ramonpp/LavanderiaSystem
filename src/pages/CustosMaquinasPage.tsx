@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { fetchLgEnergyUsage } from '../lib/lgThinq'
 import { StatusBanner } from '../components/StatusBanner'
 import { formatBRL } from '../lib/format'
-import { upsertResumoMensal } from '../data/resumo_mensal'
+import { upsertResumoMensal, fetchResumoPorMes } from '../data/resumo_mensal'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
 import { monthBoundsLocal } from '../lib/dates'
+import type { ResumoMensal } from '../types/models'
+
 
 /* ── Máquinas fixas ────────────────────────────────────────── */
 const MAQUINAS = [
@@ -99,6 +101,22 @@ export function CustosMaquinasPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [resumoDb, setResumoDb] = useState<ResumoMensal | null>(null)
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      const { data } = await fetchResumoPorMes(mes)
+      if (active) {
+        setResumoDb(data)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [mes])
+
 
   const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
 
@@ -259,21 +277,40 @@ export function CustosMaquinasPage() {
       const bounds = monthBoundsLocal(y, m)
       const { data: peds } = await fetchPedidosPorPeriodo({ inicioIsoDate: bounds.start, fimIsoDate: bounds.end })
       const ativos = peds.filter((p) => p.status !== 'cancelado')
+      const energyCost = Math.round(totalEnergiaMes * 100) / 100
+      const waterCost = Math.round(totalAguaMes * 100) / 100
+      const totalPed = ativos.length
+      const totalKg = Math.round(ativos.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0) * 100) / 100
+
       const { error } = await upsertResumoMensal({
         mes_ano: mes,
-        total_pedidos: ativos.length,
-        total_kg: Math.round(ativos.reduce((acc, p) => acc + Number(p.peso_kg ?? 0), 0) * 100) / 100,
-        custo_energia: Math.round(totalEnergiaMes * 100) / 100,
-        custo_agua: Math.round(totalAguaMes * 100) / 100,
+        total_pedidos: totalPed,
+        total_kg: totalKg,
+        custo_energia: energyCost,
+        custo_agua: waterCost,
       })
-      if (error) setErro(error)
-      else setMsg(`Resumo de ${mesLabel} salvo no histórico.`)
+      if (error) {
+        setErro(error)
+      } else {
+        setMsg(`Resumo de ${mesLabel} salvo no histórico.`)
+        setResumoDb({
+          id: resumoDb?.id || '',
+          mes_ano: mes,
+          total_pedidos: totalPed,
+          total_kg: totalKg,
+          custo_energia: energyCost,
+          custo_agua: waterCost,
+          criado_em: resumoDb?.criado_em || new Date().toISOString(),
+          atualizado_em: new Date().toISOString()
+        } as ResumoMensal)
+      }
     } catch (err) {
       setErro(String(err))
     } finally {
       setSalvando(false)
     }
   }
+
 
   const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
   const mesLabel = mes
@@ -345,6 +382,39 @@ export function CustosMaquinasPage() {
           </div>
         </div>
       </section>
+
+      {/* ── Histórico Salvo no Banco de Dados ─── */}
+      {resumoDb && (
+        <section className="panel" style={{ borderLeft: '4px solid var(--ok)' }}>
+          <div className="panelBody" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ok)', fontWeight: 600 }}>
+              <span style={{ fontSize: 16 }}>✓</span>
+              <span>Histórico Registrado</span>
+            </div>
+            <div className="hint" style={{ fontSize: 12 }}>
+              Este período está salvo no banco de dados e sincronizado em todos os dispositivos.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 14, marginTop: 4 }}>
+              <div>
+                <span className="hint" style={{ fontSize: 11 }}>Custo de Energia (Luz):</span>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)' }}>{formatBRL(resumoDb.custo_energia)}</div>
+              </div>
+              <div>
+                <span className="hint" style={{ fontSize: 11 }}>Custo de Água:</span>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ok)' }}>{formatBRL(resumoDb.custo_agua)}</div>
+              </div>
+              <div>
+                <span className="hint" style={{ fontSize: 11 }}>Custo Total de Utilidades:</span>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{formatBRL(resumoDb.custo_energia + resumoDb.custo_agua)}</div>
+              </div>
+              <div>
+                <span className="hint" style={{ fontSize: 11 }}>Pedidos Ativos / Peso Total:</span>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{resumoDb.total_pedidos} pedidos ({Number(resumoDb.total_kg).toLocaleString('pt-BR')} kg)</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Cards das máquinas ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
@@ -528,79 +598,113 @@ export function CustosMaquinasPage() {
       </div>
 
       {/* ── KPIs consolidados ─── */}
-      {totalMes > 0 && (
-        <section className="panel">
-          <div className="panelHeader">
-            <h2 style={{ fontSize: 15 }}>Consolidado — {mesLabel}</h2>
-            <button
-              className="btn btnPrimary"
-              type="button"
-              onClick={salvarResumo}
-              disabled={salvando}
-            >
-              {salvando ? 'Salvando...' : 'Registrar no histórico'}
-            </button>
-          </div>
-          <div className="panelBody">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-              <div>
-                <div className="statLabel">Custo total / mês</div>
-                <div className="statVal">{formatBRL(totalMes)}</div>
-              </div>
-              <div>
-                <div className="statLabel">Energia (Luz)</div>
-                <div className="statValSm" style={{ color: 'var(--accent)' }}>{formatBRL(totalEnergiaMes)}</div>
-                <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
-                  {machineData.maq_753.apelido || 'Lavadora 753'}: {resultados.maq_753?.kwh_total !== null ? `${fmt2(resultados.maq_753.kwh_total)} kWh` : '—'}<br />
-                  {machineData.maq_789.apelido || 'Lavadora 789'}: {resultados.maq_789?.kwh_total !== null ? `${fmt2(resultados.maq_789.kwh_total)} kWh` : '—'}
-                </div>
-              </div>
-              <div>
-                <div className="statLabel">Água</div>
-                <div className="statValSm" style={{ color: 'var(--ok)' }}>{formatBRL(totalAguaMes)}</div>
-                <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
-                  Total: {fmt2(totalM3)} m³ ({waterCalculated.faixa})<br />
-                  Vol. Total: {(totalLitros).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L
-                </div>
-              </div>
-              <div>
-                <div className="statLabel">Total de ciclos</div>
-                <div className="statValSm">{totalCiclos.toLocaleString('pt-BR')}</div>
-                <div className="hint" style={{ fontSize: 11 }}>
-                  Custo médio/ciclo:{' '}
-                  {totalCiclos > 0 ? formatBRL(totalMes / totalCiclos) : '—'}
-                </div>
-              </div>
-            </div>
+      {(() => {
+        const showConsolidado = totalMes > 0 || resumoDb !== null
+        const displayTotal = totalMes > 0 ? totalMes : (resumoDb ? (Number(resumoDb.custo_energia) + Number(resumoDb.custo_agua)) : 0)
+        const displayEnergia = totalMes > 0 ? totalEnergiaMes : (resumoDb ? Number(resumoDb.custo_energia) : 0)
+        const displayAgua = totalMes > 0 ? totalAguaMes : (resumoDb ? Number(resumoDb.custo_agua) : 0)
+        const displayCiclos = totalMes > 0 ? totalCiclos : 0
 
-            {totalMes > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <div className="hint" style={{ marginBottom: 6, fontSize: 12 }}>
-                  Composição: {fmt2((totalEnergiaMes / totalMes) * 100)}% energia · {fmt2((totalAguaMes / totalMes) * 100)}% água
-                </div>
-                <div style={{ height: 8, borderRadius: 99, overflow: 'hidden', background: 'var(--border)', display: 'flex' }}>
-                  <div style={{
-                    width: `${(totalEnergiaMes / totalMes) * 100}%`,
-                    background: 'var(--accent)',
-                    transition: 'width 400ms ease',
-                  }} />
-                  <div style={{ flex: 1, background: 'var(--ok)' }} />
-                </div>
-                <div className="hint" style={{ marginTop: 6, display: 'flex', gap: 14, fontSize: 11 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--accent)', display: 'inline-block' }} />
-                    Energia
+        if (!showConsolidado) return null
+
+        return (
+          <section className="panel">
+            <div className="panelHeader">
+              <h2 style={{ fontSize: 15 }}>
+                Consolidado — {mesLabel}{' '}
+                {totalMes === 0 && resumoDb && (
+                  <span 
+                    style={{ 
+                      backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                      color: 'rgb(16, 185, 129)', 
+                      fontSize: 11, 
+                      padding: '2px 8px', 
+                      borderRadius: 99,
+                      marginLeft: 8,
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}
+                  >
+                    Sincronizado do Banco
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--ok)', display: 'inline-block' }} />
-                    Água
-                  </span>
+                )}
+              </h2>
+              <button
+                className="btn btnPrimary"
+                type="button"
+                onClick={salvarResumo}
+                disabled={salvando}
+              >
+                {salvando ? 'Salvando...' : 'Registrar no histórico'}
+              </button>
+            </div>
+            <div className="panelBody">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+                <div>
+                  <div className="statLabel">Custo total / mês</div>
+                  <div className="statVal">{formatBRL(displayTotal)}</div>
+                </div>
+                <div>
+                  <div className="statLabel">Energia (Luz)</div>
+                  <div className="statValSm" style={{ color: 'var(--accent)' }}>{formatBRL(displayEnergia)}</div>
+                  {totalMes > 0 && (
+                    <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
+                      {machineData.maq_753.apelido || 'Lavadora 753'}: {resultados.maq_753?.kwh_total !== null ? `${fmt2(resultados.maq_753.kwh_total)} kWh` : '—'}<br />
+                      {machineData.maq_789.apelido || 'Lavadora 789'}: {resultados.maq_789?.kwh_total !== null ? `${fmt2(resultados.maq_789.kwh_total)} kWh` : '—'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="statLabel">Água</div>
+                  <div className="statValSm" style={{ color: 'var(--ok)' }}>{formatBRL(displayAgua)}</div>
+                  {totalMes > 0 && (
+                    <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
+                      Total: {fmt2(totalM3)} m³ ({waterCalculated.faixa})<br />
+                      Vol. Total: {(totalLitros).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="statLabel">Total de ciclos</div>
+                  <div className="statValSm">{totalMes > 0 ? displayCiclos.toLocaleString('pt-BR') : '—'}</div>
+                  {totalMes > 0 && totalCiclos > 0 && (
+                    <div className="hint" style={{ fontSize: 11 }}>
+                      Custo médio/ciclo: {formatBRL(displayTotal / totalCiclos)}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        </section>
-      )}
+
+              {displayTotal > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div className="hint" style={{ marginBottom: 6, fontSize: 12 }}>
+                    Composição: {fmt2((displayEnergia / displayTotal) * 100)}% energia · {fmt2((displayAgua / displayTotal) * 100)}% água
+                  </div>
+                  <div style={{ height: 8, borderRadius: 99, overflow: 'hidden', background: 'var(--border)', display: 'flex' }}>
+                    <div style={{
+                      width: `${(displayEnergia / displayTotal) * 100}%`,
+                      background: 'var(--accent)',
+                      transition: 'width 400ms ease',
+                    }} />
+                    <div style={{ flex: 1, background: 'var(--ok)' }} />
+                  </div>
+                  <div className="hint" style={{ marginTop: 6, display: 'flex', gap: 14, fontSize: 11 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--accent)', display: 'inline-block' }} />
+                      Energia
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--ok)', display: 'inline-block' }} />
+                      Água
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )
+      })()}
     </div>
   )
 }
