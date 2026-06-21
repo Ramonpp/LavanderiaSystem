@@ -147,8 +147,7 @@ insert into public.app_config (id, dias_uteis_mes_padrao, preco_referencia_kg, c
 values ('00000000-0000-0000-0000-000000000001', 22, 8.5, 2.2)
 on conflict (id) do nothing;
 
--- RLS (MVP / testes): liberar acesso com a chave anon do frontend.
--- ATENÇÃO: isso expõe leitura/escrita pública.
+-- RLS: Apenas usuários autenticados têm acesso de leitura/escrita.
 
 alter table public.cliente enable row level security;
 alter table public.tipo_peca enable row level security;
@@ -159,24 +158,24 @@ alter table public.maquina enable row level security;
 alter table public.app_config enable row level security;
 
 drop policy if exists "dev_anon_cliente_all" on public.cliente;
-create policy "dev_anon_cliente_all" on public.cliente for all using (true) with check (true);
+create policy "auth_cliente_all" on public.cliente for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 drop policy if exists "dev_anon_tipo_peca_all" on public.tipo_peca;
-create policy "dev_anon_tipo_peca_all" on public.tipo_peca for all using (true) with check (true);
+create policy "auth_tipo_peca_all" on public.tipo_peca for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 drop policy if exists "dev_anon_pedido_all" on public.pedido;
-create policy "dev_anon_pedido_all" on public.pedido for all using (true) with check (true);
+create policy "auth_pedido_all" on public.pedido for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 drop policy if exists "dev_anon_item_pedido_all" on public.item_pedido;
-create policy "dev_anon_item_pedido_all" on public.item_pedido for all using (true) with check (true);
+create policy "auth_item_pedido_all" on public.item_pedido for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 drop policy if exists "dev_anon_despesa_all" on public.despesa;
-create policy "dev_anon_despesa_all" on public.despesa for all using (true) with check (true);
+create policy "auth_despesa_all" on public.despesa for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 drop policy if exists "dev_anon_maquina_all" on public.maquina;
-create policy "dev_anon_maquina_all" on public.maquina for all using (true) with check (true);
+create policy "auth_maquina_all" on public.maquina for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 drop policy if exists "dev_anon_app_config_all" on public.app_config;
-create policy "dev_anon_app_config_all" on public.app_config for all using (true) with check (true);
+create policy "auth_app_config_all" on public.app_config for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 commit;
