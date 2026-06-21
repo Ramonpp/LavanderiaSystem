@@ -1,252 +1,239 @@
-import { useEffect, useMemo, useState } from 'react'
-import { fetchMaquinas } from '../data/maquinas'
-import type { Maquina } from '../types/models'
+import { useState } from 'react'
+import { fetchLgEnergyUsage } from '../lib/lgThinq'
 import { StatusBanner } from '../components/StatusBanner'
 import { formatBRL } from '../lib/format'
 
-/* ── Tipos locais ──────────────────────────────────────── */
-type ParamsMaquina = {
-  potencia_kw: string   // kW consumidos por ciclo (lavagem=motor+aquecimento, secagem=resistência)
-  litros_ciclo: string  // litros de água por ciclo (secagem = 0)
-  lg_device_id?: string // ID do device no LG ThinQ
+/* ── Máquinas fixas ────────────────────────────────────────── */
+const MAQUINAS = [
+  {
+    key: 'maq_753',
+    nomeDefault: 'Lavadora 753',
+    deviceId: 'a62b1df203c4a7188e7880433c9cebfb407c428b5a5a8e0af9dd0f696bee44c1',
+  },
+  {
+    key: 'maq_789',
+    nomeDefault: 'Lavadora 789',
+    deviceId: '2d6ec2ccc498b22ed9690f16cec2b0d93a0743abb5c3c2c594ecd6bcc1779181',
+  },
+] as const
+
+type MaqKey = typeof MAQUINAS[number]['key']
+
+type MachineData = {
+  apelido: string
+  litros_ciclo: string
 }
 
-type ResultadoMaquina = {
-  maquina: Maquina
-  horas_ciclo: number
-  kwh_ciclo: number
-  m3_ciclo: number
-  custo_energia_ciclo: number
-  custo_agua_ciclo: number
-  custo_total_ciclo: number
-  ciclos_dia: number
-  custo_dia: number
-  custo_mes: number
-  kg_dia: number
-  custo_por_kg: number
-  litros_ciclo: number
-  litros_dia: number
-  litros_mes: number
-  m3_mes: number
-  ciclos_mes: number
+type MonthData = {
+  ciclos: string
+  consumo_wh: number | null
 }
 
-/* ── Defaults razoáveis ────────────────────────────────── */
-const DEF_POTENCIA: Record<Maquina['tipo'], string> = {
-  lavagem: '2.5',  // kW típico lavadora semi-industrial
-  secagem: '3.5',  // kW típico secadora
+function lsGet(key: string, fallback: string) {
+  try { return localStorage.getItem(key) ?? fallback } catch { return fallback }
 }
-const DEF_LITROS: Record<Maquina['tipo'], string> = {
-  lavagem: '80',  // litros por ciclo de lavagem
-  secagem: '0',   // secadora não consome água
+function lsSet(key: string, value: string) {
+  try { localStorage.setItem(key, value) } catch {}
 }
 
-import { fetchLgEnergyUsage } from '../lib/lgThinq'
-import { upsertConsumo, fetchConsumos } from '../data/consumo_maquina'
+function loadMachineData(key: MaqKey): MachineData {
+  return {
+    apelido: lsGet(`lav_${key}_apelido`, ''),
+    litros_ciclo: lsGet(`lav_${key}_litros`, '80'),
+  }
+}
 
-function calcular(
-  maquinas: Maquina[],
-  params: Record<string, ParamsMaquina>,
-  tarifaKwh: number,
-  tarifaAguaM3: number,
-  diasMes: number,
-  lgConsumos: Record<string, number>
-): ResultadoMaquina[] {
-  return maquinas.map((m) => {
-    const p = params[m.id] ?? { potencia_kw: DEF_POTENCIA[m.tipo], litros_ciclo: DEF_LITROS[m.tipo] }
+function loadMonthData(key: MaqKey, mes: string): MonthData {
+  const whStr = lsGet(`lav_${key}_wh_${mes}`, '')
+  return {
+    ciclos: lsGet(`lav_${key}_ciclos_${mes}`, ''),
+    consumo_wh: whStr !== '' ? Number(whStr) : null,
+  }
+}
 
-    const minutos = Number(m.minutos_por_ciclo ?? 60)
-    const horas_ciclo = minutos / 60
+function saveMachineData(key: MaqKey, data: MachineData) {
+  lsSet(`lav_${key}_apelido`, data.apelido)
+  lsSet(`lav_${key}_litros`, data.litros_ciclo)
+}
 
-    const kw = Math.max(0, Number(String(p.potencia_kw).replace(',', '.')) || 0)
-    let kwh_ciclo = kw * horas_ciclo
-
-    const litros = Math.max(0, Number(String(p.litros_ciclo).replace(',', '.')) || 0)
-    const m3_ciclo = litros / 1000
-
-    let custo_energia_ciclo = kwh_ciclo * tarifaKwh
-    const custo_agua_ciclo    = m3_ciclo * tarifaAguaM3
-    let custo_total_ciclo   = custo_energia_ciclo + custo_agua_ciclo
-
-    const ciclos_dia = Number(m.ciclos_por_dia_util)
-    let custo_dia  = custo_total_ciclo * ciclos_dia
-    let custo_mes  = custo_dia * diasMes
-    
-    // Sobrescrever se tivermos consumo da LG
-    const lgWh = lgConsumos[m.id]
-    if (lgWh !== undefined) {
-      const lgKwhMes = lgWh / 1000
-      const lgCustoEnergiaMes = lgKwhMes * tarifaKwh
-      const custo_agua_mes = custo_agua_ciclo * ciclos_dia * diasMes
-      custo_mes = lgCustoEnergiaMes + custo_agua_mes
-      custo_dia = custo_mes / diasMes
-      custo_total_ciclo = custo_dia / ciclos_dia
-      custo_energia_ciclo = lgCustoEnergiaMes / (ciclos_dia * diasMes)
-      kwh_ciclo = lgKwhMes / (ciclos_dia * diasMes)
-    }
-    const kg_dia     = Number(m.capacidade_kg) * ciclos_dia
-    const custo_por_kg = kg_dia > 0 ? custo_dia / kg_dia : 0
-
-    const litros_ciclo = litros
-    const litros_dia   = litros_ciclo * ciclos_dia
-    const litros_mes   = litros_dia * diasMes
-    const m3_mes       = litros_mes / 1000
-    const ciclos_mes   = ciclos_dia * diasMes
-
-    return {
-      maquina: m,
-      horas_ciclo,
-      kwh_ciclo,
-      m3_ciclo,
-      custo_energia_ciclo,
-      custo_agua_ciclo,
-      custo_total_ciclo,
-      ciclos_dia,
-      custo_dia,
-      custo_mes,
-      kg_dia,
-      custo_por_kg,
-      litros_ciclo,
-      litros_dia,
-      litros_mes,
-      m3_mes,
-      ciclos_mes,
-    }
-  })
+function saveMonthData(key: MaqKey, mes: string, data: Partial<MonthData>) {
+  if (data.ciclos !== undefined) lsSet(`lav_${key}_ciclos_${mes}`, data.ciclos)
+  if (data.consumo_wh !== undefined && data.consumo_wh !== null) {
+    lsSet(`lav_${key}_wh_${mes}`, String(data.consumo_wh))
+  }
 }
 
 function fmt2(n: number) {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/* ── Componente ────────────────────────────────────────── */
+function currentMonth() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/* ── Componente ────────────────────────────────────────────── */
 export function CustosMaquinasPage() {
-  const [maquinas, setMaquinas]   = useState<Maquina[]>([])
-  const [erro, setErro]           = useState<string | null>(null)
-  const [msg, setMsg]             = useState<string | null>(null)
+  const [mes, setMes] = useState(currentMonth)
 
-  // Parâmetros globais
-  const [tarifaKwh,    setTarifaKwh]    = useState(() => {
-    try { return localStorage.getItem('lav_custos_tarifaKwh') ?? '0.85' } catch { return '0.85' }
-  })  // R$/kWh
-  const [tarifaAguaM3, setTarifaAguaM3] = useState(() => {
-    try { return localStorage.getItem('lav_custos_tarifaAguaM3') ?? '8.00' } catch { return '8.00' }
-  })  // R$/m³
-  const [diasMes,      setDiasMes]      = useState(() => {
-    try { return localStorage.getItem('lav_custos_diasMes') ?? '22' } catch { return '22' }
-  })
-  
-  const [mesLg, setMesLg] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
+  const [tarifaKwh, setTarifaKwh] = useState(() => lsGet('lav_custos_tarifaKwh', '0.85'))
+  const [tarifaAguaM3, setTarifaAguaM3] = useState(() => lsGet('lav_custos_tarifaAguaM3', '8.00'))
 
-  // Parâmetros por máquina: { [id]: { potencia_kw, litros_ciclo, lg_device_id } }
-  const [params, setParams] = useState<Record<string, ParamsMaquina>>(() => {
-    try {
-      const saved = localStorage.getItem('lav_custos_params')
-      if (saved) return JSON.parse(saved)
-    } catch {}
-    return {}
+  const [machineData, setMachineData] = useState<Record<MaqKey, MachineData>>(() => ({
+    maq_753: loadMachineData('maq_753'),
+    maq_789: loadMachineData('maq_789'),
+  }))
+
+  const [monthData, setMonthData] = useState<Record<MaqKey, MonthData>>(() => ({
+    maq_753: loadMonthData('maq_753', currentMonth()),
+    maq_789: loadMonthData('maq_789', currentMonth()),
+  }))
+
+  const [buscando, setBuscando] = useState<Record<MaqKey, boolean>>({
+    maq_753: false,
+    maq_789: false,
   })
 
-  // Consumo retornado da LG em Watt-hora
-  const [lgConsumos, setLgConsumos] = useState<Record<string, number>>({})
-  const [buscandoLg, setBuscandoLg] = useState<Record<string, boolean>>({})
+  const [erro, setErro] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchMaquinas().then(({ data, error }) => {
-      if (error) { setErro(error); return }
-      setMaquinas(data.filter((m) => m.ativo))
-      
-      setParams((prev) => {
-        const next = { ...prev }
-        let changed = false
-        data.filter((m) => m.ativo).forEach((m) => {
-          if (!next[m.id]) {
-            next[m.id] = {
-              potencia_kw:  DEF_POTENCIA[m.tipo],
-              litros_ciclo: DEF_LITROS[m.tipo],
-              lg_device_id: ''
-            }
-            changed = true
-          }
-        })
-        return changed ? next : prev
-      })
+  const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
+  const m3 = Math.max(0, Number(tarifaAguaM3.replace(',', '.')) || 0)
+
+  function handleMesChange(novoMes: string) {
+    setMes(novoMes)
+    setMonthData({
+      maq_753: loadMonthData('maq_753', novoMes),
+      maq_789: loadMonthData('maq_789', novoMes),
     })
-  }, [])
+  }
 
-  useEffect(() => {
-    // Ao trocar o mês, busca os consumos já salvos no banco para este mês
-    if (!mesLg) return
-    fetchConsumos(mesLg).then(({ data, error }) => {
-      if (error) { setErro(error); return }
-      const novosConsumos: Record<string, number> = {}
-      for (const row of data) {
-        novosConsumos[row.maquina_id] = row.consumo_wh
-      }
-      setLgConsumos(novosConsumos)
+  function updateMachine(key: MaqKey, field: keyof MachineData, value: string) {
+    setMachineData((prev) => {
+      const next = { ...prev, [key]: { ...prev[key], [field]: value } }
+      saveMachineData(key, next[key])
+      return next
     })
-  }, [mesLg])
+  }
 
-  function salvarPadrao() {
+  function updateCiclos(key: MaqKey, value: string) {
+    setMonthData((prev) => {
+      const next = { ...prev, [key]: { ...prev[key], ciclos: value } }
+      saveMonthData(key, mes, { ciclos: value })
+      return next
+    })
+  }
+
+  function salvarTarifas() {
+    lsSet('lav_custos_tarifaKwh', tarifaKwh)
+    lsSet('lav_custos_tarifaAguaM3', tarifaAguaM3)
+    setMsg('Tarifas salvas.')
+  }
+
+  async function buscarLg(key: MaqKey, deviceId: string, nome: string) {
+    setBuscando((prev) => ({ ...prev, [key]: true }))
+    setErro(null)
     setMsg(null)
     try {
-      localStorage.setItem('lav_custos_tarifaKwh', tarifaKwh)
-      localStorage.setItem('lav_custos_tarifaAguaM3', tarifaAguaM3)
-      localStorage.setItem('lav_custos_diasMes', diasMes)
-      localStorage.setItem('lav_custos_params', JSON.stringify(params))
-      setMsg('Padrões salvos.')
-    } catch {
-      setErro('Não foi possível salvar os padrões neste navegador.')
+      const yyyyMm = mes.replace('-', '')
+      const res = await fetchLgEnergyUsage(deviceId, yyyyMm, yyyyMm)
+      if (res.error) {
+        setErro(res.error)
+      } else if (res.energy_wh !== undefined) {
+        const wh = res.energy_wh
+        setMonthData((prev) => {
+          const next = { ...prev, [key]: { ...prev[key], consumo_wh: wh } }
+          saveMonthData(key, mes, { consumo_wh: wh })
+          return next
+        })
+        setMsg(`Consumo atualizado para ${nome}: ${fmt2(wh / 1000)} kWh`)
+      }
+    } catch (err) {
+      setErro(String(err))
+    } finally {
+      setBuscando((prev) => ({ ...prev, [key]: false }))
     }
   }
 
-  function setParam(id: string, field: keyof ParamsMaquina, value: string) {
-    setParams((prev) => ({
-      ...prev,
-      [id]: { ...(prev[id] ?? { potencia_kw: '0', litros_ciclo: '0' }), [field]: value },
-    }))
+  /* ── Cálculos por máquina ──────────────────────────────── */
+  type Resultado = {
+    kwh_total: number
+    kwh_ciclo: number
+    custo_energia_ciclo: number
+    custo_agua_ciclo: number
+    custo_total_ciclo: number
+    custo_energia_mes: number
+    custo_agua_mes: number
+    custo_total_mes: number
+    ciclos: number
+    litros: number
+  } | null
+
+  function calcular(key: MaqKey): Resultado {
+    const md = monthData[key]
+    const machine = machineData[key]
+    if (md.consumo_wh === null) return null
+    const ciclos = Math.max(1, Number(md.ciclos) || 0)
+    if (ciclos === 0) return null
+
+    const kwh_total = md.consumo_wh / 1000
+    const kwh_ciclo = kwh_total / ciclos
+    const litros = Math.max(0, Number(machine.litros_ciclo.replace(',', '.')) || 0)
+
+    const custo_energia_ciclo = kwh_ciclo * kwh
+    const custo_agua_ciclo = (litros / 1000) * m3
+    const custo_total_ciclo = custo_energia_ciclo + custo_agua_ciclo
+    const custo_energia_mes = kwh_total * kwh
+    const custo_agua_mes = (litros / 1000) * ciclos * m3
+    const custo_total_mes = custo_energia_mes + custo_agua_mes
+
+    return {
+      kwh_total,
+      kwh_ciclo,
+      custo_energia_ciclo,
+      custo_agua_ciclo,
+      custo_total_ciclo,
+      custo_energia_mes,
+      custo_agua_mes,
+      custo_total_mes,
+      ciclos,
+      litros,
+    }
   }
 
-  const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
-  const m3  = Math.max(0, Number(tarifaAguaM3.replace(',', '.')) || 0)
-  const dias = Math.max(1, Number(diasMes) || 22)
+  const resultados: Record<MaqKey, Resultado> = {
+    maq_753: calcular('maq_753'),
+    maq_789: calcular('maq_789'),
+  }
 
-  const resultados = useMemo(
-    () => calcular(maquinas, params, kwh, m3, dias, lgConsumos),
-    [maquinas, params, kwh, m3, dias, lgConsumos],
-  )
+  const totalMes = (resultados.maq_753?.custo_total_mes ?? 0) + (resultados.maq_789?.custo_total_mes ?? 0)
+  const totalEnergiaMes = (resultados.maq_753?.custo_energia_mes ?? 0) + (resultados.maq_789?.custo_energia_mes ?? 0)
+  const totalAguaMes = (resultados.maq_753?.custo_agua_mes ?? 0) + (resultados.maq_789?.custo_agua_mes ?? 0)
+  const totalCiclos = (resultados.maq_753?.ciclos ?? 0) + (resultados.maq_789?.ciclos ?? 0)
+  const totalKwh = (resultados.maq_753?.kwh_total ?? 0) + (resultados.maq_789?.kwh_total ?? 0)
 
-  const totalMes          = resultados.reduce((a, r) => a + r.custo_mes, 0)
-  const totalEnergiaMes   = resultados.reduce((a, r) => a + r.custo_energia_ciclo * r.ciclos_dia * dias, 0)
-  const totalAguaMes      = resultados.reduce((a, r) => a + r.custo_agua_ciclo * r.ciclos_dia * dias, 0)
-  const totalKgDia        = resultados.reduce((a, r) => a + r.kg_dia, 0)
-  const custoKgMedio      = totalKgDia > 0 ? (totalMes / dias) / totalKgDia : 0
-  const totalLitrosMes    = resultados.reduce((a, r) => a + r.litros_mes, 0)
-  const totalM3Mes        = totalLitrosMes / 1000
-  const totalCiclosMes    = resultados.reduce((a, r) => a + r.ciclos_mes, 0)
+  const mesLabel = mes
+    ? new Date(mes + '-01').toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+    : ''
 
   return (
     <div className="grid" style={{ gap: 16 }}>
       <header>
         <h1 style={{ fontSize: 22, letterSpacing: -0.3 }}>Custos de Utilidades</h1>
         <p className="hint" style={{ marginTop: 4 }}>
-          Estimativa de consumo de energia elétrica e água por máquina, com base na potência (kW),
-          duração do ciclo e litros consumidos. Ajuste as tarifas conforme sua conta.
+          Consumo de energia via API LG ThinQ + água por ciclo. Informe quantos ciclos foram feitos no mês para calcular a média por ciclo.
         </p>
       </header>
 
-      {erro ? <StatusBanner kind="error" message={erro} /> : null}
-      {msg ? <StatusBanner kind="success" message={msg} /> : null}
+      {erro && <StatusBanner kind="error" message={erro} />}
+      {msg && <StatusBanner kind="success" message={msg} />}
 
-      {/* ── Parâmetros globais ─── */}
+      {/* ── Tarifas e mês ─── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>Tarifas e referências</h2>
-          <button className="btn btnPrimary" type="button" onClick={salvarPadrao}>
-            Salvar como padrão
+          <h2 style={{ fontSize: 15 }}>Tarifas e período</h2>
+          <button className="btn btnPrimary" type="button" onClick={salvarTarifas}>
+            Salvar tarifas
           </button>
         </div>
         <div className="panelBody">
@@ -272,68 +259,247 @@ export function CustosMaquinasPage() {
               />
             </div>
             <div className="field">
-              <label htmlFor="dias">Dias úteis por mês</label>
+              <label htmlFor="mes">Mês de referência</label>
               <input
-                id="dias"
-                inputMode="numeric"
-                type="number"
-                min={1}
-                max={31}
-                value={diasMes}
-                onChange={(e) => setDiasMes(e.target.value)}
+                id="mes"
+                type="month"
+                value={mes}
+                onChange={(e) => handleMesChange(e.target.value)}
+                style={{ padding: '10px 12px' }}
               />
             </div>
           </div>
-          <p className="hint" style={{ marginTop: 10 }}>
-            Energia: tarifa média residencial/comercial no Brasil é ~R$ 0,70–1,00/kWh.
-            Água: verifique na fatura da concessionária (inclui esgoto se cobrado junto).
-          </p>
         </div>
       </section>
 
-      {/* ── KPIs totais ─── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 12,
-        }}
-      >
-        {/* Custos */}
-        <section className="panel">
-          <div className="panelBody grid" style={{ gap: 14 }}>
-            <div>
-              <div className="statLabel">Custo total de utilidades / mês</div>
-              <div className="statVal">{formatBRL(totalMes)}</div>
-            </div>
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 120px' }}>
-                <div className="statLabel">Energia / mês</div>
-                <div className="statValSm">{formatBRL(totalEnergiaMes)}</div>
+      {/* ── Cards das máquinas ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        {MAQUINAS.map((maq) => {
+          const key = maq.key
+          const md = machineData[key]
+          const month = monthData[key]
+          const r = resultados[key]
+          const nomeExibido = md.apelido || maq.nomeDefault
+
+          return (
+            <section key={key} className="panel">
+              <div className="panelHeader">
+                <div>
+                  <h2 style={{ fontSize: 15 }}>{nomeExibido}</h2>
+                  <div className="hint" style={{ fontSize: 11, marginTop: 2, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    ID: {maq.deviceId.slice(0, 16)}…
+                  </div>
+                </div>
+                {r && (
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="hint" style={{ fontSize: 11 }}>Custo total / mês</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>
+                      {formatBRL(r.custo_total_mes)}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ flex: '1 1 120px' }}>
-                <div className="statLabel">Água / mês</div>
-                <div className="statValSm">{formatBRL(totalAguaMes)}</div>
+
+              <div className="panelBody grid" style={{ gap: 12 }}>
+                {/* Apelido */}
+                <div className="field">
+                  <label>Apelido da máquina</label>
+                  <input
+                    value={md.apelido}
+                    onChange={(e) => updateMachine(key, 'apelido', e.target.value)}
+                    placeholder={maq.nomeDefault}
+                  />
+                </div>
+
+                <div className="row">
+                  {/* Água */}
+                  <div className="field">
+                    <label>Água por ciclo (litros)</label>
+                    <input
+                      inputMode="decimal"
+                      value={md.litros_ciclo}
+                      onChange={(e) => updateMachine(key, 'litros_ciclo', e.target.value)}
+                      placeholder="80"
+                    />
+                  </div>
+
+                  {/* Ciclos manuais */}
+                  <div className="field">
+                    <label>Ciclos em {mesLabel || mes}</label>
+                    <input
+                      inputMode="numeric"
+                      value={month.ciclos}
+                      onChange={(e) => updateCiclos(key, e.target.value)}
+                      placeholder="Ex: 45"
+                    />
+                  </div>
+                </div>
+
+                {/* Botão LG */}
+                <button
+                  className="btn btnPrimary"
+                  type="button"
+                  disabled={buscando[key]}
+                  style={{ width: '100%' }}
+                  onClick={() => buscarLg(key, maq.deviceId, nomeExibido)}
+                >
+                  {buscando[key] ? 'Buscando na LG...' : 'Buscar Consumo LG ThinQ'}
+                </button>
+
+                {/* Resultado do consumo LG */}
+                {month.consumo_wh !== null && (
+                  <div style={{
+                    background: 'color-mix(in srgb, var(--accent), transparent 90%)',
+                    border: '1px solid color-mix(in srgb, var(--accent), transparent 70%)',
+                    borderRadius: 8,
+                    padding: '10px 12px',
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                      Consumo LG — {mesLabel}
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-h)' }}>
+                      {fmt2(month.consumo_wh / 1000)} kWh
+                    </div>
+                    <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
+                      {month.consumo_wh.toLocaleString('pt-BR')} Wh registrados pela LG
+                    </div>
+                  </div>
+                )}
+
+                {/* Resultado calculado */}
+                {r ? (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {/* Linha: energia + água por ciclo */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 8,
+                    }}>
+                      <div style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '10px 12px' }}>
+                        <div className="hint" style={{ fontSize: 11 }}>kWh / ciclo (média)</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-h)', marginTop: 2 }}>
+                          {fmt2(r.kwh_ciclo)} kWh
+                        </div>
+                        <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
+                          = {formatBRL(r.custo_energia_ciclo)}
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '10px 12px' }}>
+                        <div className="hint" style={{ fontSize: 11 }}>Água / ciclo</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ok)', marginTop: 2 }}>
+                          {fmt2(r.litros)} L
+                        </div>
+                        <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
+                          = {formatBRL(r.custo_agua_ciclo)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Custo por ciclo */}
+                    <div style={{
+                      background: 'var(--code-bg)',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}>
+                      <div>
+                        <div className="hint" style={{ fontSize: 11 }}>Custo total / ciclo</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-h)', marginTop: 2 }}>
+                          {formatBRL(r.custo_total_ciclo)}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div className="hint" style={{ fontSize: 11 }}>{r.ciclos} ciclos</div>
+                        <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>no mês</div>
+                      </div>
+                    </div>
+
+                    {/* Composição do mês */}
+                    <div style={{
+                      background: 'var(--code-bg)',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                    }}>
+                      <div className="hint" style={{ fontSize: 11, marginBottom: 6 }}>Composição mensal</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span className="hint" style={{ fontSize: 12 }}>Energia</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h)' }}>{formatBRL(r.custo_energia_mes)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span className="hint" style={{ fontSize: 12 }}>Água ({(r.litros * r.ciclos).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L)</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ok)' }}>{formatBRL(r.custo_agua_mes)}</span>
+                      </div>
+                      {r.custo_total_mes > 0 && (
+                        <div style={{ height: 6, borderRadius: 99, overflow: 'hidden', background: 'var(--border)', display: 'flex' }}>
+                          <div style={{
+                            width: `${(r.custo_energia_mes / r.custo_total_mes) * 100}%`,
+                            background: 'var(--accent)',
+                          }} />
+                          <div style={{ flex: 1, background: 'var(--ok)' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  month.consumo_wh !== null && (
+                    <div className="hint" style={{ fontSize: 12 }}>
+                      Informe o número de ciclos para ver o custo por ciclo.
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      {/* ── KPIs consolidados ─── */}
+      {totalMes > 0 && (
+        <section className="panel">
+          <div className="panelHeader">
+            <h2 style={{ fontSize: 15 }}>Consolidado — {mesLabel}</h2>
+          </div>
+          <div className="panelBody">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+              <div>
+                <div className="statLabel">Custo total / mês</div>
+                <div className="statVal">{formatBRL(totalMes)}</div>
+              </div>
+              <div>
+                <div className="statLabel">Energia</div>
+                <div className="statValSm" style={{ color: 'var(--accent)' }}>{formatBRL(totalEnergiaMes)}</div>
+                <div className="hint" style={{ fontSize: 11 }}>{fmt2(totalKwh)} kWh</div>
+              </div>
+              <div>
+                <div className="statLabel">Água</div>
+                <div className="statValSm" style={{ color: 'var(--ok)' }}>{formatBRL(totalAguaMes)}</div>
+              </div>
+              <div>
+                <div className="statLabel">Total de ciclos</div>
+                <div className="statValSm">{totalCiclos.toLocaleString('pt-BR')}</div>
+                <div className="hint" style={{ fontSize: 11 }}>
+                  Custo médio/ciclo:{' '}
+                  {totalCiclos > 0 ? formatBRL(totalMes / totalCiclos) : '—'}
+                </div>
               </div>
             </div>
 
-            {/* Barra energia vs água */}
             {totalMes > 0 && (
-              <div>
-                <div className="hint" style={{ marginBottom: 6 }}>
+              <div style={{ marginTop: 16 }}>
+                <div className="hint" style={{ marginBottom: 6, fontSize: 12 }}>
                   Composição: {fmt2((totalEnergiaMes / totalMes) * 100)}% energia · {fmt2((totalAguaMes / totalMes) * 100)}% água
                 </div>
                 <div style={{ height: 8, borderRadius: 99, overflow: 'hidden', background: 'var(--border)', display: 'flex' }}>
-                  <div
-                    style={{
-                      width: `${(totalEnergiaMes / totalMes) * 100}%`,
-                      background: 'var(--accent)',
-                      transition: 'width 500ms ease',
-                    }}
-                  />
+                  <div style={{
+                    width: `${(totalEnergiaMes / totalMes) * 100}%`,
+                    background: 'var(--accent)',
+                    transition: 'width 400ms ease',
+                  }} />
                   <div style={{ flex: 1, background: 'var(--ok)' }} />
                 </div>
-                <div className="hint" style={{ marginTop: 4, display: 'flex', gap: 14 }}>
+                <div className="hint" style={{ marginTop: 6, display: 'flex', gap: 14, fontSize: 11 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--accent)', display: 'inline-block' }} />
                     Energia
@@ -345,382 +511,6 @@ export function CustosMaquinasPage() {
                 </div>
               </div>
             )}
-          </div>
-        </section>
-
-        {/* Consumo de água em volume */}
-        <section className="panel">
-          <div className="panelBody grid" style={{ gap: 14 }}>
-            <div>
-              <div className="statLabel">Consumo total de água / mês</div>
-              <div className="statVal" style={{ color: 'var(--ok)' }}>
-                {totalLitrosMes.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
-                <span className="hint" style={{ fontSize: 16, marginLeft: 6, fontWeight: 400 }}>L</span>
-              </div>
-              <div className="hint" style={{ marginTop: 4 }}>
-                {fmt2(totalM3Mes)} m³ · custo {formatBRL(totalAguaMes)}
-              </div>
-            </div>
-
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 120px' }}>
-                <div className="statLabel">Ciclos / mês (todas máqs.)</div>
-                <div className="statValSm">
-                  {totalCiclosMes.toLocaleString('pt-BR')}
-                </div>
-              </div>
-              <div style={{ flex: '1 1 120px' }}>
-                <div className="statLabel">Média L / ciclo</div>
-                <div className="statValSm">
-                  {totalCiclosMes > 0
-                    ? fmt2(totalLitrosMes / totalCiclosMes)
-                    : '—'} L
-                </div>
-              </div>
-            </div>
-
-            {/* Barra de consumo por máquina */}
-            {totalLitrosMes > 0 && resultados.filter((r) => r.litros_mes > 0).length > 0 && (
-              <div>
-                <div className="hint" style={{ marginBottom: 6 }}>Distribuição por máquina:</div>
-                {resultados
-                  .filter((r) => r.litros_mes > 0)
-                  .map((r) => (
-                    <div key={r.maquina.id} style={{ marginBottom: 6 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <span className="hint" style={{ fontSize: 11 }}>{r.maquina.nome}</span>
-                        <span className="hint" style={{ fontSize: 11 }}>
-                          {r.litros_mes.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L
-                          ({fmt2((r.litros_mes / totalLitrosMes) * 100)}%)
-                        </span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}>
-                        <div
-                          style={{
-                            height: '100%',
-                            width: `${(r.litros_mes / totalLitrosMes) * 100}%`,
-                            background: 'var(--ok)',
-                            borderRadius: 99,
-                            transition: 'width 400ms ease',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Custo por kg */}
-        <section className="panel">
-          <div className="panelBody grid" style={{ gap: 14 }}>
-            <div>
-              <div className="statLabel">Custo estimado / kg lavado</div>
-              <div className="statVal">
-                {formatBRL(custoKgMedio)}
-                <span className="hint" style={{ fontSize: 14, marginLeft: 6, fontWeight: 400 }}>/kg</span>
-              </div>
-            </div>
-            <div className="row" style={{ alignItems: 'flex-start' }}>
-              <div style={{ flex: '1 1 120px' }}>
-                <div className="statLabel">Kg/dia (total ativo)</div>
-                <div className="statValSm">{fmt2(totalKgDia)} kg</div>
-              </div>
-              <div style={{ flex: '1 1 120px' }}>
-                <div className="statLabel">Máquinas ativas</div>
-                <div className="statValSm">{maquinas.length}</div>
-              </div>
-            </div>
-            <p className="hint">
-              Só utilidades (luz + água). Some químicos, mão de obra e outros para o custo real/kg.
-            </p>
-          </div>
-        </section>
-      </div>
-
-      {/* ── Configuração por máquina ─── */}
-      <section className="panel">
-        <div className="panelHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <h2 style={{ fontSize: 15 }}>Consumo por máquina</h2>
-          <div className="field" style={{ minWidth: 160, margin: 0 }}>
-            <label htmlFor="mesLg" style={{ display: 'none' }}>Mês LG ThinQ</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="hint">Mês LG ThinQ:</span>
-              <input 
-                id="mesLg" 
-                type="month" 
-                value={mesLg} 
-                onChange={(e) => setMesLg(e.target.value)} 
-                style={{ padding: '6px 10px', width: 'auto' }}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="panelBody grid" style={{ gap: 12 }}>
-          {maquinas.length === 0 && (
-            <p className="hint">Nenhuma máquina ativa cadastrada. Cadastre em Máquinas primeiro.</p>
-          )}
-          {maquinas.map((m) => {
-            const p = params[m.id] ?? { potencia_kw: DEF_POTENCIA[m.tipo], litros_ciclo: DEF_LITROS[m.tipo] }
-            const r = resultados.find((x) => x.maquina.id === m.id)
-            return (
-              <div
-                key={m.id}
-                style={{
-                  background: 'var(--code-bg)',
-                  borderRadius: 12,
-                  padding: '14px 16px',
-                  display: 'grid',
-                  gap: 12,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-h)' }}>{m.nome}</div>
-                    <div className="hint">
-                      {m.tipo} · {Number(m.capacidade_kg).toLocaleString('pt-BR')} kg/ciclo ·{' '}
-                      {Number(m.ciclos_por_dia_util).toLocaleString('pt-BR')} ciclos/dia ·{' '}
-                      {m.minutos_por_ciclo != null ? `${m.minutos_por_ciclo} min/ciclo` : '60 min/ciclo (padrão)'}
-                    </div>
-                  </div>
-                  {r && (
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="hint">Custo/mês</div>
-                      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-h)' }}>{formatBRL(r.custo_mes)}</div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="row">
-                  <div className="field">
-                    <label>Potência (kW)</label>
-                    <input
-                      inputMode="decimal"
-                      value={p.potencia_kw}
-                      onChange={(e) => setParam(m.id, 'potencia_kw', e.target.value)}
-                      placeholder={DEF_POTENCIA[m.tipo]}
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Água por ciclo (litros)</label>
-                    <input
-                      inputMode="decimal"
-                      value={p.litros_ciclo}
-                      onChange={(e) => setParam(m.id, 'litros_ciclo', e.target.value)}
-                      placeholder={DEF_LITROS[m.tipo]}
-                    />
-                  </div>
-                </div>
-
-                <div className="row" style={{ alignItems: 'flex-end' }}>
-                  <div className="field" style={{ flex: 1 }}>
-                    <label>LG ThinQ Device ID (opcional)</label>
-                    <input
-                      value={p.lg_device_id ?? ''}
-                      onChange={(e) => setParam(m.id, 'lg_device_id', e.target.value)}
-                      placeholder="Ex: a62b1df203c4a7188e7..."
-                      style={{ fontSize: 12, fontFamily: 'monospace' }}
-                    />
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                      <span className="hint" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center' }}>Atalhos:</span>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{
-                          fontSize: 10,
-                          padding: '2px 8px',
-                          height: 'auto',
-                          minHeight: '22px',
-                          background: 'var(--border)',
-                          color: 'var(--text)',
-                          border: '1px solid transparent',
-                        }}
-                        onClick={() => setParam(m.id, 'lg_device_id', 'a62b1df203c4a7188e7880433c9cebfb407c428b5a5a8e0af9dd0f696bee44c1')}
-                      >
-                        Usar ID Máq. 753
-                      </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{
-                          fontSize: 10,
-                          padding: '2px 8px',
-                          height: 'auto',
-                          minHeight: '22px',
-                          background: 'var(--border)',
-                          color: 'var(--text)',
-                          border: '1px solid transparent',
-                        }}
-                        onClick={() => setParam(m.id, 'lg_device_id', '2d6ec2ccc498b22ed9690f16cec2b0d93a0743abb5c3c2c594ecd6bcc1779181')}
-                      >
-                        Usar ID Máq. 789
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    className="btn"
-                    style={{ background: 'var(--accent)', color: '#fff', border: 'none', padding: '8px 14px', height: 38 }}
-                    disabled={!p.lg_device_id || buscandoLg[m.id]}
-                    onClick={async () => {
-                      if (!p.lg_device_id) return
-                      setBuscandoLg((prev) => ({ ...prev, [m.id]: true }))
-                      setErro(null)
-                      setMsg(null)
-                      try {
-                        const yyyyMm = mesLg.replace('-', '') // ex: 2026-05 -> 202605
-                        const res = await fetchLgEnergyUsage(p.lg_device_id, yyyyMm, yyyyMm)
-                        if (res.error) {
-                          setErro(res.error)
-                        } else if (res.energy_wh !== undefined) {
-                          const wh = res.energy_wh as number
-                          // Salva no banco de dados
-                          const { error: dbError } = await upsertConsumo(m.id, mesLg, wh)
-                          if (dbError) {
-                            setErro('Erro ao salvar no banco: ' + dbError)
-                          } else {
-                            setLgConsumos((prev) => ({ ...prev, [m.id]: wh }))
-                            setMsg(`Consumo LG atualizado e salvo para ${m.nome}: ${(wh / 1000).toLocaleString('pt-BR')} kWh neste mês.`)
-                          }
-                        }
-                      } catch (err) {
-                        setErro(String(err))
-                      } finally {
-                        setBuscandoLg((prev) => ({ ...prev, [m.id]: false }))
-                      }
-                    }}
-                  >
-                    {buscandoLg[m.id] ? 'Buscando...' : 'Buscar Consumo LG'}
-                  </button>
-                </div>
-                
-                <div className="row">
-
-                  {r && (
-                    <>
-                      <div className="field" style={{ minWidth: 140 }}>
-                        <label>Energia / ciclo</label>
-                        <div style={{ padding: '10px', fontWeight: 600, fontSize: 14, color: 'var(--text-h)' }}>
-                          {fmt2(r.kwh_ciclo)} kWh = {formatBRL(r.custo_energia_ciclo)}
-                        </div>
-                      </div>
-                      <div className="field" style={{ minWidth: 140 }}>
-                        <label>Água / ciclo</label>
-                        <div style={{ padding: '10px', fontWeight: 600, fontSize: 14, color: 'var(--text-h)' }}>
-                          {fmt2(r.m3_ciclo * 1000)} L = {formatBRL(r.custo_agua_ciclo)}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {r && (
-                  <div className="row" style={{ gap: 16 }}>
-                    <div>
-                      <span className="hint">Custo/ciclo: </span>
-                      <strong style={{ color: 'var(--text-h)' }}>{formatBRL(r.custo_total_ciclo)}</strong>
-                    </div>
-                    <div>
-                      <span className="hint">Custo/dia: </span>
-                      <strong style={{ color: 'var(--text-h)' }}>{formatBRL(r.custo_dia)}</strong>
-                    </div>
-                    <div>
-                      <span className="hint">Custo/kg: </span>
-                      <strong style={{ color: 'var(--text-h)' }}>{formatBRL(r.custo_por_kg)}</strong>
-                    </div>
-                    <div>
-                      <span className="hint">kg/dia: </span>
-                      <strong style={{ color: 'var(--text-h)' }}>{fmt2(r.kg_dia)} kg</strong>
-                    </div>
-                    {r.litros_mes > 0 && (
-                      <div
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 8,
-                          background: 'color-mix(in srgb, var(--ok), transparent 85%)',
-                          border: '1px solid color-mix(in srgb, var(--ok), transparent 60%)',
-                        }}
-                      >
-                        <span className="hint">Água/mês: </span>
-                        <strong style={{ color: 'var(--ok)' }}>
-                          {r.litros_mes.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L
-                        </strong>
-                        <span className="hint"> ({fmt2(r.m3_mes)} m³)</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* ── Tabela resumo ─── */}
-      {resultados.length > 0 && (
-        <section className="panel">
-          <div className="panelHeader">
-            <h2 style={{ fontSize: 15 }}>Resumo consolidado</h2>
-          </div>
-          <div className="panelBody">
-            <div className="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Máquina</th>
-                    <th>Tipo</th>
-                    <th>kWh/ciclo</th>
-                    <th>L/ciclo</th>
-                    <th style={{ color: 'var(--ok)' }}>L/mês</th>
-                    <th style={{ color: 'var(--ok)' }}>m³/mês</th>
-                    <th>Custo/ciclo</th>
-                    <th>Custo/mês</th>
-                    <th>R$/kg</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultados.map((r) => {
-                    const p = params[r.maquina.id] ?? { potencia_kw: '0', litros_ciclo: '0' }
-                    return (
-                      <tr key={r.maquina.id}>
-                        <td style={{ fontWeight: 600 }}>{r.maquina.nome}</td>
-                        <td>
-                          <span className={`badge ${r.maquina.tipo === 'lavagem' ? 'badgeBlue' : 'badgeYellow'}`}>
-                            {r.maquina.tipo}
-                          </span>
-                        </td>
-                        <td>{fmt2(r.kwh_ciclo)}</td>
-                        <td>{String(p.litros_ciclo).replace('.', ',')}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--ok)' }}>
-                          {r.litros_mes > 0
-                            ? r.litros_mes.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-                            : '—'}
-                        </td>
-                        <td style={{ color: 'var(--ok)' }}>
-                          {r.m3_mes > 0 ? fmt2(r.m3_mes) : '—'}
-                        </td>
-                        <td>{formatBRL(r.custo_total_ciclo)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--text-h)' }}>{formatBRL(r.custo_mes)}</td>
-                        <td>{formatBRL(r.custo_por_kg)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ fontWeight: 700 }}>
-                    <td colSpan={3} style={{ color: 'var(--muted)', fontWeight: 600 }}>Total</td>
-                    <td />
-                    <td style={{ fontWeight: 800, color: 'var(--ok)' }}>
-                      {totalLitrosMes.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L
-                    </td>
-                    <td style={{ color: 'var(--ok)' }}>{fmt2(totalM3Mes)} m³</td>
-                    <td />
-                    <td style={{ color: 'var(--text-h)' }}>{formatBRL(totalMes)}</td>
-                    <td>{formatBRL(custoKgMedio)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
           </div>
         </section>
       )}
