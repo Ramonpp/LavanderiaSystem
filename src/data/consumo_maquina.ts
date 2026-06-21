@@ -1,13 +1,14 @@
 import { supabase } from '../lib/supabase'
 import type { ConsumoMaquina } from '../types/models'
 
-export async function upsertConsumo(maquina_id: string, mes_ano: string, consumo_wh: number) {
+export async function upsertConsumo(maquina_id: string, mes_ano: string, consumo_wh: number | null, ciclos: number) {
   try {
     const { data, error } = await supabase
       .from('consumo_maquina')
-      .upsert({ maquina_id, mes_ano, consumo_wh }, { onConflict: 'maquina_id,mes_ano' })
+      .upsert({ maquina_id, mes_ano, consumo_wh, ciclos }, { onConflict: 'maquina_id,mes_ano' })
       .select('*')
       .single()
+
 
     if (error) {
       console.error('Erro ao salvar consumo_maquina:', error)

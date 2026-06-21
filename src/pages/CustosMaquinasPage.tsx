@@ -6,6 +6,9 @@ import { upsertResumoMensal, fetchResumoPorMes } from '../data/resumo_mensal'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
 import { monthBoundsLocal } from '../lib/dates'
 import type { ResumoMensal } from '../types/models'
+import { supabase } from '../lib/supabase'
+import { fetchMaquinas } from '../data/maquinas'
+
 
 
 /* ── Máquinas fixas ────────────────────────────────────────── */
@@ -102,6 +105,7 @@ export function CustosMaquinasPage() {
   const [msg, setMsg] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [resumoDb, setResumoDb] = useState<ResumoMensal | null>(null)
+  const [machineUuidMap, setMachineUuidMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let active = true
@@ -116,6 +120,97 @@ export function CustosMaquinasPage() {
       active = false
     }
   }, [mes])
+
+  // Ensure machines exist in DB and get their UUIDs
+  useEffect(() => {
+    async function initMachines() {
+      const { data: dbMachines } = await fetchMaquinas()
+      const mapping: Record<string, string> = {}
+      const toInsert = []
+
+      for (const m of MAQUINAS) {
+        const nomeExibido = lsGet(`lav_${m.key}_apelido`, '') || m.nomeDefault
+        const found = dbMachines?.find(db => 
+          db.nome.toLowerCase() === nomeExibido.toLowerCase() || 
+          db.nome.toLowerCase() === m.nomeDefault.toLowerCase()
+        )
+        if (found) {
+          mapping[m.key] = found.id
+        } else {
+          toInsert.push(m)
+        }
+      }
+
+      if (toInsert.length > 0) {
+        for (const m of toInsert) {
+          const nomeExibido = lsGet(`lav_${m.key}_apelido`, '') || m.nomeDefault
+          await supabase.from('maquina').insert({
+            nome: nomeExibido,
+            tipo: 'lavagem',
+            capacidade_kg: 12,
+            ciclos_por_dia_util: 6,
+            ativo: true
+          })
+        }
+        const { data: dbMachinesRefetched } = await fetchMaquinas()
+        for (const m of MAQUINAS) {
+          const nomeExibido = lsGet(`lav_${m.key}_apelido`, '') || m.nomeDefault
+          const found = dbMachinesRefetched?.find(db => 
+            db.nome.toLowerCase() === nomeExibido.toLowerCase() || 
+            db.nome.toLowerCase() === m.nomeDefault.toLowerCase()
+          )
+          if (found) {
+            mapping[m.key] = found.id
+          }
+        }
+      }
+      setMachineUuidMap(mapping)
+    }
+    initMachines()
+  }, [])
+
+  // Load machine consumos from DB when month or mapping changes
+  useEffect(() => {
+    if (Object.keys(machineUuidMap).length === 0) return
+    let active = true
+    async function loadConsumos() {
+      const { data: consumosList, error } = await supabase
+        .from('consumo_maquina')
+        .select('*')
+        .eq('mes_ano', mes)
+      
+      if (active && !error && consumosList) {
+        setMonthData(prev => {
+          const next = { ...prev }
+          let changed = false
+          for (const m of MAQUINAS) {
+            const uuid = machineUuidMap[m.key]
+            const record = consumosList.find(c => c.maquina_id === uuid)
+            if (record) {
+              const dbWh = record.consumo_wh
+              const dbCiclos = record.ciclos != null ? String(record.ciclos) : ''
+              
+              if (next[m.key].ciclos !== dbCiclos || next[m.key].consumo_wh !== dbWh) {
+                next[m.key] = {
+                  ciclos: dbCiclos,
+                  consumo_wh: dbWh
+                }
+                changed = true
+                lsSet(`lav_${m.key}_wh_${mes}`, dbWh !== null ? String(dbWh) : '')
+                lsSet(`lav_${m.key}_ciclos_${mes}`, dbCiclos)
+              }
+            }
+          }
+          return changed ? next : prev
+        })
+      }
+    }
+    loadConsumos()
+    return () => {
+      active = false
+    }
+  }, [mes, machineUuidMap])
+
 
 
   const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
@@ -136,13 +231,26 @@ export function CustosMaquinasPage() {
     })
   }
 
-  function updateCiclos(key: MaqKey, value: string) {
+  async function updateCiclos(key: MaqKey, value: string) {
     setMonthData((prev) => {
       const next = { ...prev, [key]: { ...prev[key], ciclos: value } }
       saveMonthData(key, mes, { ciclos: value })
       return next
     })
+
+    const uuid = machineUuidMap[key]
+    if (uuid) {
+      const ciclosVal = Math.max(0, Number(value) || 0)
+      const currentWh = monthData[key].consumo_wh
+      await supabase.from('consumo_maquina').upsert({
+        maquina_id: uuid,
+        mes_ano: mes,
+        consumo_wh: currentWh,
+        ciclos: ciclosVal
+      }, { onConflict: 'maquina_id,mes_ano' })
+    }
   }
+
 
   function salvarTarifas() {
     lsSet('lav_custos_tarifaKwh', tarifaKwh)
@@ -165,6 +273,18 @@ export function CustosMaquinasPage() {
           saveMonthData(key, mes, { consumo_wh: wh })
           return next
         })
+
+        const uuid = machineUuidMap[key]
+        if (uuid) {
+          const ciclosVal = Math.max(0, Number(monthData[key].ciclos) || 0)
+          await supabase.from('consumo_maquina').upsert({
+            maquina_id: uuid,
+            mes_ano: mes,
+            consumo_wh: wh,
+            ciclos: ciclosVal
+          }, { onConflict: 'maquina_id,mes_ano' })
+        }
+
         setMsg(`Consumo atualizado para ${nome}: ${fmt2(wh / 1000)} kWh`)
       }
     } catch (err) {
@@ -173,6 +293,7 @@ export function CustosMaquinasPage() {
       setBuscando((prev) => ({ ...prev, [key]: false }))
     }
   }
+
 
   /* ── Cálculos de Água Global (Tabela Demais Cidades Prolagos) ── */
   const totalLitros = (Object.keys(monthData) as MaqKey[]).reduce((acc, key) => {

@@ -109,9 +109,11 @@ export type ConsumoMaquina = {
   id: UUID
   maquina_id: UUID
   mes_ano: string
-  consumo_wh: number
+  consumo_wh: number | null
+  ciclos: number
   criado_em: string
 }
+
 
 export type ResumoMensal = {
   id: UUID

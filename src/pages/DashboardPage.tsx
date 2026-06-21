@@ -4,6 +4,7 @@ import { fetchPedidosPorPeriodo } from '../data/pedidos'
 import { fetchMaquinas } from '../data/maquinas'
 import { fetchResumosMensais } from '../data/resumo_mensal'
 import type { ResumoMensal } from '../types/models'
+import { supabase } from '../lib/supabase'
 
 
 import { receitaPedido, somaDespesas } from '../domain/finance'
@@ -34,6 +35,11 @@ function defaultMonth(): string {
 function lsGet(key: string, fallback: string) {
   try { return localStorage.getItem(key) ?? fallback } catch { return fallback }
 }
+
+function lsSet(key: string, value: string) {
+  try { localStorage.setItem(key, value) } catch {}
+}
+
 
 export function DashboardPage() {
   const [monthValue, setMonthValue] = useState(defaultMonth)
@@ -135,15 +141,44 @@ export function DashboardPage() {
       const y = monthValue.split('-')[0]
       const startDate = `${y}-01-01`
       const endDate = `${y}-12-31`
-      const [{ data: peds }, { data: desps }, { data: resumosDb }] = await Promise.all([
+      const [{ data: peds }, { data: desps }, { data: resumosDb }, { data: dbConsumos }, { data: dbMachines }] = await Promise.all([
         fetchPedidosPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
         fetchDespesasPorPeriodo({ inicioIsoDate: startDate, fimIsoDate: endDate }),
-        fetchResumosMensais(36)
+        fetchResumosMensais(36),
+        supabase.from('consumo_maquina').select('*').like('mes_ano', `${y}-%`),
+        supabase.from('maquina').select('*')
       ])
+
+      // Synchronize database consumo_maquina to localStorage to align PC and Phone
+      if (dbConsumos && dbMachines) {
+        const uuidToKey: Record<string, string> = {}
+        for (const m of dbMachines) {
+          if (m.nome.toLowerCase().includes('753')) {
+            uuidToKey[m.id] = 'maq_753'
+          } else if (m.nome.toLowerCase().includes('789')) {
+            uuidToKey[m.id] = 'maq_789'
+          }
+        }
+        for (const c of dbConsumos) {
+          const key = uuidToKey[c.maquina_id]
+          if (key) {
+            const localWh = lsGet(`lav_${key}_wh_${c.mes_ano}`, '')
+            const localCiclos = lsGet(`lav_${key}_ciclos_${c.mes_ano}`, '')
+            const dbWhStr = c.consumo_wh !== null ? String(c.consumo_wh) : ''
+            const dbCiclosStr = String(c.ciclos)
+            
+            if (localWh !== dbWhStr || localCiclos !== dbCiclosStr) {
+              lsSet(`lav_${key}_wh_${c.mes_ano}`, dbWhStr)
+              lsSet(`lav_${key}_ciclos_${c.mes_ano}`, dbCiclosStr)
+            }
+          }
+        }
+      }
       
       if (resumosDb) {
         setResumosMensais(resumosDb)
       }
+
       
       const pedsAtivos = peds.filter((p) => p.status !== 'cancelado')
       setReceitaAno(pedsAtivos.reduce((acc, p) => acc + receitaPedido(p), 0))

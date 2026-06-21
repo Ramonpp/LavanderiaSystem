@@ -61,7 +61,14 @@ Abra [http://localhost:5173](http://localhost:5173).
 - `src/domain/` — regras de negócio (financeiro, operação)
 - `supabase/migrations/` — schema e evolução do banco
 
+## Sincronização entre Dispositivos (PC & Celular)
+
+Para garantir que o PC e o celular exibam as mesmas informações de utilidades:
+- **Consumos por Máquina:** Os ciclos e consumo em Wh (LG ThinQ) de cada máquina são persistidos na tabela `consumo_maquina` em tempo real. Ao alterar no PC, o celular baixa automaticamente esses dados.
+- **Histórico Consolidado:** O fechamento mensal gerado no menu Custos é salvo na tabela `resumo_mensal`. O painel do Dashboard lê esses registros consolidados e exibe uma etiqueta de "Histórico Salvo" para os meses já finalizados.
+
 ## Segurança
 
 - Não commite `.env.local` nem chaves `service_role`.
 - No frontend use apenas `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+
