@@ -15,6 +15,7 @@ import { EmLavagemPage } from './pages/EmLavagemPage'
 import { RelatoriosPage } from './pages/RelatoriosPage'
 import { SimulacaoPage } from './pages/SimulacaoPage'
 import { TiposPecaPage } from './pages/TiposPecaPage'
+import { ManchasPage } from './pages/ManchasPage'
 
 export default function App() {
   const [session, setSession] = useState<any>(null)
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="/relatorios" element={<RelatoriosPage />} />
         <Route path="/simulacao" element={<SimulacaoPage />} />
         <Route path="/configuracoes" element={<ConfigWebhookPage />} />
+        <Route path="/manchas" element={<ManchasPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

@@ -74,6 +74,13 @@ const Ico = {
       <line x1="19" y1="18" x2="21" y2="20" />
     </svg>
   ),
+  manchas: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="9" r="4" />
+      <circle cx="16" cy="15" r="3" />
+      <circle cx="6" cy="17" r="2" />
+    </svg>
+  ),
   config: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 6h16" />
@@ -138,6 +145,7 @@ const navItems = [
   { to: '/custos',     icon: Ico.custos,     label: 'Custos',      desc: 'Custo por ciclo'        },
   { to: '/relatorios', icon: Ico.relatorios, label: 'Relatórios',  desc: 'Fechamento mensal'      },
   { to: '/simulacao',  icon: Ico.simulacao,  label: 'Simulação',   desc: 'Teste de ganhos'        },
+  { to: '/manchas',    icon: Ico.manchas,    label: 'Manchas',     desc: 'Guia de tratamento'     },
   { to: '/configuracoes', icon: Ico.config,  label: 'Config',      desc: 'Webhook e integrações'  },
 ] as const
 
