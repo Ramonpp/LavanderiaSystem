@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { StatusBanner } from '../components/StatusBanner'
 
@@ -8,6 +8,16 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [isPasskeySupported, setIsPasskeySupported] = useState(false)
+
+  useEffect(() => {
+    if (window.PublicKeyCredential && 
+        PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(result => {
+        setIsPasskeySupported(result)
+      })
+    }
+  }, [])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -29,6 +39,24 @@ export function LoginPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Erro inesperado ao realizar o login.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handlePasskeyLogin() {
+    setLoading(true)
+    setError(null)
+    setMsg(null)
+
+    try {
+      // @ts-ignore - experimental API
+      const { error: authError } = await supabase.auth.signInWithPasskey()
+      if (authError) {
+        setError(authError.message)
+      }
+    } catch (err: any) {
+      setError(err.message || 'A autenticação biométrica falhou ou foi cancelada.')
     } finally {
       setLoading(false)
     }
@@ -166,6 +194,39 @@ export function LoginPage() {
             {loading ? 'Processando...' : 'Entrar no sistema'}
           </button>
         </form>
+
+        {isPasskeySupported && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '12px', margin: '0' }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+              <span>OU</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+            </div>
+
+            <button
+              type="button"
+              className="btn btnSuccess"
+              onClick={handlePasskeyLogin}
+              disabled={loading}
+              style={{ 
+                width: '100%', 
+                minHeight: '44px', 
+                fontSize: '14px', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px' 
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+              Entrar com Face ID / Digital
+            </button>
+          </>
+        )}
 
         {/* Hint about persistence */}
         <div style={{
