@@ -9,6 +9,7 @@ export function MaquinasPage() {
   const [msg, setMsg] = useState<string | null>(null)
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<MaquinaTipo>('lavagem')
   const [capacidadeKg, setCapacidadeKg] = useState('12')
@@ -108,11 +109,13 @@ export function MaquinasPage() {
   }
 
   async function excluir(m: Maquina) {
-    if (!window.confirm(`Excluir “${m.nome}”?`)) return
     setErro(null)
     const { error } = await deleteMaquina(m.id)
     if (error) setErro(error)
-    else await recarregar()
+    else {
+      setDeletingId(null)
+      await recarregar()
+    }
   }
 
   async function toggleAtivo(m: Maquina) {
@@ -242,22 +245,46 @@ export function MaquinasPage() {
                       <td>{kgDiaNominal.toLocaleString('pt-BR')}</td>
                       <td>{m.ativo ? 'sim' : 'não'}</td>
                       <td>
-                        <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
-                          <button className="btn btnIcon" type="button" onClick={() => editar(m)} title="Editar máquina">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                              <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                          </button>
-                          <button className="btn" type="button" onClick={() => void toggleAtivo(m)} style={{ padding: '6px 12px', fontSize: 12 }}>
-                            {m.ativo ? 'Desativar' : 'Ativar'}
-                          </button>
-                          <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(m)} title="Excluir máquina">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                          </button>
+                        <div className="row" style={{ gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+                          {deletingId === m.id ? (
+                            <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                              <span style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--danger)', alignSelf: 'center' }}>Confirma?</span>
+                              <button
+                                className="btn btnDanger"
+                                type="button"
+                                onClick={() => void excluir(m)}
+                                style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                              >
+                                Sim
+                              </button>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => setDeletingId(null)}
+                                style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                              >
+                                Não
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button className="btn btnIcon" type="button" onClick={() => editar(m)} title="Editar máquina">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                              <button className="btn" type="button" onClick={() => void toggleAtivo(m)} style={{ padding: '6px 12px', fontSize: 12 }}>
+                                {m.ativo ? 'Desativar' : 'Ativar'}
+                              </button>
+                              <button className="btn btnDanger btnIcon" type="button" onClick={() => setDeletingId(m.id)} title="Excluir máquina">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -310,21 +337,45 @@ export function MaquinasPage() {
                   </div>
                   
                   <div className="mobile-card-actions">
-                    <button className="btn" type="button" onClick={() => void toggleAtivo(m)} style={{ padding: '6px 12px', fontSize: 12, marginRight: 'auto' }}>
-                      {m.ativo ? 'Desativar' : 'Ativar'}
-                    </button>
-                    <button className="btn btnIcon" type="button" onClick={() => editar(m)} title="Editar máquina">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </button>
-                    <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(m)} title="Excluir máquina">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    </button>
+                    {deletingId === m.id ? (
+                      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                        <span style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--danger)', alignSelf: 'center' }}>Confirma?</span>
+                        <button
+                          className="btn btnDanger"
+                          type="button"
+                          onClick={() => void excluir(m)}
+                          style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                        >
+                          Sim
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => setDeletingId(null)}
+                          style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                        >
+                          Não
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button className="btn" type="button" onClick={() => void toggleAtivo(m)} style={{ padding: '6px 12px', fontSize: 12, marginRight: 'auto' }}>
+                          {m.ativo ? 'Desativar' : 'Ativar'}
+                        </button>
+                        <button className="btn btnIcon" type="button" onClick={() => editar(m)} title="Editar máquina">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button className="btn btnDanger btnIcon" type="button" onClick={() => setDeletingId(m.id)} title="Excluir máquina">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )

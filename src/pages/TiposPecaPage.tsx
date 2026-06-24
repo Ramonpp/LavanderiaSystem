@@ -9,6 +9,7 @@ export function TiposPecaPage() {
   const [msg, setMsg] = useState<string | null>(null)
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [pesoRef, setPesoRef] = useState('')
@@ -81,11 +82,13 @@ export function TiposPecaPage() {
   }
 
   async function excluir(tp: TipoPeca) {
-    if (!window.confirm(`Excluir “${tp.nome}”? Se existir vínculos em pedidos, o SQL vai bloquear.`)) return
     setErro(null)
     const { error } = await deleteTipoPeca(tp.id)
     if (error) setErro(error)
-    else await recarregar()
+    else {
+      setDeletingId(null)
+      await recarregar()
+    }
   }
 
   async function preencherPadrao() {
@@ -171,19 +174,43 @@ export function TiposPecaPage() {
                     <td>{tp.peso_referencia_kg == null ? '—' : Number(tp.peso_referencia_kg).toLocaleString('pt-BR')}</td>
                     <td className="hint">{tp.descricao ?? '—'}</td>
                     <td>
-                      <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
-                        <button className="btn btnIcon" type="button" onClick={() => editar(tp)} title="Editar tipo de peça">
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(tp)} title="Excluir tipo de peça">
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
+                      <div className="row" style={{ gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+                        {deletingId === tp.id ? (
+                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                            <span style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--danger)', alignSelf: 'center' }}>Confirma?</span>
+                            <button
+                              className="btn btnDanger"
+                              type="button"
+                              onClick={() => void excluir(tp)}
+                              style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                            >
+                              Sim
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setDeletingId(null)}
+                              style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                            >
+                              Não
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button className="btn btnIcon" type="button" onClick={() => editar(tp)} title="Editar tipo de peça">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                            <button className="btn btnDanger btnIcon" type="button" onClick={() => setDeletingId(tp.id)} title="Excluir tipo de peça">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -222,18 +249,42 @@ export function TiposPecaPage() {
                   </div>
                 )}
                 <div className="mobile-card-actions">
-                  <button className="btn btnIcon" type="button" onClick={() => editar(tp)} title="Editar tipo de peça">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                  <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(tp)} title="Excluir tipo de peça">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
+                  {deletingId === tp.id ? (
+                    <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                      <span style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--danger)', alignSelf: 'center' }}>Confirma?</span>
+                      <button
+                        className="btn btnDanger"
+                        type="button"
+                        onClick={() => void excluir(tp)}
+                        style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => setDeletingId(null)}
+                        style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                      >
+                        Não
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button className="btn btnIcon" type="button" onClick={() => editar(tp)} title="Editar tipo de peça">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                      <button className="btn btnDanger btnIcon" type="button" onClick={() => setDeletingId(tp.id)} title="Excluir tipo de peça">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

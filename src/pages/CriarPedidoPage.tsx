@@ -429,6 +429,7 @@ export function CriarPedidoPage() {
       }
       setMsg('Pedido atualizado.')
       limparForm()
+      navigate('/pedidos/lista', { state: { msg: 'Pedido atualizado com sucesso.' } })
     } else {
       const { error: ins } = await insertPedidoComItens({
         pedido: pedidoBase,
@@ -444,7 +445,7 @@ export function CriarPedidoPage() {
       }
       setMsg('Pedido criado.')
       limparForm()
-      navigate('/pedidos/lista')
+      navigate('/pedidos/lista', { state: { msg: 'Pedido criado com sucesso.' } })
     }
 
     await reloadAll()

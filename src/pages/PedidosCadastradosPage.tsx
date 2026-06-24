@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   fetchItensPorPedidos,
   fetchPedidos,
@@ -37,6 +37,7 @@ const PAGAMENTO_BADGE_CLASSES: Record<PagamentoStatus, string> = {
 
 export function PedidosCadastradosPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tipos, setTipos] = useState<TipoPeca[]>([])
@@ -44,6 +45,7 @@ export function PedidosCadastradosPage() {
   const [msg, setMsg] = useState<string | null>(null)
   const [enviandoId, setEnviandoId] = useState<string | null>(null)
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   /* ── Filtros ────────────────────────────────────────── */
   const [filtroMes, setFiltroMes] = useState('todos')
@@ -134,12 +136,23 @@ export function PedidosCadastradosPage() {
     void reloadAll()
   }, [])
 
+  useEffect(() => {
+    if (location.state?.msg) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMsg(location.state.msg)
+      // Limpa o estado da navegação para não reexibir no F5
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location, navigate])
+
   async function excluir(p: PedidoCliente) {
-    if (!window.confirm('Excluir pedido e suas linhas?')) return
     setErro(null)
     const { error } = await deletePedido(p.id)
     if (error) setErro(error)
-    else await reloadAll()
+    else {
+      setDeletingId(null)
+      await reloadAll()
+    }
   }
 
   async function enviarCobranca(p: PedidoCliente) {
@@ -373,61 +386,85 @@ export function PedidosCadastradosPage() {
                       </select>
                     </td>
                     <td>
-                      <div className="row" style={{ gap: 8 }}>
-                        {(p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento') ? (
-                          confirmandoId === p.id ? (
-                            <div className="row" style={{ gap: 4 }}>
-                              <button
-                                className="btn btnSuccess btnIcon"
-                                type="button"
-                                disabled={enviandoId === p.id}
-                                onClick={() => void enviarCobranca(p)}
-                                title="Confirmar enviar mensagem"
-                              >
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              </button>
-                              <button
-                                className="btn btnIcon"
-                                type="button"
-                                onClick={() => setConfirmandoId(null)}
-                                title="Cancelar envio"
-                              >
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <line x1="18" y1="6" x2="6" y2="18" />
-                                  <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                              </button>
-                            </div>
-                          ) : (
+                      <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                        {deletingId === p.id ? (
+                          <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                            <span style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--danger)', alignSelf: 'center' }}>Confirma?</span>
                             <button
-                              className="btn btnPrimary btnIcon"
+                              className="btn btnDanger"
                               type="button"
-                              disabled={enviandoId === p.id}
-                              onClick={() => setConfirmandoId(p.id)}
-                              title="Enviar cobrança pelo Whatsapp"
-                              style={checkAtraso(p) ? { background: 'var(--danger)', border: 'none', color: '#fff', boxShadow: 'none' } : undefined}
+                              onClick={() => void excluir(p)}
+                              style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
                             >
+                              Sim
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => setDeletingId(null)}
+                              style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                            >
+                              Não
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            {(p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento') ? (
+                              confirmandoId === p.id ? (
+                                <div className="row" style={{ gap: 4 }}>
+                                  <button
+                                    className="btn btnSuccess btnIcon"
+                                    type="button"
+                                    disabled={enviandoId === p.id}
+                                    onClick={() => void enviarCobranca(p)}
+                                    title="Confirmar enviar mensagem"
+                                  >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    className="btn btnIcon"
+                                    type="button"
+                                    onClick={() => setConfirmandoId(null)}
+                                    title="Cancelar envio"
+                                  >
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <line x1="18" y1="6" x2="6" y2="18" />
+                                      <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="btn btnPrimary btnIcon"
+                                  type="button"
+                                  disabled={enviandoId === p.id}
+                                  onClick={() => setConfirmandoId(p.id)}
+                                  title="Enviar cobrança pelo Whatsapp"
+                                  style={checkAtraso(p) ? { background: 'var(--danger)', border: 'none', color: '#fff', boxShadow: 'none' } : undefined}
+                                >
+                                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                  </svg>
+                                </button>
+                              )
+                            ) : null}
+                            <button className="btn btnIcon" type="button" onClick={() => navigate(`/pedidos/criar?edit=${p.id}`)} title="Editar pedido">
                               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13" />
-                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                               </svg>
                             </button>
-                          )
-                        ) : null}
-                        <button className="btn btnIcon" type="button" onClick={() => navigate(`/pedidos/criar?edit=${p.id}`)} title="Editar pedido">
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(p)} title="Excluir pedido">
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
+                            <button className="btn btnDanger btnIcon" type="button" onClick={() => setDeletingId(p.id)} title="Excluir pedido">
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -586,58 +623,82 @@ export function PedidosCadastradosPage() {
                 </div>
                 
                 <div className="mobile-card-actions">
-                  {!checkAtraso(p) && (p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento') && (
-                    <div style={{ marginRight: 'auto' }}>
-                      {confirmandoId === p.id ? (
-                        <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                          <button
-                            className="btn btnSuccess"
-                            type="button"
-                            disabled={enviandoId === p.id}
-                            onClick={() => void enviarCobranca(p)}
-                            style={{ minHeight: '32px', height: '32px', padding: '0 10px', fontSize: 12 }}
-                          >
-                            Confirmar
-                          </button>
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => setConfirmandoId(null)}
-                            style={{ minHeight: '32px', height: '32px', padding: '0 8px', fontSize: 12 }}
-                          >
-                            X
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="btn btnPrimary"
-                          type="button"
-                          disabled={enviandoId === p.id}
-                          onClick={() => setConfirmandoId(p.id)}
-                          style={{ minHeight: '32px', height: '32px', padding: '0 10px', fontSize: 12 }}
-                        >
-                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13" />
-                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                          </svg>
-                          <span style={{ marginLeft: 4 }}>Cobrar</span>
-                        </button>
-                      )}
+                  {deletingId === p.id ? (
+                    <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                      <span style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--danger)', alignSelf: 'center' }}>Confirma?</span>
+                      <button
+                        className="btn btnDanger"
+                        type="button"
+                        onClick={() => void excluir(p)}
+                        style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => setDeletingId(null)}
+                        style={{ padding: '4px 8px', fontSize: 11, minHeight: 30, height: 30 }}
+                      >
+                        Não
+                      </button>
                     </div>
+                  ) : (
+                    <>
+                      {!checkAtraso(p) && (p.pagamento_status === 'devendo' || p.pagamento_status === 'em_andamento') && (
+                        <div style={{ marginRight: 'auto' }}>
+                          {confirmandoId === p.id ? (
+                            <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                              <button
+                                className="btn btnSuccess"
+                                type="button"
+                                disabled={enviandoId === p.id}
+                                onClick={() => void enviarCobranca(p)}
+                                style={{ minHeight: '32px', height: '32px', padding: '0 10px', fontSize: 12 }}
+                              >
+                                Confirmar
+                              </button>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => setConfirmandoId(null)}
+                                style={{ minHeight: '32px', height: '32px', padding: '0 8px', fontSize: 12 }}
+                              >
+                                X
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn btnPrimary"
+                              type="button"
+                              disabled={enviandoId === p.id}
+                              onClick={() => setConfirmandoId(p.id)}
+                              style={{ minHeight: '32px', height: '32px', padding: '0 10px', fontSize: 12 }}
+                            >
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                              </svg>
+                              <span style={{ marginLeft: 4 }}>Cobrar</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      <button className="btn btnIcon" type="button" onClick={() => navigate(`/pedidos/criar?edit=${p.id}`)} title="Editar pedido">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                      <button className="btn btnDanger btnIcon" type="button" onClick={() => setDeletingId(p.id)} title="Excluir pedido">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </>
                   )}
-                  
-                  <button className="btn btnIcon" type="button" onClick={() => navigate(`/pedidos/criar?edit=${p.id}`)} title="Editar pedido">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                  </button>
-                  <button className="btn btnDanger btnIcon" type="button" onClick={() => void excluir(p)} title="Excluir pedido">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             ))}

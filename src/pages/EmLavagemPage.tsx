@@ -11,6 +11,7 @@ export function EmLavagemPage() {
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
 
   // Carrega todos os dados necessários
   async function loadData() {
@@ -78,6 +79,15 @@ export function EmLavagemPage() {
     if (c.condominio?.trim()) parts.push(c.condominio.trim())
     return parts.length > 0 ? `${c.nome} (${parts.join(' - ')})` : c.nome
   }
+
+  const pedidosFiltrados = useMemo(() => {
+    const termo = busca.toLowerCase().trim()
+    if (!termo) return pedidos
+    return pedidos.filter((p) => {
+      const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
+      return nomeCliente.includes(termo)
+    })
+  }, [pedidos, busca])
 
   // Alterna o estado 'conferido' de uma peça específica
   async function handleTogglePeca(pedidoId: string, itemId: string, pecaIndex: number) {
@@ -201,15 +211,39 @@ export function EmLavagemPage() {
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}
 
-      {pedidos.length === 0 ? (
+      {/* Busca */}
+      {(pedidos.length > 0 || busca) && (
+        <div className="row" style={{ gap: 12, alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 4 }}>
+          <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
+            <div className="field" style={{ minWidth: 240, flex: '1 1 auto' }}>
+              <label htmlFor="busca-cliente" style={{ marginBottom: 4 }}>Buscar Cliente</label>
+              <input
+                id="busca-cliente"
+                type="text"
+                placeholder="Digite o nome do cliente, condomínio, ap..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+              />
+            </div>
+          </div>
+          <div className="hint" style={{ fontWeight: 600 }}>
+            {pedidosFiltrados.length} {pedidosFiltrados.length === 1 ? 'pedido em lavagem' : 'pedidos em lavagem'}
+          </div>
+        </div>
+      )}
+
+      {pedidosFiltrados.length === 0 ? (
         <div className="panel" style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--panel)', borderRadius: '16px' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🧺</div>
           <h3 style={{ fontSize: 18, color: 'var(--text-h)', marginBottom: 6 }}>Nenhum pedido em lavagem</h3>
-          <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>Todos os enxovais já foram conferidos ou não há novos pedidos cadastrados.</p>
+          <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>
+            {busca ? 'Nenhum pedido encontrado com este termo.' : 'Todos os enxovais já foram conferidos ou não há novos pedidos cadastrados.'}
+          </p>
         </div>
       ) : (
         <div className="grid" style={{ gap: 16 }}>
-          {pedidos.map((p) => {
+          {pedidosFiltrados.map((p) => {
             const conf = statusConferenciaPedidos[p.id] || { total: 0, conferidas: 0, finalizado: false }
             const listItens = itensMap[p.id] || []
 
@@ -285,7 +319,7 @@ export function EmLavagemPage() {
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      Pronto para Enviar
+                      Marcar como concluído
                     </button>
                   </div>
                 </div>
@@ -395,7 +429,7 @@ export function EmLavagemPage() {
                           boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
                         }}
                       >
-                        Enviar agora
+                        Marcar como concluído
                       </button>
                     </div>
                   )}
