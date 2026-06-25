@@ -56,6 +56,7 @@ export type PedidoCliente = Pedido & {
     condominio: string | null
     bloco: string | null
     apartamento: string | null
+    plano?: ClientePlano | null
   } | null
 }
 

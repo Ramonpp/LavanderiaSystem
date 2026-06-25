@@ -71,7 +71,13 @@ export function PedidosCadastradosPage() {
     const termoBusca = busca.toLowerCase().trim()
     return pedidos.filter((p) => {
       if (filtroMes !== 'todos' && p.data_pedido.slice(0, 7) !== filtroMes) return false
-      if (filtroPagamento !== 'todos' && p.pagamento_status !== filtroPagamento) return false
+      if (filtroPagamento !== 'todos') {
+        if (filtroPagamento === 'mensal') {
+          if (p.cliente?.plano !== 'mensal') return false
+        } else {
+          if (p.pagamento_status !== filtroPagamento) return false
+        }
+      }
       
       if (termoBusca) {
         const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
@@ -303,13 +309,14 @@ export function PedidosCadastradosPage() {
               </div>
 
               {/* Filtro Pagamento */}
-              <div className="field" style={{ minWidth: 280, flex: '0 1 auto' }}>
+              <div className="field" style={{ minWidth: 340, flex: '0 1 auto' }}>
                 <label style={{ marginBottom: 4 }}>Filtrar por Pagamento</label>
                 <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 10, padding: 4, border: '1px solid var(--border)' }}>
                   {[
                     { value: 'todos', label: 'Todos' },
                     { value: 'pago', label: 'Pago' },
-                    { value: 'devendo', label: 'Devendo' }
+                    { value: 'devendo', label: 'Devendo' },
+                    { value: 'mensal', label: 'Mensal' }
                   ].map((opt) => (
                     <button
                       key={opt.value}

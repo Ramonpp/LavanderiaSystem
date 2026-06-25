@@ -9,12 +9,12 @@ async function hydratePedidosComCliente(pedidos: Pedido[]): Promise<{
   const ids = [...new Set(pedidos.map((p) => p.cliente_id))].filter(Boolean)
   if (ids.length === 0) return { data: pedidos.map((p) => ({ ...p, cliente: null })), error: null }
 
-  const { data: clientes, error } = await supabase.from('cliente').select('id, nome, condominio, bloco, apartamento').in('id', ids)
+  const { data: clientes, error } = await supabase.from('cliente').select('id, nome, condominio, bloco, apartamento, plano').in('id', ids)
   if (error) return { data: [], error: dbErrorMessage(error) }
 
-  const map = new Map<string, { nome: string; condominio: string | null; bloco: string | null; apartamento: string | null }>()
+  const map = new Map<string, { nome: string; condominio: string | null; bloco: string | null; apartamento: string | null; plano: any }>()
   ;(clientes ?? []).forEach((c: any) =>
-    map.set(c.id, { nome: c.nome, condominio: c.condominio, bloco: c.bloco, apartamento: c.apartamento })
+    map.set(c.id, { nome: c.nome, condominio: c.condominio, bloco: c.bloco, apartamento: c.apartamento, plano: c.plano })
   )
 
   return {

@@ -302,6 +302,8 @@ export function DashboardPage() {
     let valPagos = 0
     let qtdDevendo = 0
     let valDevendo = 0
+    let qtdMensal = 0
+    let valMensal = 0
 
     let qtdRecebido = 0
     let qtdLavagem = 0
@@ -313,6 +315,9 @@ export function DashboardPage() {
       if (p.pagamento_status === 'pago') {
         qtdPagos++
         valPagos += valor
+      } else if (p.cliente?.plano === 'mensal') {
+        qtdMensal++
+        valMensal += valor
       } else {
         qtdDevendo++
         valDevendo += valor
@@ -328,7 +333,7 @@ export function DashboardPage() {
       receita: receitaVal, 
       kgLavados: kgVal, 
       lucroMesSimples: luc,
-      pagamentos: { qtdPagos, valPagos, qtdDevendo, valDevendo },
+      pagamentos: { qtdPagos, valPagos, qtdDevendo, valDevendo, qtdMensal, valMensal },
       statusPedidos: { recebido: qtdRecebido, lavagem: qtdLavagem, pronto: qtdPronto, entregue: qtdEntregue }
     }
   }, [pedidosMes, despesasValor, consumoMesValor])
@@ -410,17 +415,23 @@ export function DashboardPage() {
                   <span className="hint" style={{ fontSize: 12 }}>Valores baseados nos pedidos ativos do mês</span>
                 </div>
                 <div className="panelBody grid" style={{ gap: 14 }}>
-                  <div className="row" style={{ alignItems: 'flex-start' }}>
-                    <div style={{ flex: '1 1 160px' }}>
+                  <div className="row" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ flex: '1 1 100px' }}>
                       <div className="statLabel">Pedidos Pagos</div>
                       <div className="statValSm valPositive">
                         {pagamentos.qtdPagos} ({formatBRL(pagamentos.valPagos)})
                       </div>
                     </div>
-                    <div style={{ flex: '1 1 160px' }}>
+                    <div style={{ flex: '1 1 100px' }}>
                       <div className="statLabel">Pedidos Devendo</div>
                       <div className="statValSm valNegative">
                         {pagamentos.qtdDevendo} ({formatBRL(pagamentos.valDevendo)})
+                      </div>
+                    </div>
+                    <div style={{ flex: '1 1 100px' }}>
+                      <div className="statLabel">Pedidos Mensais</div>
+                      <div className="statValSm" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                        {pagamentos.qtdMensal} ({formatBRL(pagamentos.valMensal)})
                       </div>
                     </div>
                   </div>
