@@ -42,6 +42,8 @@ export type Pedido = {
   peso_kg: number
   preco_por_kg: number | null
   preco_fixo: number | null
+  desconto_valor?: number | null
+  desconto_tipo?: 'percentual' | 'fixo' | null
   observacoes: string | null
   foto_drive_id?: string | null
   criado_em: string

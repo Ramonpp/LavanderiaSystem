@@ -12,6 +12,7 @@ import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
 import { compressImage } from '../utils/image'
+import { formatBRL } from '../lib/format'
 
 type ItemLinha = {
   key: string
@@ -81,6 +82,8 @@ export function CriarPedidoPage() {
   const [precoFixo, setPrecoFixo] = useState('')
 
   const [observacoes, setObservacoes] = useState('')
+  const [descontoValor, setDescontoValor] = useState('0')
+  const [descontoTipo, setDescontoTipo] = useState<'percentual' | 'fixo'>('fixo')
 
   const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
 
@@ -135,6 +138,26 @@ export function CriarPedidoPage() {
   }
 
   const primeiraPecaDisponível = useMemo(() => tipos[0]?.id ?? '', [tipos])
+
+  const totalBruto = useMemo(() => {
+    const peso = Number(String(pesoKg).replace(',', '.')) || 0
+    if (modoPreco === 'kg') {
+      const pk = Number(String(precoKg).replace(',', '.')) || 0
+      return peso * pk
+    } else {
+      return Number(String(precoFixo).replace(',', '.')) || 0
+    }
+  }, [modoPreco, pesoKg, precoKg, precoFixo])
+
+  const totalComDesconto = useMemo(() => {
+    const dVal = Number(String(descontoValor).replace(',', '.')) || 0
+    if (dVal <= 0) return totalBruto
+    if (descontoTipo === 'percentual') {
+      return totalBruto * (1 - dVal / 100)
+    } else {
+      return Math.max(0, totalBruto - dVal)
+    }
+  }, [totalBruto, descontoValor, descontoTipo])
   const DEFAULT_PRECO_POR_KG_48H = '15'
 
   async function reloadAll() {
@@ -193,6 +216,8 @@ export function CriarPedidoPage() {
     setPrecoKg('15')
     setPrecoFixo('')
     setObservacoes('')
+    setDescontoValor('0')
+    setDescontoTipo('fixo')
     setItensLinhas(gerarLinhasPadrao(tipos))
     setMsg(null)
     setFotoFile(null)
@@ -260,6 +285,8 @@ export function CriarPedidoPage() {
     setPrecoKg(p.preco_por_kg == null ? '' : String(p.preco_por_kg))
     setPrecoFixo(p.preco_fixo == null ? '' : String(p.preco_fixo))
     setObservacoes(p.observacoes ?? '')
+    setDescontoValor(p.desconto_valor == null ? '0' : String(p.desconto_valor))
+    setDescontoTipo(p.desconto_tipo || 'fixo')
 
     const { data } = await fetchItensPorPedidos([p.id])
     const linhas: ItemLinha[] =
@@ -323,9 +350,10 @@ export function CriarPedidoPage() {
 
     const pk = Number(String(precoKg).replace(',', '.'))
     const pf = Number(String(precoFixo).replace(',', '.'))
+    const descVal = Number(String(descontoValor).replace(',', '.'))
 
-    let preco_por_kg: number | null = null
-    let preco_fixo: number | null = null
+    let preco_por_kg: number | null
+    let preco_fixo: number | null
 
     if (modoPreco === 'kg') {
       if (!Number.isFinite(pk) || pk < 0) {
@@ -341,6 +369,11 @@ export function CriarPedidoPage() {
       }
       preco_fixo = pf
       preco_por_kg = null
+    }
+
+    if (!Number.isFinite(descVal) || descVal < 0) {
+      setErro('Desconto inválido.')
+      return
     }
 
     const itensLimpos = montarItensPersistência()
@@ -388,7 +421,7 @@ export function CriarPedidoPage() {
           if (firstItem && firstItem.fileId) {
             uploadedFileId = firstItem.fileId
           }
-        } catch (e) {
+        } catch {
           // Ignorar se n8n responder com texto simples (ex: "Workflow started")
         }
       } catch (err: any) {
@@ -408,6 +441,8 @@ export function CriarPedidoPage() {
       peso_kg: peso,
       preco_por_kg,
       preco_fixo,
+      desconto_valor: descVal,
+      desconto_tipo: descontoTipo,
       observacoes: observacoes.trim().length === 0 ? null : observacoes.trim(),
       foto_drive_id: uploadedFileId || fotoDriveIdExistente,
     }
@@ -591,6 +626,44 @@ export function CriarPedidoPage() {
             </div>
           </div>
 
+          <div className="row">
+            <div className="field">
+              <label htmlFor="descVal">Desconto</label>
+              <input id="descVal" inputMode="decimal" value={descontoValor} onChange={(e) => setDescontoValor(e.target.value)} />
+            </div>
+            <div className="field" style={{ alignSelf: 'end' }}>
+              <label>Tipo de desconto</label>
+              <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 10, padding: 4, border: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setDescontoTipo('fixo')}
+                  style={{
+                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: descontoTipo === 'fixo' ? 'var(--panel)' : 'transparent',
+                    color: descontoTipo === 'fixo' ? 'var(--text-h)' : 'var(--muted)',
+                    boxShadow: descontoTipo === 'fixo' ? 'var(--shadow)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Fixo (R$)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDescontoTipo('percentual')}
+                  style={{
+                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    background: descontoTipo === 'percentual' ? 'var(--panel)' : 'transparent',
+                    color: descontoTipo === 'percentual' ? 'var(--text-h)' : 'var(--muted)',
+                    boxShadow: descontoTipo === 'percentual' ? 'var(--shadow)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Percentual (%)
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
             <div className="field" style={{ flex: '1 1 300px' }}>
               <label htmlFor="foto">Foto da Pesagem {fotoDriveIdExistente ? '(Já existe foto no Drive)' : '(Opcional)'}</label>
@@ -765,6 +838,36 @@ export function CriarPedidoPage() {
               ) : null}
             </div>
           </section>
+
+          {/* Pricing summary box */}
+          <div style={{
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginTop: '8px',
+            marginBottom: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            boxShadow: 'var(--shadow)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+              <span style={{ color: 'var(--muted)' }}>Valor Bruto:</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-h)' }}>{formatBRL(totalBruto)}</span>
+            </div>
+            {Number(descontoValor) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--danger)' }}>
+                <span>Desconto ({descontoTipo === 'percentual' ? `${descontoValor}%` : 'Fixo'}):</span>
+                <span>-{formatBRL(totalBruto - totalComDesconto)}</span>
+              </div>
+            )}
+            <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700 }}>
+              <span style={{ color: 'var(--text-h)' }}>Total a Pagar:</span>
+              <span style={{ color: 'var(--accent)' }}>{formatBRL(totalComDesconto)}</span>
+            </div>
+          </div>
 
           <button 
             className="btn btnPrimary" 

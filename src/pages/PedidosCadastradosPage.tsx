@@ -8,7 +8,7 @@ import {
 } from '../data/pedidos'
 import { fetchClientes } from '../data/clientes'
 import { fetchTiposPeca } from '../data/tiposPeca'
-import type { Cliente, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca } from '../types/models'
+import type { Cliente, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca, ItemPedido } from '../types/models'
 import { receitaPedido } from '../domain/finance'
 import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
@@ -51,6 +51,7 @@ export function PedidosCadastradosPage() {
   const [filtroMes, setFiltroMes] = useState('todos')
   const [filtroPagamento, setFiltroPagamento] = useState('todos')
   const [busca, setBusca] = useState('')
+  const [itensMap, setItensMap] = useState<Record<string, ItemPedido[]>>({})
 
   function formatarNomeCliente(c: { nome: string; condominio?: string | null; bloco?: string | null; apartamento?: string | null } | null) {
     if (!c) return '—'
@@ -74,12 +75,22 @@ export function PedidosCadastradosPage() {
       
       if (termoBusca) {
         const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
-        if (!nomeCliente.includes(termoBusca)) return false
+        const condominio = (p.cliente?.condominio || '').toLowerCase()
+        if (nomeCliente.includes(termoBusca) || condominio.includes(termoBusca)) return true
+
+        const orderItems = itensMap[p.id] || []
+        const matchPeca = orderItems.some((item) => {
+          const pecasList = item.pecas || []
+          return pecasList.some((peca) => (peca.id_peca || '').toLowerCase().includes(termoBusca))
+        })
+        if (matchPeca) return true
+
+        return false
       }
       
       return true
     })
-  }, [pedidos, filtroMes, filtroPagamento, busca])
+  }, [pedidos, filtroMes, filtroPagamento, busca, itensMap])
 
   const limiteAtrasoStr = useMemo(() => {
     const seteDiasAtras = new Date()
@@ -129,7 +140,26 @@ export function PedidosCadastradosPage() {
     setTipos(tp.data)
 
     const e = peds.error ?? cls.error ?? tp.error ?? null
-    if (e) setErro(e)
+    if (e) {
+      setErro(e)
+      return
+    }
+
+    if (peds.data && peds.data.length > 0) {
+      const ids = peds.data.map((p) => p.id)
+      const itensRes = await fetchItensPorPedidos(ids)
+      if (itensRes.error) {
+        setErro(itensRes.error)
+      } else {
+        const grouped: Record<string, ItemPedido[]> = {}
+        peds.data.forEach((p) => {
+          grouped[p.id] = itensRes.data.filter((item) => item.pedido_id === p.id)
+        })
+        setItensMap(grouped)
+      }
+    } else {
+      setItensMap({})
+    }
   }
 
   useEffect(() => {

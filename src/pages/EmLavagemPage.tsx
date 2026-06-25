@@ -85,9 +85,18 @@ export function EmLavagemPage() {
     if (!termo) return pedidos
     return pedidos.filter((p) => {
       const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
-      return nomeCliente.includes(termo)
+      if (nomeCliente.includes(termo)) return true
+
+      const orderItems = itensMap[p.id] || []
+      const matchPeca = orderItems.some((item) => {
+        const pecasList = item.pecas || []
+        return pecasList.some((peca) => (peca.id_peca || '').toLowerCase().includes(termo))
+      })
+      if (matchPeca) return true
+
+      return false
     })
-  }, [pedidos, busca])
+  }, [pedidos, busca, itensMap])
 
   // Alterna o estado 'conferido' de uma peça específica
   async function handleTogglePeca(pedidoId: string, itemId: string, pecaIndex: number) {

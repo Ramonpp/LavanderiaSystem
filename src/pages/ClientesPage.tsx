@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { deleteClienteHard, fetchClientes, insertCliente, updateCliente } from '../data/clientes'
-import type { Cliente, ClienteFormaPagamento, ClientePlano } from '../types/models'
+import { fetchPedidos } from '../data/pedidos'
+import type { Cliente, ClienteFormaPagamento, ClientePlano, PedidoCliente } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
+import { receitaPedido } from '../domain/finance'
+import { formatBRL } from '../lib/format'
 
 const PLANO_OPCOES: Array<{ value: ClientePlano; label: string }> = [
   { value: 'pagou', label: 'Uso pagou' },
@@ -31,10 +34,46 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
   const [erro, setErro] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  const [filtroPlano, setFiltroPlano] = useState('todos')
+  const [apenasComDesconto, setApenasComDesconto] = useState(false)
+  const [apenasDevendo, setApenasDevendo] = useState(false)
+  const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
+
+  const getClienteSaldoPendente = useCallback((clienteId: string) => {
+    return pedidos
+      .filter((p) => p.cliente_id === clienteId && p.pagamento_status !== 'pago')
+      .reduce((sum, p) => sum + receitaPedido(p), 0)
+  }, [pedidos])
+
+  const clientesComDesconto = useMemo(() => {
+    const ids = new Set<string>()
+    pedidos.forEach((p) => {
+      if ((p.desconto_valor ?? 0) > 0) {
+        ids.add(p.cliente_id)
+      }
+    })
+    return ids
+  }, [pedidos])
+
   const itensFiltrados = useMemo(() => {
+    let result = itens
+
+    if (filtroPlano !== 'todos') {
+      result = result.filter((c) => c.plano === filtroPlano)
+    }
+
+    if (apenasComDesconto) {
+      result = result.filter((c) => clientesComDesconto.has(c.id))
+    }
+
+    if (apenasDevendo) {
+      result = result.filter((c) => getClienteSaldoPendente(c.id) > 0)
+    }
+
     const termo = busca.toLowerCase().trim()
-    if (!termo) return itens
-    return itens.filter((c) => {
+    if (!termo) return result
+
+    return result.filter((c) => {
       const nome = (c.nome || '').toLowerCase()
       const documento = (c.documento || '').toLowerCase()
       const telefone = (c.telefone || '').toLowerCase()
@@ -52,7 +91,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
         apartamento.includes(termo)
       )
     })
-  }, [itens, busca])
+  }, [itens, busca, filtroPlano, apenasComDesconto, apenasDevendo, clientesComDesconto, getClienteSaldoPendente])
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [nome, setNome] = useState('')
@@ -70,9 +109,36 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
 
   async function recarregar() {
     setErro(null)
-    const { data, error } = await fetchClientes(mostrarInativos)
-    if (error) setErro(error)
-    setItens(data)
+    const [clRes, pedRes] = await Promise.all([
+      fetchClientes(mostrarInativos),
+      fetchPedidos(),
+    ])
+    if (clRes.error) setErro(clRes.error)
+    if (pedRes.error) setErro(pedRes.error)
+    setItens(clRes.data)
+    setPedidos(pedRes.data)
+  }
+
+  const totalMensalistasDevendo = useMemo(() => {
+    let total = 0
+    itens.forEach((c) => {
+      if (c.plano === 'mensal' && c.ativo) {
+        const cliPedidos = pedidos.filter((p) => p.cliente_id === c.id && p.pagamento_status !== 'pago')
+        cliPedidos.forEach((p) => {
+          total += receitaPedido(p)
+        })
+      }
+    })
+    return total
+  }, [itens, pedidos])
+
+  function handleCobrarCliente(c: Cliente, saldo: number) {
+    if (!c.telefone) return
+    const fone = c.telefone.replace(/\D/g, '')
+    const primeiroNome = c.nome.trim().split(' ')[0]
+    const texto = `Olá ${primeiroNome}, tudo bem?\n\nPassando para enviar o fechamento do seu enxoval da lavanderia. O valor total em aberto acumulado é de *${formatBRL(saldo)}*.\n\nPodemos fazer o acerto via Pix? Se precisar do detalhamento dos pedidos, é só me falar! 🧺`
+    const url = `https://api.whatsapp.com/send?phone=55${fone}&text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
   }
 
   useEffect(() => {
@@ -361,6 +427,35 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
             </div>
           </div>
           <div className="panelBody">
+            {/* Mensalistas summary card */}
+            {filtroPlano === 'mensal' && (
+              <div style={{
+                background: 'color-mix(in srgb, var(--accent), transparent 95%)',
+                border: '1px solid var(--accent)',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12
+              }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, color: 'var(--accent)' }}>Resumo de Mensalistas</h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--muted)' }}>
+                    Total de clientes mensalistas ativos: <strong>{itens.filter((c) => c.plano === 'mensal' && c.ativo).length}</strong>
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>Total Acumulado a Receber:</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>
+                    {formatBRL(totalMensalistasDevendo)}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Filtros / Busca */}
             <div className="row" style={{ marginBottom: 14, gap: 12, alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
               <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
@@ -375,6 +470,43 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
                     style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
                   />
                 </div>
+
+                <div className="field" style={{ minWidth: 160, flex: '0 1 auto' }}>
+                  <label htmlFor="filtro-plano" style={{ marginBottom: 4 }}>Filtrar por Plano</label>
+                  <select
+                    id="filtro-plano"
+                    value={filtroPlano}
+                    onChange={(e) => setFiltroPlano(e.target.value)}
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                  >
+                    <option value="todos">Todos os planos</option>
+                    {PLANO_OPCOES.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <label className="switch-container" style={{ alignSelf: 'end', marginBottom: 8 }}>
+                  <input 
+                    type="checkbox" 
+                    className="switch-input" 
+                    checked={apenasDevendo} 
+                    onChange={(e) => setApenasDevendo(e.target.checked)} 
+                  />
+                  <span className="switch-slider"></span>
+                  <span>Apenas devedores</span>
+                </label>
+
+                <label className="switch-container" style={{ alignSelf: 'end', marginBottom: 8 }}>
+                  <input 
+                    type="checkbox" 
+                    className="switch-input" 
+                    checked={apenasComDesconto} 
+                    onChange={(e) => setApenasComDesconto(e.target.checked)} 
+                  />
+                  <span className="switch-slider"></span>
+                  <span>Apenas com desconto</span>
+                </label>
               </div>
               <div className="hint" style={{ fontWeight: 600 }}>
                 {itensFiltrados.length} {itensFiltrados.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}
@@ -393,7 +525,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
                     <th>Plano</th>
                     <th>Pagamento</th>
                     <th>Telefone</th>
-                    <th>Email</th>
+                    <th>Saldo Devedor</th>
                     <th>Ativo</th>
                     <th style={{ width: 220 }}>Ações</th>
                   </tr>
@@ -418,7 +550,32 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
                       </td>
                       <td>{FORMA_OPCOES.find((x) => x.value === c.forma_pagamento)?.label ?? c.forma_pagamento}</td>
                       <td>{c.telefone ?? '—'}</td>
-                      <td>{c.email ?? '—'}</td>
+                      <td>
+                        {(() => {
+                          const saldo = getClienteSaldoPendente(c.id)
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontWeight: 700, color: saldo > 0 ? 'var(--danger)' : 'var(--muted)' }}>
+                                {formatBRL(saldo)}
+                              </span>
+                              {saldo > 0 && c.telefone && (
+                                <button
+                                  className="btn btnSuccess btnIcon"
+                                  type="button"
+                                  onClick={() => handleCobrarCliente(c, saldo)}
+                                  title="Cobrar via Whatsapp"
+                                  style={{ padding: 4, minHeight: 24, height: 24, width: 24 }}
+                                >
+                                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </td>
                       <td>{c.ativo ? 'sim' : 'não'}</td>
                       <td>
                         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
@@ -524,6 +681,43 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
                         <div className="mobile-card-value" style={{ wordBreak: 'break-all' }}>{c.email}</div>
                       </div>
                     )}
+                    {(() => {
+                      const saldo = getClienteSaldoPendente(c.id)
+                      if (saldo <= 0) return null
+                      return (
+                        <div className="mobile-card-body-full" style={{
+                          background: 'color-mix(in srgb, var(--danger), transparent 96%)',
+                          border: '1px solid var(--danger)',
+                          borderRadius: '8px',
+                          padding: '8px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: 8
+                        }}>
+                          <div>
+                            <div className="mobile-card-label" style={{ color: 'var(--danger)' }}>Saldo Pendente</div>
+                            <div className="mobile-card-value" style={{ fontWeight: 700, color: 'var(--danger)', fontSize: 14 }}>
+                              {formatBRL(saldo)}
+                            </div>
+                          </div>
+                          {c.telefone && (
+                            <button
+                              className="btn btnSuccess"
+                              type="button"
+                              onClick={() => handleCobrarCliente(c, saldo)}
+                              style={{ minHeight: 32, height: 32, padding: '0 12px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            >
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                              </svg>
+                              <span>Cobrar</span>
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="mobile-card-actions">
                     {deletingId === c.id ? (
