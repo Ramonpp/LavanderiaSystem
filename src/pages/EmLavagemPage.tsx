@@ -3,6 +3,7 @@ import { fetchPedidosEmLavagem, fetchItensPorPedidos, updatePedido, updateItemPe
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { PedidoCliente, ItemPedido, TipoPeca, ItemPedidoPeca, OrderStatus } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
+import { normalizeSearch } from '../lib/format'
 
 export function EmLavagemPage() {
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
@@ -81,16 +82,16 @@ export function EmLavagemPage() {
   }
 
   const pedidosFiltrados = useMemo(() => {
-    const termo = busca.toLowerCase().trim()
+    const termo = normalizeSearch(busca)
     if (!termo) return pedidos
     return pedidos.filter((p) => {
-      const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
+      const nomeCliente = normalizeSearch(formatarNomeCliente(p.cliente))
       if (nomeCliente.includes(termo)) return true
 
       const orderItems = itensMap[p.id] || []
       const matchPeca = orderItems.some((item) => {
         const pecasList = item.pecas || []
-        return pecasList.some((peca) => (peca.id_peca || '').toLowerCase().includes(termo))
+        return pecasList.some((peca) => normalizeSearch(peca.id_peca || '').includes(termo))
       })
       if (matchPeca) return true
 

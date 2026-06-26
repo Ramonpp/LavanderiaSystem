@@ -225,7 +225,7 @@
 }
 
 .subMenuOpen {
-  max-height: 120px;
+  max-height: 200px;
   opacity: 1;
   margin-top: 4px;
   margin-bottom: 4px;
@@ -249,6 +249,9 @@
   border: 1px solid transparent;
   transition: all 150ms ease;
   opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .subNavItem:hover {

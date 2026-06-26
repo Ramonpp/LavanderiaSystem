@@ -5,7 +5,7 @@ import { fetchPedidos } from '../data/pedidos'
 import type { Cliente, ClienteFormaPagamento, ClientePlano, PedidoCliente } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
 import { receitaPedido } from '../domain/finance'
-import { formatBRL } from '../lib/format'
+import { formatBRL, normalizeSearch } from '../lib/format'
 
 const PLANO_OPCOES: Array<{ value: ClientePlano; label: string }> = [
   { value: 'pagou', label: 'Uso pagou' },
@@ -70,17 +70,17 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
       result = result.filter((c) => getClienteSaldoPendente(c.id) > 0)
     }
 
-    const termo = busca.toLowerCase().trim()
+    const termo = normalizeSearch(busca)
     if (!termo) return result
 
     return result.filter((c) => {
-      const nome = (c.nome || '').toLowerCase()
-      const documento = (c.documento || '').toLowerCase()
-      const telefone = (c.telefone || '').toLowerCase()
-      const email = (c.email || '').toLowerCase()
-      const condominio = (c.condominio || '').toLowerCase()
-      const bloco = (c.bloco || '').toLowerCase()
-      const apartamento = (c.apartamento || '').toLowerCase()
+      const nome = normalizeSearch(c.nome || '')
+      const documento = normalizeSearch(c.documento || '')
+      const telefone = normalizeSearch(c.telefone || '')
+      const email = normalizeSearch(c.email || '')
+      const condominio = normalizeSearch(c.condominio || '')
+      const bloco = normalizeSearch(c.bloco || '')
+      const apartamento = normalizeSearch(c.apartamento || '')
       return (
         nome.includes(termo) ||
         documento.includes(termo) ||

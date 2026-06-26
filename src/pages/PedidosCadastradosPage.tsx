@@ -10,7 +10,7 @@ import { fetchClientes } from '../data/clientes'
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca, ItemPedido } from '../types/models'
 import { receitaPedido } from '../domain/finance'
-import { formatBRL } from '../lib/format'
+import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { enviarCobrancaWebhook } from '../data/webhook'
 
@@ -68,7 +68,7 @@ export function PedidosCadastradosPage() {
   }, [pedidos])
 
   const pedidosFiltrados = useMemo(() => {
-    const termoBusca = busca.toLowerCase().trim()
+    const termoBusca = normalizeSearch(busca)
     return pedidos.filter((p) => {
       if (filtroMes !== 'todos' && p.data_pedido.slice(0, 7) !== filtroMes) return false
       if (filtroPagamento !== 'todos') {
@@ -80,14 +80,14 @@ export function PedidosCadastradosPage() {
       }
       
       if (termoBusca) {
-        const nomeCliente = formatarNomeCliente(p.cliente).toLowerCase()
-        const condominio = (p.cliente?.condominio || '').toLowerCase()
+        const nomeCliente = normalizeSearch(formatarNomeCliente(p.cliente))
+        const condominio = normalizeSearch(p.cliente?.condominio || '')
         if (nomeCliente.includes(termoBusca) || condominio.includes(termoBusca)) return true
 
         const orderItems = itensMap[p.id] || []
         const matchPeca = orderItems.some((item) => {
           const pecasList = item.pecas || []
-          return pecasList.some((peca) => (peca.id_peca || '').toLowerCase().includes(termoBusca))
+          return pecasList.some((peca) => normalizeSearch(peca.id_peca || '').includes(termoBusca))
         })
         if (matchPeca) return true
 
