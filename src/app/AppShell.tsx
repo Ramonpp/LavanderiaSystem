@@ -297,6 +297,15 @@ export function AppShell() {
                     >
                       Pedidos cadastrados
                     </NavLink>
+                    <NavLink
+                      to="/pedidos/mensais"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Mensais
+                    </NavLink>
                   </div>
                 </div>
               )

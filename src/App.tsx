@@ -16,6 +16,7 @@ import { RelatoriosPage } from './pages/RelatoriosPage'
 import { SimulacaoPage } from './pages/SimulacaoPage'
 import { TiposPecaPage } from './pages/TiposPecaPage'
 import { ManchasPage } from './pages/ManchasPage'
+import { PedidosMensaisPage } from './pages/PedidosMensaisPage'
 
 export default function App() {
   const [session, setSession] = useState<any>(null)
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="/pedidos/criar" element={<CriarPedidoPage />} />
         <Route path="/pedidos/lista" element={<PedidosCadastradosPage />} />
         <Route path="/pedidos/em-lavagem" element={<EmLavagemPage />} />
+        <Route path="/pedidos/mensais" element={<PedidosMensaisPage />} />
         <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
         <Route path="/pecas" element={<TiposPecaPage />} />
         <Route path="/despesas/criar" element={<DespesasPage mode="criar" />} />
