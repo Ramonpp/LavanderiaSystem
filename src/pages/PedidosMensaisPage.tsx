@@ -16,7 +16,16 @@ export function PedidosMensaisPage() {
   const [busca, setBusca] = useState('')
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
   const [expandedClienteId, setExpandedClienteId] = useState<string | null>(null)
+  const [chavePix, setChavePix] = useState(() => {
+    try { return localStorage.getItem('lav-chave-pix') || '' } catch { return '' }
+  })
+
+  function handleChavePixChange(val: string) {
+    setChavePix(val)
+    try { localStorage.setItem('lav-chave-pix', val) } catch { /* noop */ }
+  }
 
   async function carregarDados() {
     setLoading(true)
@@ -151,6 +160,27 @@ export function PedidosMensaisPage() {
 
     const url = `https://api.whatsapp.com/send?phone=55${fone}&text=${encodeURIComponent(texto)}`
     window.open(url, '_blank')
+  }
+
+  // Copia a mensagem simplificada de cobrança para a área de transferência
+  function handleCopiarMensagemPronta(c: Cliente, pesoTotal: number, valorTotal: number) {
+    const primeiroNome = c.nome.trim().split(' ')[0]
+    const pesoStr = Number(pesoTotal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })
+    
+    const texto = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
+      `Segue em anexo o fechamento mensal da lavanderia.\n\n` +
+      `🧺 Peso total: ${pesoStr} kg\n` +
+      `💰 Total: ${formatBRL(valorTotal)}\n\n` +
+      `Pagamento via Pix:\n` +
+      `${chavePix || '[Insira sua chave Pix]'}\n\n` +
+      `Abraços, Equipe Ciclo Novo Lavanderia 💙`
+
+    navigator.clipboard.writeText(texto).then(() => {
+      setMsg(`Mensagem pronta para ${primeiroNome} copiada!`)
+      setTimeout(() => setMsg(null), 4000)
+    }).catch((err) => {
+      setErro(`Erro ao copiar mensagem: ${err.message || err}`)
+    })
   }
 
   // Gera o PDF de fechamento formatado na tela de impressão
@@ -468,27 +498,48 @@ export function PedidosMensaisPage() {
       </header>
 
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
+      {msg ? <StatusBanner kind="success" message={msg} /> : null}
 
       <section className="panel" style={{ marginTop: 12 }}>
-        <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-          <h2 style={{ fontSize: 18, color: 'var(--accent)' }}>Clientes Mensalistas</h2>
+        <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12, flexWrap: 'wrap', gap: 12 }}>
+          <h2 style={{ fontSize: 18, color: 'var(--accent)', margin: 0 }}>Clientes Mensalistas</h2>
           
-          <div className="field" style={{ minWidth: 280, margin: 0 }}>
-            <input
-              type="text"
-              placeholder="Buscar por nome ou condomínio..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-                fontSize: 13,
-                width: '100%'
-              }}
-            />
+          <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-end' }}>
+            <div className="field" style={{ minWidth: 240, margin: 0, flex: '1 1 auto' }}>
+              <input
+                type="text"
+                placeholder="Buscar por nome ou condomínio..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  width: '100%'
+                }}
+              />
+            </div>
+            
+            <div className="field" style={{ minWidth: 240, margin: 0, flex: '1 1 auto' }}>
+              <input
+                type="text"
+                placeholder="Chave Pix para cobrança..."
+                value={chavePix}
+                onChange={(e) => handleChavePixChange(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  width: '100%'
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -600,6 +651,29 @@ export function PedidosMensaisPage() {
                               <polyline points="10 9 9 9 8 9" />
                             </svg>
                             Gerar Relatório (PDF)
+                          </button>
+
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => handleCopiarMensagemPronta(item.cliente, item.pesoTotal, item.valorTotal)}
+                            style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: 8, 
+                              fontSize: 13, 
+                              padding: '8px 14px',
+                              background: 'var(--panel)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text-h)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            MENSAGEM PRONTA
                           </button>
                         </div>
 
