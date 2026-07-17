@@ -4,6 +4,7 @@ import { fetchTiposPeca } from '../data/tiposPeca'
 import type { PedidoCliente, ItemPedido, TipoPeca, ItemPedidoPeca, OrderStatus } from '../types/models'
 import { StatusBanner } from '../components/StatusBanner'
 import { normalizeSearch } from '../lib/format'
+import { supabase } from '../lib/supabase'
 
 export function EmLavagemPage() {
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
@@ -64,6 +65,44 @@ export function EmLavagemPage() {
 
   useEffect(() => {
     void loadData()
+
+    const channel = supabase
+      .channel('em_lavagem_changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'item_pedido' },
+        (payload) => {
+          const newItem = payload.new as ItemPedido
+          setItensMap((prev) => {
+            const orderId = newItem.pedido_id
+            if (!prev[orderId]) return prev
+            const updatedItems = prev[orderId].map((it) =>
+              it.id === newItem.id ? newItem : it
+            )
+            return { ...prev, [orderId]: updatedItems }
+          })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'pedido' },
+        (payload) => {
+          const newPedido = payload.new as any
+          if (newPedido.status === 'pronto') {
+            setPedidos((prev) => prev.filter((p) => p.id !== newPedido.id))
+            setItensMap((prev) => {
+              const copy = { ...prev }
+              delete copy[newPedido.id]
+              return copy
+            })
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Resolve o nome do tipo de peça
@@ -389,7 +428,7 @@ export function EmLavagemPage() {
                                   }}
                                   title={peca.conferido ? 'Clique para desmarcar' : 'Clique para marcar como conferido/dobrado'}
                                 >
-                                  <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', fontSize: 12 }}>
+                                  <span style={{ wordBreak: 'break-word', whiteSpace: 'normal', width: '100%', fontSize: 12, lineHeight: 1.2 }}>
                                     {peca.id_peca || 'Sem ID'}
                                   </span>
                                   <span style={{ fontSize: 10, fontWeight: 500, color: peca.conferido ? 'var(--ok)' : 'var(--muted)', marginTop: 2 }}>
