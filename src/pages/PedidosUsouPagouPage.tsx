@@ -452,7 +452,11 @@ export function PedidosUsouPagouPage() {
             padding-top: 15px;
           }
           @media print {
+            @page {
+              margin: 0;
+            }
             body {
+              margin: 1.6cm;
               padding: 0;
             }
             .payment-instructions {
@@ -955,7 +959,11 @@ export function PedidosUsouPagouPage() {
           }
           
           @media print {
+            @page {
+              margin: 0;
+            }
             body {
+              margin: 1.6cm;
               padding: 0;
             }
             .cliente-breakdown {

@@ -402,7 +402,11 @@ export function PedidosMensaisPage() {
             padding-top: 15px;
           }
           @media print {
+            @page {
+              margin: 0;
+            }
             body {
+              margin: 1.6cm;
               padding: 0;
             }
             .payment-instructions {
