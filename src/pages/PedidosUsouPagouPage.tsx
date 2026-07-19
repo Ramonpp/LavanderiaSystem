@@ -243,7 +243,7 @@ export function PedidosUsouPagouPage() {
     const primeiroNome = c.nome.trim().split(' ')[0]
     
     const texto = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
-      `Segue o fechamento da lavanderia (imagem em anexo).\n\n` +
+      `Segue o fechamento da lavanderia.\n\n` +
       `Qualquer dúvida estou à disposição! 💙`
 
     navigator.clipboard.writeText(texto).then(() => {
