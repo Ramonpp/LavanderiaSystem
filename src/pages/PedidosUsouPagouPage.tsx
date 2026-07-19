@@ -292,7 +292,7 @@ export function PedidosUsouPagouPage() {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>Cobrança Usou e Pagou - ${c.nome}</title>
+        <title>Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</title>
         ${isPng ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>' : ''}
         <style>
           body {
@@ -479,7 +479,7 @@ export function PedidosUsouPagouPage() {
             </div>
           </div>
           <div>
-            <h2 class="doc-title">Detalhamento de Pendências</h2>
+            <h2 class="doc-title">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
             <p class="doc-date">Emitido em: ${dataEmissao}</p>
           </div>
         </div>
@@ -493,7 +493,7 @@ export function PedidosUsouPagouPage() {
           <div class="info-block">
             <h3>Contato</h3>
             <p>${c.telefone || 'Sem telefone'}</p>
-            <span>Plano Usou e Pagou · Pagamento acordado via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+            <span>Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
           </div>
         </div>
 
@@ -609,7 +609,7 @@ export function PedidosUsouPagouPage() {
               </div>
             </div>
             <div>
-              <h2 style="font-size: 18px; font-weight: 700; text-align: right; margin: 0; color: #333;">Detalhamento de Pendências</h2>
+              <h2 style="font-size: 18px; font-weight: 700; text-align: right; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
               <p style="font-size: 12px; color: #666; text-align: right; margin-top: 4px;">Emitido em: ${dataEmissao}</p>
             </div>
           </div>
@@ -623,7 +623,7 @@ export function PedidosUsouPagouPage() {
             <div>
               <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
               <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
-              <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Plano Usou e Pagou · Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+              <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
             </div>
           </div>
 
@@ -794,7 +794,7 @@ export function PedidosUsouPagouPage() {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>Relatório de Pendências - Clientes Usou e Pagou</title>
+        <title>Relatório de Pendências - Clientes</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -982,7 +982,7 @@ export function PedidosUsouPagouPage() {
             </div>
           </div>
           <div>
-            <h2 class="doc-title">Relatório Geral de Pendências (Usou e Pagou)</h2>
+            <h2 class="doc-title">Relatório Geral de Pendências</h2>
             <p class="doc-date">Emitido em: ${dataEmissao}</p>
           </div>
         </div>
