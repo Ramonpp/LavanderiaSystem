@@ -6,6 +6,30 @@ import type { Cliente, PedidoCliente, ItemPedido, TipoPeca } from '../types/mode
 import { receitaPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
+import html2canvas from 'html2canvas'
+
+function getBase64Image(imgUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.src = imgUrl
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } else {
+        resolve(imgUrl)
+      }
+    }
+    img.onerror = () => {
+      resolve(imgUrl)
+    }
+  })
+}
 
 export function PedidosUsouPagouPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -215,17 +239,12 @@ export function PedidosUsouPagouPage() {
   }
 
   // Copia a mensagem simplificada de cobrança para a área de transferência
-  function handleCopiarMensagemPronta(c: Cliente, pesoTotal: number, valorTotal: number) {
+  function handleCopiarMensagemPronta(c: Cliente) {
     const primeiroNome = c.nome.trim().split(' ')[0]
-    const pesoStr = Number(pesoTotal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })
     
     const texto = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
-      `Segue em anexo o detalhamento de pendências da lavanderia.\n\n` +
-      `🧺 Peso total: ${pesoStr} kg\n` +
-      `💰 Total: ${formatBRL(valorTotal)}\n\n` +
-      `Pagamento via Pix:\n` +
-      `${chavePix || '[Insira sua chave Pix]'}\n\n` +
-      `Abraços, Equipe Ciclo Novo Lavanderia 💙`
+      `Segue o fechamento da lavanderia (imagem em anexo).\n\n` +
+      `Qualquer dúvida estou à disposição! 💙`
 
     navigator.clipboard.writeText(texto).then(() => {
       setMsg(`Mensagem pronta para ${primeiroNome} copiada!`)
@@ -537,6 +556,141 @@ export function PedidosUsouPagouPage() {
       </html>
     `)
     printWindow.document.close()
+  }
+
+  // Copia a imagem PNG do fechamento diretamente para a área de transferência
+  async function handleCopiarPNG(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
+    try {
+      setMsg('Gerando imagem para cópia...')
+      const logoBase64 = await getBase64Image('/logo.png')
+
+      const detalhesPedidos = pedidosCliente
+        .slice()
+        .reverse()
+        .map((p) => {
+          const [ano, mes, dia] = p.data_pedido.split('-')
+          const dataFormatada = `${dia}/${mes}/${ano}`
+          const valor = receitaPedido(p)
+          
+          const itens = itensMap[p.id] || []
+          const pecasDetalhadas = itens
+            .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+            .join(', ') || 'Sem especificações'
+
+          return `
+            <tr>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748;">${dataFormatada}</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748;">${pecasDetalhadas}</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+            </tr>
+          `
+        })
+        .join('')
+
+      const localStr = formatarLocal(c)
+      const dataEmissao = new Date().toLocaleDateString('pt-BR')
+
+      const tempDiv = document.createElement('div')
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '0'
+      tempDiv.style.width = '650px'
+      tempDiv.style.backgroundColor = '#ffffff'
+
+      tempDiv.innerHTML = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain;" />
+              <div>
+                <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0;">Ciclo Novo</h1>
+                <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
+              </div>
+            </div>
+            <div>
+              <h2 style="font-size: 18px; font-weight: 700; text-align: right; margin: 0; color: #333;">Detalhamento de Pendências</h2>
+              <p style="font-size: 12px; color: #666; text-align: right; margin-top: 4px;">Emitido em: ${dataEmissao}</p>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div>
+              <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
+              <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
+              ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
+            </div>
+            <div>
+              <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
+              <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
+              <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Plano Usou e Pagou · Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+            </div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead>
+              <tr style="background-color: #3b6fe8; color: white;">
+                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Data</th>
+                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Peças Lavadas</th>
+                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Peso</th>
+                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${detalhesPedidos}
+            </tbody>
+          </table>
+
+          <div style="display: flex; justify-content: flex-end; gap: 40px; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0;">
+            <div style="text-align: right;">
+              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
+              <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
+              <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
+              <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
+            </div>
+          </div>
+
+          <div style="background-color: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 15px; margin-top: 20px;">
+            <h4 style="margin: 0 0 8px 0; color: #2b6cb0; font-size: 14px;">Dados para Pagamento via PIX</h4>
+            <p style="margin: 0; font-weight: 600; color: #2d3748;">Beneficiário: Ramon Pereira Paixão</p>
+            <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
+          </div>
+
+          <p style="text-align: center; font-size: 11px; color: #a0aec0; margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 15px;">Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas</p>
+        </div>
+      `
+
+      document.body.appendChild(tempDiv)
+
+      const canvas = await html2canvas(tempDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false
+      })
+
+      document.body.removeChild(tempDiv)
+
+      canvas.toBlob((blob) => {
+        if (!blob) throw new Error('Falha ao gerar imagem blob.')
+        navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]).then(() => {
+          setMsg('Imagem do fechamento copiada com sucesso!')
+          setTimeout(() => setMsg(null), 4000)
+        }).catch((err) => {
+          setErro(`Erro ao copiar imagem: ${err.message || err}`)
+        })
+      }, 'image/png')
+    } catch (err: any) {
+      setErro(`Erro ao processar imagem: ${err.message || err}`)
+      setMsg(null)
+    }
   }
 
   // Gera o PDF consolidado com todas as pendências para os clientes SELECIONADOS
@@ -1189,6 +1343,29 @@ export function PedidosUsouPagouPage() {
                           <button
                             className="btn"
                             type="button"
+                            onClick={() => handleCopiarPNG(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
+                            style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: 8, 
+                              fontSize: 13, 
+                              padding: '8px 14px',
+                              background: 'var(--panel)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text-h)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            Copiar PNG
+                          </button>
+
+                          <button
+                            className="btn"
+                            type="button"
                             onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, true)}
                             style={{ 
                               display: 'inline-flex', 
@@ -1207,13 +1384,13 @@ export function PedidosUsouPagouPage() {
                               <circle cx="8.5" cy="8.5" r="1.5" />
                               <polyline points="21 15 16 10 5 21" />
                             </svg>
-                            Ficar Imagem (PNG)
+                            Baixar PNG
                           </button>
 
                           <button
                             className="btn"
                             type="button"
-                            onClick={() => handleCopiarMensagemPronta(item.cliente, item.pesoTotal, item.valorTotal)}
+                            onClick={() => handleCopiarMensagemPronta(item.cliente)}
                             style={{ 
                               display: 'inline-flex', 
                               alignItems: 'center', 
