@@ -183,8 +183,8 @@ export function PedidosMensaisPage() {
     })
   }
 
-  // Gera o PDF de fechamento formatado na tela de impressão
-  function handleGerarPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
+  // Gera o PDF ou PNG de fechamento formatado na tela de impressão
+  function handleGerarPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number, isPng = false) {
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
@@ -215,6 +215,7 @@ export function PedidosMensaisPage() {
 
     const localStr = formatarLocal(c)
     const dataEmissao = new Date().toLocaleDateString('pt-BR')
+    const baseUrl = window.location.origin
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -222,10 +223,12 @@ export function PedidosMensaisPage() {
       <head>
         <meta charset="UTF-8">
         <title>Fechamento Mensal - ${c.nome}</title>
+        ${isPng ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>' : ''}
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #333;
+            background-color: #ffffff !important;
             margin: 0;
             padding: 20px;
             font-size: 14px;
@@ -248,6 +251,7 @@ export function PedidosMensaisPage() {
             width: 50px;
             height: 50px;
             object-fit: contain;
+
           }
           .brand-name {
             font-size: 22px;
@@ -389,7 +393,7 @@ export function PedidosMensaisPage() {
       <body>
         <div class="header">
           <div class="logo-container">
-            <img src="/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'" />
+            <img src="${baseUrl}/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'" />
             <div>
               <h1 class="brand-name">Ciclo Novo</h1>
               <p class="brand-sub">Lavanderia</p>
@@ -453,7 +457,18 @@ export function PedidosMensaisPage() {
         <script>
           window.onload = function() {
             setTimeout(function() {
-              window.print();
+              ${isPng 
+                ? `
+                html2canvas(document.body).then(function(canvas) {
+                  var link = document.createElement('a');
+                  link.download = 'fatura-${c.nome.replace(/\s+/g, '-')}.png';
+                  link.href = canvas.toDataURL();
+                  link.click();
+                  window.close();
+                });
+                ` 
+                : 'window.print();'
+              }
             }, 500);
           }
         </script>
@@ -676,7 +691,7 @@ export function PedidosMensaisPage() {
                           <button
                             className="btn btnPrimary"
                             type="button"
-                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
+                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, false)}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
                           >
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -687,6 +702,30 @@ export function PedidosMensaisPage() {
                               <polyline points="10 9 9 9 8 9" />
                             </svg>
                             Gerar Relatório (PDF)
+                          </button>
+
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, true)}
+                            style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: 8, 
+                              fontSize: 13, 
+                              padding: '8px 14px',
+                              background: 'var(--panel)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text-h)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            Ficar Imagem (PNG)
                           </button>
 
                           <button
