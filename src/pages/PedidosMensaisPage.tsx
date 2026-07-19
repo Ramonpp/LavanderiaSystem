@@ -725,7 +725,7 @@ export function PedidosMensaisPage() {
       tempDiv.style.backgroundColor = '#ffffff'
 
       tempDiv.innerHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
+        <div style="width: 650px; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
           <table style="width: 100%; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px; border-collapse: collapse;">
             <tr>
               <td style="vertical-align: middle;">
@@ -840,26 +840,19 @@ export function PedidosMensaisPage() {
 
       const pageWidth = 210
       const pageHeight = 297
-      const marginX = 10
-      const marginY = 10
-      const contentWidth = pageWidth - (marginX * 2) // 190mm
-      const contentHeight = pageHeight - (marginY * 2) // 277mm
+      const marginX = 0
+      const marginY = 0
+      const contentWidth = pageWidth // 210mm
+      const contentHeight = pageHeight // 297mm
 
       const imgWidth = contentWidth
       const imgHeight = (canvas.height * imgWidth) / canvas.width
 
       let heightLeft = imgHeight
-      let position = marginY
-
-      const coverMargins = (doc: jsPDF) => {
-        doc.setFillColor(255, 255, 255)
-        doc.rect(0, 0, pageWidth, marginY, 'F')
-        doc.rect(0, pageHeight - marginY, pageWidth, marginY, 'F')
-      }
+      let position = 0
 
       // Adiciona a primeira página
       pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight)
-      coverMargins(pdf)
       heightLeft -= contentHeight
 
       // Adiciona páginas extras se necessário
@@ -867,7 +860,6 @@ export function PedidosMensaisPage() {
         position = marginY - (imgHeight - heightLeft)
         pdf.addPage()
         pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight)
-        coverMargins(pdf)
         heightLeft -= contentHeight
       }
 
