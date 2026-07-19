@@ -734,189 +734,253 @@ export function PedidosUsouPagouPage() {
   async function handleCompartilharPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
     try {
       setMsg('Preparando PDF para compartilhar...')
+
       const logoBase64 = await getBase64Image('/logo.png')
-
-      const detalhesPedidos = pedidosCliente
-        .slice()
-        .reverse()
-        .map((p) => {
-          const [ano, mes, dia] = p.data_pedido.split('-')
-          const dataFormatada = `${dia}/${mes}/${ano}`
-          const valor = receitaPedido(p)
-          
-          const itens = itensMap[p.id] || []
-          const pecasDetalhadas = itens
-            .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
-            .join(', ') || 'Sem especificações'
-
-          return `
-            <tr>
-              <td style="width: 18%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; white-space: nowrap;">${dataFormatada}</td>
-              <td style="width: 52%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; word-break: break-word; overflow-wrap: break-word;">${pecasDetalhadas}</td>
-              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; white-space: nowrap;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600; white-space: nowrap;">${formatBRL(valor)}</td>
-            </tr>
-          `
-        })
-        .join('')
-
       const localStr = formatarLocal(c)
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
+      const primeiroNome = c.nome.trim().split(' ')[0]
 
-      const tempDiv = document.createElement('div')
-      tempDiv.id = 'temp-print-div'
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
-      tempDiv.style.top = '0'
-      tempDiv.style.width = '650px'
-      tempDiv.style.minWidth = '650px'
-      tempDiv.style.maxWidth = '650px'
-      tempDiv.style.overflow = 'visible'
-      tempDiv.style.backgroundColor = '#ffffff'
+      // ── Configurações da página ──────────────────────────
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const PW = 210
+      const ML = 14
+      const MR = 14
+      const CW = PW - ML - MR
+      let y = 14
 
-      tempDiv.innerHTML = `
-        <div style="width: 650px; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
-          <table style="width: 100%; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px; border-collapse: collapse;">
-            <tr>
-              <td style="vertical-align: middle;">
-                <table style="border-collapse: collapse; border: none;">
-                  <tr>
-                    <td style="padding: 0 12px 0 0; border: none; vertical-align: middle;">
-                      <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain; display: block;" />
-                    </td>
-                    <td style="padding: 0; border: none; vertical-align: middle;">
-                      <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0; line-height: 1.1;">Ciclo Novo</h1>
-                      <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="text-align: right; vertical-align: middle;">
-                <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
-                <p style="font-size: 12px; color: #666; margin: 4px 0 0 0;">Emitido em: ${dataEmissao}</p>
-              </td>
-            </tr>
-          </table>
+      // ── Paleta ──────────────────────────────────────────
+      const BLUE   = [59, 111, 232] as const
+      const DARK   = [26, 32, 44]   as const
+      const GRAY   = [74, 85, 104]  as const
+      const LGRAY  = [226, 232, 240] as const
+      const BGCARD = [248, 250, 252] as const
 
-          <table style="width: 100%; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; border-collapse: collapse;">
-            <tr>
-              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
-                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
-                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
-                ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
-              </td>
-              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
-                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
-                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
-                <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
-              </td>
-            </tr>
-          </table>
-
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed;">
-            <thead>
-              <tr style="background-color: #3b6fe8; color: white;">
-                <th style="width: 18%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
-                <th style="width: 52%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
-                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
-                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${detalhesPedidos}
-            </tbody>
-          </table>
-
-          <table style="width: 100%; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0; border-collapse: collapse;">
-            <tr>
-              <td style="text-align: right; padding-right: 30px; border: none;">
-                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
-                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
-              </td>
-              <td style="text-align: right; padding-right: 30px; border: none;">
-                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
-                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
-              </td>
-              <td style="text-align: right; border: none;">
-                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
-                <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
-              </td>
-            </tr>
-          </table>
-
-          <div style="background-color: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 15px; margin-top: 20px;">
-            <h4 style="margin: 0 0 8px 0; color: #2b6cb0; font-size: 14px;">Dados para Pagamento via PIX</h4>
-            <p style="margin: 0; font-weight: 600; color: #2d3748;">Beneficiário: Ramon Pereira Paixão</p>
-            <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
-          </div>
-
-          <p style="text-align: center; font-size: 11px; color: #a0aec0; margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 15px;">Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas</p>
-        </div>
-      `
-
-      document.body.appendChild(tempDiv)
-
-      const canvas = await html2canvas(tempDiv, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false,
-        width: 650,
-        windowWidth: 650,
-        onclone: (clonedDoc) => {
-          const el = clonedDoc.getElementById('temp-print-div')
-          if (el) {
-            el.style.width = '650px'
-            el.style.minWidth = '650px'
-            el.style.maxWidth = '650px'
-            el.style.position = 'relative'
-            el.style.left = '0'
-          }
-          clonedDoc.body.style.width = '650px'
-          clonedDoc.body.style.minWidth = '650px'
-          clonedDoc.documentElement.style.width = '650px'
-          clonedDoc.documentElement.style.minWidth = '650px'
-        }
-      })
-
-      document.body.removeChild(tempDiv)
-
-      const imgData = canvas.toDataURL('image/png')
-      
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      })
-
-      const pageWidth = 210
-      const pageHeight = 297
-      const marginX = 0
-      const marginY = 0
-      const contentWidth = pageWidth // 210mm
-      const contentHeight = pageHeight // 297mm
-
-      const imgWidth = contentWidth
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-      let heightLeft = imgHeight
-      let position = 0
-
-      // Adiciona a primeira página
-      pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight)
-      heightLeft -= contentHeight
-
-      // Adiciona páginas extras se necessário
-      while (heightLeft > 0) {
-        position = marginY - (imgHeight - heightLeft)
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight)
-        heightLeft -= contentHeight
+      const centeredText = (text: string, cx: number, cy: number) => {
+        const w = pdf.getTextWidth(text)
+        pdf.text(text, cx - w / 2, cy)
       }
 
+      // ── LOGO + CABEÇALHO ────────────────────────────────
+      try { pdf.addImage(logoBase64, 'PNG', ML, y, 14, 14) } catch { /* ignora */ }
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(16)
+      pdf.setTextColor(...BLUE)
+      pdf.text('Ciclo Novo', ML + 17, y + 6)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(7)
+      pdf.setTextColor(...GRAY)
+      pdf.text('LAVANDERIA', ML + 17, y + 11)
+
+      // Título direita — inclui nome + apartamento + bloco
+      const titleParts = [`Pendência - ${c.nome}`, c.apartamento ? `Apto ${c.apartamento}` : '', c.bloco ? `Bloco ${c.bloco}` : ''].filter(Boolean).join(' ')
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(11)
+      pdf.setTextColor(...DARK)
+      const titleW = pdf.getTextWidth(titleParts)
+      pdf.text(titleParts, PW - MR - titleW, y + 6)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(8)
+      pdf.setTextColor(...GRAY)
+      const dateText = `Emitido em: ${dataEmissao}`
+      const dateW = pdf.getTextWidth(dateText)
+      pdf.text(dateText, PW - MR - dateW, y + 11)
+
+      y += 18
+      pdf.setDrawColor(...BLUE)
+      pdf.setLineWidth(0.5)
+      pdf.line(ML, y, PW - MR, y)
+      y += 6
+
+      // ── CARD CLIENTE ─────────────────────────────────────
+      pdf.setFillColor(...BGCARD)
+      pdf.setDrawColor(...LGRAY)
+      pdf.setLineWidth(0.3)
+      pdf.roundedRect(ML, y, CW, 20, 2, 2, 'FD')
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(7)
+      pdf.setTextColor(...GRAY)
+      pdf.text('CLIENTE', ML + 4, y + 5)
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.setTextColor(...DARK)
+      pdf.text(c.nome, ML + 4, y + 11)
+
+      if (localStr !== '—') {
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.setTextColor(...GRAY)
+        pdf.text(localStr, ML + 4, y + 16)
+      }
+
+      const halfX = ML + CW / 2 + 4
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(7)
+      pdf.setTextColor(...GRAY)
+      pdf.text('CONTATO', halfX, y + 5)
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.setTextColor(...DARK)
+      pdf.text(c.telefone || 'Sem telefone', halfX, y + 11)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(8)
+      pdf.setTextColor(...GRAY)
+      pdf.text(`Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}`, halfX, y + 16)
+
+      y += 26
+
+      // ── TABELA DE PEDIDOS ────────────────────────────────
+      const colW = [26, CW - 26 - 22 - 28, 22, 28]
+      const colX = [ML, ML + colW[0], ML + colW[0] + colW[1], ML + colW[0] + colW[1] + colW[2]]
+
+      pdf.setFillColor(...BLUE)
+      pdf.rect(ML, y, CW, 7, 'F')
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(7)
+      pdf.setTextColor(255, 255, 255)
+      const headers = ['DATA', 'PEÇAS LAVADAS', 'PESO', 'VALOR']
+      const aligns: ('left'|'right')[] = ['left', 'left', 'right', 'right']
+
+      headers.forEach((h, i) => {
+        if (aligns[i] === 'right') {
+          const hw = pdf.getTextWidth(h)
+          pdf.text(h, colX[i] + colW[i] - hw - 2, y + 4.8)
+        } else {
+          pdf.text(h, colX[i] + 2, y + 4.8)
+        }
+      })
+      y += 7
+
+      const pedidosOrdenados = [...pedidosCliente].reverse()
+      pedidosOrdenados.forEach((p, idx) => {
+        const [ano, mes, dia] = p.data_pedido.split('-')
+        const dataFormatada = `${dia}/${mes}/${ano}`
+        const valor = receitaPedido(p)
+        const itens = itensMap[p.id] || []
+        const pecasDetalhadas = itens
+          .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+          .join(', ') || 'Sem especificações'
+
+        const maxPecasWidth = colW[1] - 4
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        const linhasPecas = pdf.splitTextToSize(pecasDetalhadas, maxPecasWidth)
+        const rowH = Math.max(7, linhasPecas.length * 4 + 3)
+
+        if (y + rowH > 280) { pdf.addPage(); y = 14 }
+
+        if (idx % 2 === 0) {
+          pdf.setFillColor(248, 250, 252)
+          pdf.rect(ML, y, CW, rowH, 'F')
+        }
+
+        pdf.setDrawColor(...LGRAY)
+        pdf.setLineWidth(0.2)
+        pdf.line(ML, y + rowH, PW - MR, y + rowH)
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.setTextColor(...DARK)
+        pdf.text(dataFormatada, colX[0] + 2, y + 4.8)
+        pdf.text(linhasPecas, colX[1] + 2, y + 4.8)
+
+        const pesoText = `${Number(p.peso_kg).toLocaleString('pt-BR')} kg`
+        const pesoW = pdf.getTextWidth(pesoText)
+        pdf.text(pesoText, colX[2] + colW[2] - pesoW - 2, y + 4.8)
+
+        const valorText = formatBRL(valor)
+        pdf.setFont('helvetica', 'bold')
+        const valorW = pdf.getTextWidth(valorText)
+        pdf.text(valorText, colX[3] + colW[3] - valorW - 2, y + 4.8)
+
+        y += rowH
+      })
+
+      y += 6
+
+      // ── TOTAIS ───────────────────────────────────────────
+      if (y + 18 > 280) { pdf.addPage(); y = 14 }
+
+      pdf.setFillColor(237, 242, 247)
+      pdf.setDrawColor(203, 213, 224)
+      pdf.setLineWidth(0.3)
+      pdf.roundedRect(ML, y, CW, 16, 2, 2, 'FD')
+
+      const tot1X = ML + CW * 0.33
+      const tot2X = ML + CW * 0.66
+      const tot3X = ML + CW - 4
+
+      const totItems = [
+        { label: 'QUANTIDADE DE ENVIOS', value: String(pedidosCliente.length), cx: ML + CW * 0.165 },
+        { label: 'PESO TOTAL', value: `${Number(pesoTotal).toLocaleString('pt-BR')} kg`, cx: (tot1X + tot2X) / 2 },
+        { label: 'TOTAL A PAGAR', value: formatBRL(valorTotal), cx: (tot2X + tot3X) / 2 },
+      ]
+
+      totItems.forEach((t) => {
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(7)
+        pdf.setTextColor(...GRAY)
+        centeredText(t.label, t.cx, y + 5)
+
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(10)
+        pdf.setTextColor(t.label === 'TOTAL A PAGAR' ? BLUE[0] : DARK[0], t.label === 'TOTAL A PAGAR' ? BLUE[1] : DARK[1], t.label === 'TOTAL A PAGAR' ? BLUE[2] : DARK[2])
+        centeredText(t.value, t.cx, y + 12)
+      })
+
+      pdf.setDrawColor(203, 213, 224)
+      pdf.setLineWidth(0.3)
+      pdf.line(tot1X, y + 2, tot1X, y + 14)
+      pdf.line(tot2X, y + 2, tot2X, y + 14)
+
+      y += 22
+
+      // ── PIX ──────────────────────────────────────────────
+      if (y + 22 > 280) { pdf.addPage(); y = 14 }
+
+      pdf.setFillColor(235, 248, 255)
+      pdf.setDrawColor(190, 227, 248)
+      pdf.setLineWidth(0.3)
+      pdf.roundedRect(ML, y, CW, 22, 2, 2, 'FD')
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(9)
+      pdf.setTextColor(43, 108, 176)
+      pdf.text('Dados para Pagamento via PIX', ML + 4, y + 7)
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(8.5)
+      pdf.setTextColor(...DARK)
+      pdf.text('Beneficiário: Ramon Pereira Paixão', ML + 4, y + 13)
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(8.5)
+      pdf.setTextColor(...BLUE)
+      pdf.text('Chave PIX (CNPJ): 59.815.300/0001-71', ML + 4, y + 19)
+
+      y += 28
+
+      // ── RODAPÉ ───────────────────────────────────────────
+      pdf.setDrawColor(...LGRAY)
+      pdf.setLineWidth(0.3)
+      pdf.line(ML, y, PW - MR, y)
+      y += 5
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(7)
+      pdf.setTextColor(...GRAY)
+      centeredText('Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas', PW / 2, y)
+
+      // ── COMPARTILHAR ─────────────────────────────────────
       const pdfBlob = pdf.output('blob')
       const file = new File([pdfBlob], `fechamento-${c.nome.replace(/\s+/g, '-')}.pdf`, { type: 'application/pdf' })
 
-      const primeiroNome = c.nome.trim().split(' ')[0]
       const textoMensagem = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
         `Segue o fechamento da lavanderia em PDF.\n\n` +
         `Qualquer dúvida estou à disposição! 💙`
