@@ -370,7 +370,9 @@ export function PedidosUsouPagouPage() {
             font-weight: 600;
             text-align: left;
             padding: 10px 12px;
-            font-size: 13px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
           td {
             padding: 10px 12px;
@@ -437,10 +439,18 @@ export function PedidosUsouPagouPage() {
             .payment-instructions {
               page-break-inside: avoid;
             }
+            .no-print {
+              display: none !important;
+            }
           }
         </style>
       </head>
       <body>
+        <div class="no-print" style="margin-bottom: 20px;">
+          <button onclick="window.close(); if(window.history.length > 1) { window.history.back(); } else { window.location.href = '${baseUrl}'; }" style="padding: 10px 16px; font-size: 14px; background-color: #e2e8f0; color: #1a202c; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+            ⬅ Voltar ao Aplicativo
+          </button>
+        </div>
         <div class="header">
           <div class="logo-container">
             <img src="${baseUrl}/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'" style="width:40px;height:40px;object-fit:contain;" />
@@ -462,7 +472,7 @@ export function PedidosUsouPagouPage() {
             ${localStr !== '—' ? `<span>${localStr}</span>` : ''}
           </div>
           <div class="info-block">
-            <h3>Contato e Contrato</h3>
+            <h3>Contato</h3>
             <p>${c.telefone || 'Sem telefone'}</p>
             <span>Plano Usou e Pagou · Pagamento acordado via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
           </div>
@@ -703,7 +713,9 @@ export function PedidosUsouPagouPage() {
             font-weight: 600;
             text-align: left;
             padding: 8px 10px;
-            font-size: 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
           td {
             padding: 8px 10px;
@@ -795,10 +807,18 @@ export function PedidosUsouPagouPage() {
             .cliente-breakdown {
               page-break-inside: avoid;
             }
+            .no-print {
+              display: none !important;
+            }
           }
         </style>
       </head>
       <body>
+        <div class="no-print" style="margin-bottom: 20px;">
+          <button onclick="window.close(); if(window.history.length > 1) { window.history.back(); } else { window.location.href = '${baseUrl}'; }" style="padding: 10px 16px; font-size: 14px; background-color: #e2e8f0; color: #1a202c; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+            ⬅ Voltar ao Aplicativo
+          </button>
+        </div>
         <div class="header">
           <div class="logo-container">
             <img src="${baseUrl}/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'" style="width:40px;height:40px;object-fit:contain;" />
