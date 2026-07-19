@@ -848,19 +848,52 @@ export function PedidosUsouPagouPage() {
         format: 'a4'
       })
 
-      const imgWidth = 210
+      const pageWidth = 210
+      const pageHeight = 297
+      const marginX = 10
+      const marginY = 10
+      const contentWidth = pageWidth - (marginX * 2) // 190mm
+      const contentHeight = pageHeight - (marginY * 2) // 277mm
+
+      const imgWidth = contentWidth
       const imgHeight = (canvas.height * imgWidth) / canvas.width
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+
+      let heightLeft = imgHeight
+      let position = marginY
+
+      const coverMargins = (doc: jsPDF) => {
+        doc.setFillColor(255, 255, 255)
+        doc.rect(0, 0, pageWidth, marginY, 'F')
+        doc.rect(0, pageHeight - marginY, pageWidth, marginY, 'F')
+      }
+
+      // Adiciona a primeira página
+      pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight)
+      coverMargins(pdf)
+      heightLeft -= contentHeight
+
+      // Adiciona páginas extras se necessário
+      while (heightLeft > 0) {
+        position = marginY - (imgHeight - heightLeft)
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight)
+        coverMargins(pdf)
+        heightLeft -= contentHeight
+      }
 
       const pdfBlob = pdf.output('blob')
       const file = new File([pdfBlob], `fechamento-${c.nome.replace(/\s+/g, '-')}.pdf`, { type: 'application/pdf' })
+
+      const primeiroNome = c.nome.trim().split(' ')[0]
+      const textoMensagem = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
+        `Segue o fechamento da lavanderia em PDF.\n\n` +
+        `Qualquer dúvida estou à disposição! 💙`
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         navigator.share({
           files: [file],
           title: 'Fechamento Lavanderia',
-          text: `Segue o fechamento da lavanderia do cliente ${c.nome}.`
+          text: textoMensagem
         }).then(() => {
           setMsg('Compartilhado com sucesso!')
           setTimeout(() => setMsg(null), 4000)
