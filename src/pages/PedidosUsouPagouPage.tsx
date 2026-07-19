@@ -597,156 +597,7 @@ export function PedidosUsouPagouPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
-      tempDiv.style.top = '0'
-      tempDiv.style.width = '650px'
-      tempDiv.style.minWidth = '650px'
-      tempDiv.style.maxWidth = '650px'
-      tempDiv.style.overflow = 'visible'
-      tempDiv.style.backgroundColor = '#ffffff'
-
-      tempDiv.innerHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
-          <table style="width: 100%; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px; border-collapse: collapse;">
-            <tr>
-              <td style="vertical-align: middle;">
-                <table style="border-collapse: collapse; border: none;">
-                  <tr>
-                    <td style="padding: 0 12px 0 0; border: none; vertical-align: middle;">
-                      <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain; display: block;" />
-                    </td>
-                    <td style="padding: 0; border: none; vertical-align: middle;">
-                      <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0; line-height: 1.1;">Ciclo Novo</h1>
-                      <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="text-align: right; vertical-align: middle;">
-                <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
-                <p style="font-size: 12px; color: #666; margin: 4px 0 0 0;">Emitido em: ${dataEmissao}</p>
-              </td>
-            </tr>
-          </table>
-
-          <table style="width: 100%; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; border-collapse: collapse;">
-            <tr>
-              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
-                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
-                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
-                ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
-              </td>
-              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
-                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
-                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
-                <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
-              </td>
-            </tr>
-          </table>
-
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed;">
-            <thead>
-              <tr style="background-color: #3b6fe8; color: white;">
-                <th style="width: 18%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
-                <th style="width: 52%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
-                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
-                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${detalhesPedidos}
-            </tbody>
-          </table>
-
-          <table style="width: 100%; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0; border-collapse: collapse;">
-            <tr>
-              <td style="text-align: right; padding-right: 30px; border: none;">
-                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
-                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
-              </td>
-              <td style="text-align: right; padding-right: 30px; border: none;">
-                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
-                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
-              </td>
-              <td style="text-align: right; border: none;">
-                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
-                <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
-              </td>
-            </tr>
-          </table>
-
-          <div style="background-color: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 15px; margin-top: 20px;">
-            <h4 style="margin: 0 0 8px 0; color: #2b6cb0; font-size: 14px;">Dados para Pagamento via PIX</h4>
-            <p style="margin: 0; font-weight: 600; color: #2d3748;">Beneficiário: Ramon Pereira Paixão</p>
-            <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
-          </div>
-
-          <p style="text-align: center; font-size: 11px; color: #a0aec0; margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 15px;">Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas</p>
-        </div>
-      `
-
-      document.body.appendChild(tempDiv)
-
-      const canvas = await html2canvas(tempDiv, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        logging: false
-      })
-
-      document.body.removeChild(tempDiv)
-
-      canvas.toBlob((blob) => {
-        if (!blob) throw new Error('Falha ao gerar imagem blob.')
-        navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]).then(() => {
-          setMsg('Imagem do fechamento copiada com sucesso!')
-          setTimeout(() => setMsg(null), 4000)
-        }).catch((err) => {
-          setErro(`Erro ao copiar imagem: ${err.message || err}`)
-        })
-      }, 'image/png')
-    } catch (err: any) {
-      setErro(`Erro ao processar imagem: ${err.message || err}`)
-      setMsg(null)
-    }
-  }
-
-  // Compartilha o fechamento em formato PDF usando a API nativa de compartilhamento (ideal para PWA no iOS)
-  async function handleCompartilharPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
-    try {
-      setMsg('Preparando PDF para compartilhar...')
-      const logoBase64 = await getBase64Image('/logo.png')
-
-      const detalhesPedidos = pedidosCliente
-        .slice()
-        .reverse()
-        .map((p) => {
-          const [ano, mes, dia] = p.data_pedido.split('-')
-          const dataFormatada = `${dia}/${mes}/${ano}`
-          const valor = receitaPedido(p)
-          
-          const itens = itensMap[p.id] || []
-          const pecasDetalhadas = itens
-            .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
-            .join(', ') || 'Sem especificações'
-
-          return `
-            <tr>
-              <td style="width: 18%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; white-space: nowrap;">${dataFormatada}</td>
-              <td style="width: 52%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; word-break: break-word; overflow-wrap: break-word;">${pecasDetalhadas}</td>
-              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; white-space: nowrap;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600; white-space: nowrap;">${formatBRL(valor)}</td>
-            </tr>
-          `
-        })
-        .join('')
-
-      const localStr = formatarLocal(c)
-      const dataEmissao = new Date().toLocaleDateString('pt-BR')
-
-      const tempDiv = document.createElement('div')
+      tempDiv.id = 'temp-print-div'
       tempDiv.style.position = 'absolute'
       tempDiv.style.left = '-9999px'
       tempDiv.style.top = '0'
@@ -843,7 +694,188 @@ export function PedidosUsouPagouPage() {
         scale: 2,
         logging: false,
         width: 650,
-        windowWidth: 650
+        windowWidth: 650,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('temp-print-div')
+          if (el) {
+            el.style.width = '650px'
+            el.style.minWidth = '650px'
+            el.style.maxWidth = '650px'
+            el.style.position = 'relative'
+            el.style.left = '0'
+          }
+          clonedDoc.body.style.width = '650px'
+          clonedDoc.body.style.minWidth = '650px'
+          clonedDoc.documentElement.style.width = '650px'
+          clonedDoc.documentElement.style.minWidth = '650px'
+        }
+      })
+
+      document.body.removeChild(tempDiv)
+
+      canvas.toBlob((blob) => {
+        if (!blob) throw new Error('Falha ao gerar imagem blob.')
+        navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]).then(() => {
+          setMsg('Imagem do fechamento copiada com sucesso!')
+          setTimeout(() => setMsg(null), 4000)
+        }).catch((err) => {
+          setErro(`Erro ao copiar imagem: ${err.message || err}`)
+        })
+      }, 'image/png')
+    } catch (err: any) {
+      setErro(`Erro ao processar imagem: ${err.message || err}`)
+      setMsg(null)
+    }
+  }
+
+  // Compartilha o fechamento em formato PDF usando a API nativa de compartilhamento (ideal para PWA no iOS)
+  async function handleCompartilharPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
+    try {
+      setMsg('Preparando PDF para compartilhar...')
+      const logoBase64 = await getBase64Image('/logo.png')
+
+      const detalhesPedidos = pedidosCliente
+        .slice()
+        .reverse()
+        .map((p) => {
+          const [ano, mes, dia] = p.data_pedido.split('-')
+          const dataFormatada = `${dia}/${mes}/${ano}`
+          const valor = receitaPedido(p)
+          
+          const itens = itensMap[p.id] || []
+          const pecasDetalhadas = itens
+            .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+            .join(', ') || 'Sem especificações'
+
+          return `
+            <tr>
+              <td style="width: 18%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; white-space: nowrap;">${dataFormatada}</td>
+              <td style="width: 52%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; word-break: break-word; overflow-wrap: break-word;">${pecasDetalhadas}</td>
+              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; white-space: nowrap;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
+              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600; white-space: nowrap;">${formatBRL(valor)}</td>
+            </tr>
+          `
+        })
+        .join('')
+
+      const localStr = formatarLocal(c)
+      const dataEmissao = new Date().toLocaleDateString('pt-BR')
+
+      const tempDiv = document.createElement('div')
+      tempDiv.id = 'temp-print-div'
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '0'
+      tempDiv.style.width = '650px'
+      tempDiv.style.minWidth = '650px'
+      tempDiv.style.maxWidth = '650px'
+      tempDiv.style.overflow = 'visible'
+      tempDiv.style.backgroundColor = '#ffffff'
+
+      tempDiv.innerHTML = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
+          <table style="width: 100%; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <table style="border-collapse: collapse; border: none;">
+                  <tr>
+                    <td style="padding: 0 12px 0 0; border: none; vertical-align: middle;">
+                      <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain; display: block;" />
+                    </td>
+                    <td style="padding: 0; border: none; vertical-align: middle;">
+                      <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0; line-height: 1.1;">Ciclo Novo</h1>
+                      <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="text-align: right; vertical-align: middle;">
+                <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
+                <p style="font-size: 12px; color: #666; margin: 4px 0 0 0;">Emitido em: ${dataEmissao}</p>
+              </td>
+            </tr>
+          </table>
+
+          <table style="width: 100%; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; border-collapse: collapse;">
+            <tr>
+              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
+                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
+                ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
+              </td>
+              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
+                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
+                <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+              </td>
+            </tr>
+          </table>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed;">
+            <thead>
+              <tr style="background-color: #3b6fe8; color: white;">
+                <th style="width: 18%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
+                <th style="width: 52%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
+                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
+                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${detalhesPedidos}
+            </tbody>
+          </table>
+
+          <table style="width: 100%; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0; border-collapse: collapse;">
+            <tr>
+              <td style="text-align: right; padding-right: 30px; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
+              </td>
+              <td style="text-align: right; padding-right: 30px; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
+              </td>
+              <td style="text-align: right; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
+                <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="background-color: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 15px; margin-top: 20px;">
+            <h4 style="margin: 0 0 8px 0; color: #2b6cb0; font-size: 14px;">Dados para Pagamento via PIX</h4>
+            <p style="margin: 0; font-weight: 600; color: #2d3748;">Beneficiário: Ramon Pereira Paixão</p>
+            <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
+          </div>
+
+          <p style="text-align: center; font-size: 11px; color: #a0aec0; margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 15px;">Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas</p>
+        </div>
+      `
+
+      document.body.appendChild(tempDiv)
+
+      const canvas = await html2canvas(tempDiv, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        width: 650,
+        windowWidth: 650,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('temp-print-div')
+          if (el) {
+            el.style.width = '650px'
+            el.style.minWidth = '650px'
+            el.style.maxWidth = '650px'
+            el.style.position = 'relative'
+            el.style.left = '0'
+          }
+          clonedDoc.body.style.width = '650px'
+          clonedDoc.body.style.minWidth = '650px'
+          clonedDoc.documentElement.style.width = '650px'
+          clonedDoc.documentElement.style.minWidth = '650px'
+        }
       })
 
       document.body.removeChild(tempDiv)

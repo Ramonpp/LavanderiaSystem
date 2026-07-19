@@ -547,6 +547,7 @@ export function PedidosMensaisPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
+      tempDiv.id = 'temp-print-div'
       tempDiv.style.position = 'absolute'
       tempDiv.style.left = '-9999px'
       tempDiv.style.top = '0'
@@ -643,7 +644,21 @@ export function PedidosMensaisPage() {
         scale: 2,
         logging: false,
         width: 650,
-        windowWidth: 650
+        windowWidth: 650,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('temp-print-div')
+          if (el) {
+            el.style.width = '650px'
+            el.style.minWidth = '650px'
+            el.style.maxWidth = '650px'
+            el.style.position = 'relative'
+            el.style.left = '0'
+          }
+          clonedDoc.body.style.width = '650px'
+          clonedDoc.body.style.minWidth = '650px'
+          clonedDoc.documentElement.style.width = '650px'
+          clonedDoc.documentElement.style.minWidth = '650px'
+        }
       })
 
       document.body.removeChild(tempDiv)
@@ -699,6 +714,7 @@ export function PedidosMensaisPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
+      tempDiv.id = 'temp-print-div'
       tempDiv.style.position = 'absolute'
       tempDiv.style.left = '-9999px'
       tempDiv.style.top = '0'
@@ -795,7 +811,21 @@ export function PedidosMensaisPage() {
         scale: 2,
         logging: false,
         width: 650,
-        windowWidth: 650
+        windowWidth: 650,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('temp-print-div')
+          if (el) {
+            el.style.width = '650px'
+            el.style.minWidth = '650px'
+            el.style.maxWidth = '650px'
+            el.style.position = 'relative'
+            el.style.left = '0'
+          }
+          clonedDoc.body.style.width = '650px'
+          clonedDoc.body.style.minWidth = '650px'
+          clonedDoc.documentElement.style.width = '650px'
+          clonedDoc.documentElement.style.minWidth = '650px'
+        }
       })
 
       document.body.removeChild(tempDiv)
