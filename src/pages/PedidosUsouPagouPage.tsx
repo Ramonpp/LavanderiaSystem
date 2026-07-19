@@ -7,7 +7,7 @@ import { receitaPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 
-export function PedidosMensaisPage() {
+export function PedidosUsouPagouPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
   const [tiposPeca, setTiposPeca] = useState<TipoPeca[]>([])
@@ -21,6 +21,9 @@ export function PedidosMensaisPage() {
   const [chavePix, setChavePix] = useState(() => {
     try { return localStorage.getItem('lav-chave-pix') || '' } catch { return '' }
   })
+
+  // Estado para múltiplos clientes selecionados
+  const [selectedClientesIds, setSelectedClientesIds] = useState<Set<string>>(new Set())
 
   function handleChavePixChange(val: string) {
     setChavePix(val)
@@ -50,27 +53,27 @@ export function PedidosMensaisPage() {
         return
       }
 
-      // Filtra clientes mensalistas
-      const mensalistas = cliRes.data.filter((c) => c.plano === 'mensal')
-      setClientes(mensalistas)
+      // Filtra clientes plano usou e pagou ("pagou")
+      const usouPagou = cliRes.data.filter((c) => c.plano === 'pagou')
+      setClientes(usouPagou)
 
-      // Filtra pedidos não pagos dos mensalistas
-      const mensalistasIds = new Set(mensalistas.map((c) => c.id))
-      const pedidosMensalistas = pedRes.data.filter(
-        (p) => mensalistasIds.has(p.cliente_id) && p.pagamento_status !== 'pago' && p.status !== 'cancelado'
+      // Filtra pedidos não pagos dos clientes usou e pagou
+      const usouPagouIds = new Set(usouPagou.map((c) => c.id))
+      const pedidosUsouPagou = pedRes.data.filter(
+        (p) => usouPagouIds.has(p.cliente_id) && p.pagamento_status !== 'pago' && p.status !== 'cancelado'
       )
-      setPedidos(pedidosMensalistas)
+      setPedidos(pedidosUsouPagou)
       setTiposPeca(tipoRes.data)
 
       // Carrega os itens dos pedidos encontrados
-      if (pedidosMensalistas.length > 0) {
-        const orderIds = pedidosMensalistas.map((p) => p.id)
+      if (pedidosUsouPagou.length > 0) {
+        const orderIds = pedidosUsouPagou.map((p) => p.id)
         const itensRes = await fetchItensPorPedidos(orderIds)
         if (itensRes.error) {
           setErro(itensRes.error)
         } else {
           const grouped: Record<string, ItemPedido[]> = {}
-          pedidosMensalistas.forEach((p) => {
+          pedidosUsouPagou.forEach((p) => {
             grouped[p.id] = itensRes.data.filter((item) => item.pedido_id === p.id)
           })
           setItensMap(grouped)
@@ -90,7 +93,7 @@ export function PedidosMensaisPage() {
   }, [])
 
   // Agrupa os pedidos por cliente
-  const mensalistasComPendencia = useMemo(() => {
+  const usouPagouComPendencia = useMemo(() => {
     const termo = normalizeSearch(busca)
     
     return clientes
@@ -120,6 +123,18 @@ export function PedidosMensaisPage() {
       })
   }, [clientes, pedidos, busca])
 
+  // Limpa IDs de clientes selecionados se eles não estiverem mais na lista visível filtrada
+  useEffect(() => {
+    const visiveisIds = new Set(usouPagouComPendencia.map(item => item.cliente.id))
+    setSelectedClientesIds(prev => {
+      const next = new Set<string>()
+      prev.forEach(id => {
+        if (visiveisIds.has(id)) next.add(id)
+      })
+      return next
+    })
+  }, [usouPagouComPendencia])
+
   function formatarLocal(c: Cliente) {
     const parts = []
     if (c.condominio?.trim()) parts.push(c.condominio.trim())
@@ -130,6 +145,43 @@ export function PedidosMensaisPage() {
 
   function getPecaNome(tipoPecaId: string): string {
     return tiposPeca.find((t) => t.id === tipoPecaId)?.nome || 'Peça'
+  }
+
+  // Alternar seleção de cliente específico
+  function handleToggleSelect(clienteId: string) {
+    setSelectedClientesIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(clienteId)) {
+        next.delete(clienteId)
+      } else {
+        next.add(clienteId)
+      }
+      return next
+    })
+  }
+
+  // Alternar todos os visíveis
+  const todosSelecionados = useMemo(() => {
+    if (usouPagouComPendencia.length === 0) return false
+    return usouPagouComPendencia.every((item) => selectedClientesIds.has(item.cliente.id))
+  }, [usouPagouComPendencia, selectedClientesIds])
+
+  function handleSelectAll() {
+    if (todosSelecionados) {
+      // Desmarcar todos os visíveis
+      setSelectedClientesIds((prev) => {
+        const next = new Set(prev)
+        usouPagouComPendencia.forEach((item) => next.delete(item.cliente.id))
+        return next
+      })
+    } else {
+      // Marcar todos os visíveis
+      setSelectedClientesIds((prev) => {
+        const next = new Set(prev)
+        usouPagouComPendencia.forEach((item) => next.add(item.cliente.id))
+        return next
+      })
+    }
   }
 
   // Gera o link de cobrança do WhatsApp
@@ -151,7 +203,7 @@ export function PedidosMensaisPage() {
       .join('\n')
 
     const texto = `Olá, ${primeiroNome}! 😊\n\n` +
-      `Segue o detalhamento das lavagens do seu plano mensal:\n\n` +
+      `Segue o detalhamento das suas lavagens em aberto no plano Usou e Pagou:\n\n` +
       `${listaDatas}\n\n` +
       `🧺 *Peso Total:* ${pesoTotal.toLocaleString('pt-BR')} kg\n` +
       `💰 *Valor Total:* ${formatBRL(valorTotal)}\n\n` +
@@ -168,7 +220,7 @@ export function PedidosMensaisPage() {
     const pesoStr = Number(pesoTotal).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })
     
     const texto = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
-      `Segue em anexo o fechamento mensal da lavanderia.\n\n` +
+      `Segue em anexo o detalhamento de pendências da lavanderia.\n\n` +
       `🧺 Peso total: ${pesoStr} kg\n` +
       `💰 Total: ${formatBRL(valorTotal)}\n\n` +
       `Pagamento via Pix:\n` +
@@ -183,12 +235,11 @@ export function PedidosMensaisPage() {
     })
   }
 
-  // Gera o PDF de fechamento formatado na tela de impressão
+  // Gera o PDF de fechamento formatado na tela de impressão para um ÚNICO cliente
   function handleGerarPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
-    // Organiza a descrição dos itens de cada pedido
     const detalhesPedidos = pedidosCliente
       .slice()
       .reverse()
@@ -221,7 +272,7 @@ export function PedidosMensaisPage() {
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
-        <title>Fechamento Mensal - ${c.nome}</title>
+        <title>Fechamento de Lavagem - ${c.nome}</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -396,7 +447,7 @@ export function PedidosMensaisPage() {
             </div>
           </div>
           <div>
-            <h2 class="doc-title">Fechamento de Mensalista</h2>
+            <h2 class="doc-title">Detalhamento de Pendências</h2>
             <p class="doc-date">Emitido em: ${dataEmissao}</p>
           </div>
         </div>
@@ -410,7 +461,7 @@ export function PedidosMensaisPage() {
           <div class="info-block">
             <h3>Contato e Contrato</h3>
             <p>${c.telefone || 'Sem telefone'}</p>
-            <span>Plano Mensal · Pagamento acordado via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+            <span>Plano Usou e Pagou · Pagamento acordado via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
           </div>
         </div>
 
@@ -434,21 +485,363 @@ export function PedidosMensaisPage() {
             <div class="total-value">${pedidosCliente.length}</div>
           </div>
           <div class="total-item">
-            <div class="total-label">Peso Total Acumulado</div>
+            <div class="total-label">Peso Total</div>
             <div class="total-value">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
           </div>
           <div class="total-item">
-            <div class="total-label">Total Geral a Pagar</div>
+            <div class="total-label">Total a Pagar</div>
             <div class="total-value" style="color: #3b6fe8;">${formatBRL(valorTotal)}</div>
           </div>
         </div>
 
         <div class="payment-instructions">
-          <h4>Instruções para Pagamento</h4>
-          <p>O pagamento do fechamento mensal deve ser realizado através do PIX. A chave Pix e detalhes bancários serão fornecidos em anexo ou na mensagem de cobrança enviada no WhatsApp. Agradecemos a preferência!</p>
+          <h4>Dados para Pagamento via PIX</h4>
+          <p style="margin: 0; font-weight: 600;">Beneficiário: Ramon Pereira Paixão</p>
+          <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
         </div>
 
         <p class="footer-note">Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas</p>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          }
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  // Gera o PDF consolidado com todas as pendências para os clientes SELECIONADOS
+  function handleGerarPDFConsolidado() {
+    if (selectedClientesIds.size === 0) return
+
+    const selecionados = usouPagouComPendencia.filter((item) =>
+      selectedClientesIds.has(item.cliente.id)
+    )
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    // 1) Linhas da tabela de resumo
+    let totalEnviosGeral = 0
+    let totalPesoGeral = 0
+    let totalValorGeral = 0
+
+    const linhasResumo = selecionados
+      .map((item) => {
+        totalEnviosGeral += item.pedidos.length
+        totalPesoGeral += item.pesoTotal
+        totalValorGeral += item.valorTotal
+
+        const localStr = formatarLocal(item.cliente)
+        return `
+          <tr>
+            <td style="font-weight: 600;">${item.cliente.nome}</td>
+            <td>${localStr}</td>
+            <td>${item.cliente.telefone || '—'}</td>
+            <td style="text-align: center;">${item.pedidos.length}</td>
+            <td style="text-align: right;">${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</td>
+            <td style="text-align: right; font-weight: 700; color: #ef4444;">${formatBRL(item.valorTotal)}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    // 2) Detalhamento individual de cada cliente selecionado (com page break)
+    const detalhamentoClientes = selecionados
+      .map((item) => {
+        const localStr = formatarLocal(item.cliente)
+        const linhasPedidos = item.pedidos
+          .slice()
+          .reverse()
+          .map((p) => {
+            const [ano, mes, dia] = p.data_pedido.split('-')
+            const dataFormatada = `${dia}/${mes}/${ano}`
+            const valor = receitaPedido(p)
+            
+            const itens = itensMap[p.id] || []
+            const pecasDetalhadas = itens
+              .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+              .join(', ') || 'Sem especificações'
+
+            return `
+              <tr>
+                <td>${dataFormatada}</td>
+                <td>${pecasDetalhadas}</td>
+                <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
+                <td style="text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+              </tr>
+            `
+          })
+          .join('')
+
+        return `
+          <div class="cliente-breakdown">
+            <div class="cliente-breakdown-header">
+              <h3>${item.cliente.nome}</h3>
+              <p>${localStr !== '—' ? `📍 ${localStr} &nbsp;·&nbsp; ` : ''} 📞 ${item.cliente.telefone || 'Sem telefone'}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 15%;">Data</th>
+                  <th style="width: 50%;">Peças Lavadas</th>
+                  <th style="width: 15%; text-align: right;">Peso</th>
+                  <th style="width: 20%; text-align: right;">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhasPedidos}
+              </tbody>
+            </table>
+            <div style="display: flex; justify-content: flex-end; gap: 20px; font-weight: 700; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: -15px; margin-bottom: 25px;">
+              <div>Envios: ${item.pedidos.length}</div>
+              <div>Peso: ${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</div>
+              <div style="color: #3b6fe8;">Total: ${formatBRL(item.valorTotal)}</div>
+            </div>
+          </div>
+        `
+      })
+      .join('')
+
+    const dataEmissao = new Date().toLocaleDateString('pt-BR')
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Pendências - Clientes Usou e Pagou</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            font-size: 13px;
+            line-height: 1.4;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ef4444;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .brand-name {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ef4444;
+            margin: 0;
+          }
+          .brand-sub {
+            font-size: 11px;
+            color: #666;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .doc-title {
+            font-size: 18px;
+            font-weight: 700;
+            text-align: right;
+            margin: 0;
+            color: #333;
+          }
+          .doc-date {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            margin-top: 4px;
+          }
+          
+          h2.section-title {
+            font-size: 15px;
+            color: #1a202c;
+            border-bottom: 1.5px solid #cbd5e0;
+            padding-bottom: 6px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+          }
+          th {
+            background-color: #4a5568;
+            color: white;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 10px;
+            font-size: 12px;
+          }
+          td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #2d3748;
+          }
+          tr:nth-child(even) td {
+            background-color: #f8fafc;
+          }
+          
+          .totals-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 30px;
+            background: #edf2f7;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid #cbd5e0;
+          }
+          .total-item {
+            text-align: right;
+          }
+          .total-label {
+            font-size: 10px;
+            color: #4a5568;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+          }
+          .total-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a202c;
+          }
+
+          .cliente-breakdown {
+            page-break-inside: avoid;
+            margin-bottom: 30px;
+          }
+          .cliente-breakdown-header {
+            margin-bottom: 10px;
+            padding-left: 4px;
+            border-left: 3px solid #3b6fe8;
+          }
+          .cliente-breakdown-header h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #1a202c;
+          }
+          .cliente-breakdown-header p {
+            margin: 2px 0 0 0;
+            font-size: 11px;
+            color: #718096;
+          }
+          
+          .payment-instructions {
+            background-color: #fef2f2;
+            border: 1px solid #fee2e2;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            margin-bottom: 25px;
+          }
+          .payment-instructions h4 {
+            margin: 0 0 8px 0;
+            color: #991b1b;
+            font-size: 14px;
+          }
+          .payment-instructions p {
+            margin: 0;
+            font-size: 13px;
+            color: #2d3748;
+          }
+
+          .footer-note {
+            text-align: center;
+            font-size: 10px;
+            color: #a0aec0;
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+          }
+          
+          @media print {
+            body {
+              padding: 0;
+            }
+            .cliente-breakdown {
+              page-break-inside: avoid;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo-container">
+            <div>
+              <h1 class="brand-name">Ciclo Novo</h1>
+              <p class="brand-sub">Lavanderia</p>
+            </div>
+          </div>
+          <div>
+            <h2 class="doc-title">Relatório Geral de Pendências (Usou e Pagou)</h2>
+            <p class="doc-date">Emitido em: ${dataEmissao}</p>
+          </div>
+        </div>
+
+        <h2 class="section-title">Resumo Financeiro por Cliente</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Local / Unidade</th>
+              <th>Telefone</th>
+              <th style="text-align: center;">Qtd Envios</th>
+              <th style="text-align: right;">Peso Acumulado</th>
+              <th style="text-align: right;">Saldo devedor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasResumo}
+          </tbody>
+        </table>
+
+        <div class="totals-bar">
+          <div class="total-item">
+            <div class="total-label">Clientes Selecionados</div>
+            <div class="total-value">${selecionados.length}</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Quantidade de Envios</div>
+            <div class="total-value">${totalEnviosGeral}</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Peso Acumulado</div>
+            <div class="total-value">${Number(totalPesoGeral).toLocaleString('pt-BR')} kg</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Valor Geral Pendente</div>
+            <div class="total-value" style="color: #ef4444;">${formatBRL(totalValorGeral)}</div>
+          </div>
+        </div>
+
+        <div class="payment-instructions">
+          <h4>Dados para Pagamento via PIX</h4>
+          <p style="margin: 0; font-weight: 600;">Beneficiário: Ramon Pereira Paixão</p>
+          <p style="margin: 4px 0 0 0; font-weight: bold; color: #ef4444; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
+        </div>
+
+        <h2 class="section-title" style="page-break-before: auto;">Detalhamento das Pendências</h2>
+        ${detalhamentoClientes}
+
+        <p class="footer-note">Ciclo Novo Lavanderia · Relatório Gerencial Gerado em ${dataEmissao}</p>
 
         <script>
           window.onload = function() {
@@ -482,7 +875,7 @@ export function PedidosMensaisPage() {
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite'
         }} />
-        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Carregando faturamento mensal...</span>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>Carregando faturamento avulso...</span>
         <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     )
@@ -535,9 +928,9 @@ export function PedidosMensaisPage() {
         }
       `}</style>
       <header>
-        <h1 style={{ fontSize: 22, letterSpacing: -0.2 }}>Faturamento Mensal</h1>
+        <h1 style={{ fontSize: 22, letterSpacing: -0.2 }}>Faturamento Usou e Pagou</h1>
         <div className="hint">
-          Fechamento de faturamento e cobrança de clientes no Plano Mensal.
+          Fechamento de faturamento e cobrança de clientes no plano Usou e Pagou.
         </div>
       </header>
 
@@ -546,10 +939,32 @@ export function PedidosMensaisPage() {
 
       <section className="panel" style={{ marginTop: 12 }}>
         <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12, flexWrap: 'wrap', gap: 12 }}>
-          <h2 style={{ fontSize: 18, color: 'var(--accent)', margin: 0 }}>Clientes Mensalistas</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ fontSize: 18, color: 'var(--accent)', margin: 0 }}>Clientes Devedores</h2>
+            <span className="badge badgeRed" style={{ fontSize: 12 }}>
+              {selectedClientesIds.size} selecionado(s)
+            </span>
+          </div>
           
           <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-end' }}>
-            <div className="field" style={{ minWidth: 240, margin: 0, flex: '1 1 auto' }}>
+            <button
+              className="btn btnPrimary"
+              type="button"
+              disabled={selectedClientesIds.size === 0}
+              onClick={handleGerarPDFConsolidado}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+              Gerar PDF de Pendências Selecionadas
+            </button>
+
+            <div className="field" style={{ minWidth: 220, margin: 0, flex: '1 1 auto' }}>
               <input
                 type="text"
                 placeholder="Buscar por nome ou condomínio..."
@@ -567,7 +982,7 @@ export function PedidosMensaisPage() {
               />
             </div>
             
-            <div className="field" style={{ minWidth: 240, margin: 0, flex: '1 1 auto' }}>
+            <div className="field" style={{ minWidth: 220, margin: 0, flex: '1 1 auto' }}>
               <input
                 type="text"
                 placeholder="Chave Pix para cobrança..."
@@ -588,14 +1003,35 @@ export function PedidosMensaisPage() {
         </div>
 
         <div className="panelBody" style={{ padding: '16px 0' }}>
-          {mensalistasComPendencia.length === 0 ? (
+          {usouPagouComPendencia.length === 0 ? (
             <div className="hint" style={{ textAlign: 'center', padding: '30px 20px' }}>
-              Nenhum cliente mensalista com pendências em aberto.
+              Nenhum cliente Usou e Pagou com pendências em aberto.
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 14, padding: '0 16px' }}>
-              {mensalistasComPendencia.map((item) => {
+              
+              {/* Opção de Selecionar Todos */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '4px 10px', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+                <input
+                  type="checkbox"
+                  id="select-all-checkbox"
+                  checked={todosSelecionados}
+                  onChange={handleSelectAll}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    cursor: 'pointer',
+                    margin: 0
+                  }}
+                />
+                <label htmlFor="select-all-checkbox" style={{ margin: 0, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  Selecionar todos os clientes filtrados ({usouPagouComPendencia.length})
+                </label>
+              </div>
+
+              {usouPagouComPendencia.map((item) => {
                 const isExpanded = expandedClienteId === item.cliente.id
+                const isSelected = selectedClientesIds.has(item.cliente.id)
                 return (
                   <div
                     key={item.cliente.id}
@@ -605,10 +1041,33 @@ export function PedidosMensaisPage() {
                       background: 'var(--bg)',
                       overflow: 'hidden',
                       transition: 'all 0.2s ease-in-out',
-                      boxShadow: isExpanded ? 'var(--shadow-raised)' : 'none'
+                      boxShadow: isExpanded ? 'var(--shadow-raised)' : 'none',
+                      borderColor: isSelected ? 'var(--accent)' : 'var(--border)'
                     }}
                   >
                     {/* Header do Card */}
+                    <div
+                      style={{
+                        padding: '14px 18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 14
+                      }}
+                    >
+                      {/* Checkbox de seleção */}
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelect(item.cliente.id)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer',
+                          margin: 0,
+                          flexShrink: 0
+                        }}
+                      />
+
                       <div
                         onClick={() => setExpandedClienteId(isExpanded ? null : item.cliente.id)}
                         className="client-card-header"
@@ -628,12 +1087,12 @@ export function PedidosMensaisPage() {
                             <strong style={{ fontSize: 13, color: 'var(--text-h)' }}>{item.pedidos.length} envios</strong>
                           </div>
                           <div className="client-card-stat-item">
-                            <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block' }}>PESO ACUMULADO</span>
+                            <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block' }}>PESO TOTAL</span>
                             <strong style={{ fontSize: 13, color: 'var(--text-h)' }}>{item.pesoTotal.toLocaleString('pt-BR')} kg</strong>
                           </div>
                           <div className="client-card-stat-item">
                             <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block' }}>SALDO EM ABERTO</span>
-                            <strong style={{ fontSize: 14, color: 'var(--accent)' }}>{formatBRL(item.valorTotal)}</strong>
+                            <strong style={{ fontSize: 14, color: 'var(--danger)' }}>{formatBRL(item.valorTotal)}</strong>
                           </div>
                           
                           <div style={{
@@ -648,6 +1107,7 @@ export function PedidosMensaisPage() {
                           </div>
                         </div>
                       </div>
+                    </div>
 
                     {/* Detalhamento Expandido */}
                     {isExpanded && (

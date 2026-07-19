@@ -306,6 +306,15 @@ export function AppShell() {
                     >
                       Mensais
                     </NavLink>
+                    <NavLink
+                      to="/pedidos/usou-pagou"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Usou e Pagou
+                    </NavLink>
                   </div>
                 </div>
               )
