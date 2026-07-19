@@ -547,16 +547,13 @@ export function PedidosMensaisPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
-      tempDiv.style.position = 'fixed'
-      tempDiv.style.left = '0'
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
       tempDiv.style.top = '0'
       tempDiv.style.width = '650px'
       tempDiv.style.minWidth = '650px'
       tempDiv.style.maxWidth = '650px'
       tempDiv.style.overflow = 'visible'
-      tempDiv.style.opacity = '0'
-      tempDiv.style.pointerEvents = 'none'
-      tempDiv.style.zIndex = '-9999'
       tempDiv.style.backgroundColor = '#ffffff'
 
       tempDiv.innerHTML = `
@@ -702,16 +699,13 @@ export function PedidosMensaisPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
-      tempDiv.style.position = 'fixed'
-      tempDiv.style.left = '0'
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
       tempDiv.style.top = '0'
       tempDiv.style.width = '650px'
       tempDiv.style.minWidth = '650px'
       tempDiv.style.maxWidth = '650px'
       tempDiv.style.overflow = 'visible'
-      tempDiv.style.opacity = '0'
-      tempDiv.style.pointerEvents = 'none'
-      tempDiv.style.zIndex = '-9999'
       tempDiv.style.backgroundColor = '#ffffff'
 
       tempDiv.innerHTML = `
