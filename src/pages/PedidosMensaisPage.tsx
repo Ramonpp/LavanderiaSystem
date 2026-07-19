@@ -534,10 +534,10 @@ export function PedidosMensaisPage() {
 
           return `
             <tr>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748;">${dataFormatada}</td>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748;">${pecasDetalhadas}</td>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+              <td style="width: 18%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; white-space: nowrap;">${dataFormatada}</td>
+              <td style="width: 52%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; word-break: break-word; overflow-wrap: break-word;">${pecasDetalhadas}</td>
+              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; white-space: nowrap;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
+              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600; white-space: nowrap;">${formatBRL(valor)}</td>
             </tr>
           `
         })
@@ -547,10 +547,16 @@ export function PedidosMensaisPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
+      tempDiv.style.position = 'fixed'
+      tempDiv.style.left = '0'
       tempDiv.style.top = '0'
       tempDiv.style.width = '650px'
+      tempDiv.style.minWidth = '650px'
+      tempDiv.style.maxWidth = '650px'
+      tempDiv.style.overflow = 'visible'
+      tempDiv.style.opacity = '0'
+      tempDiv.style.pointerEvents = 'none'
+      tempDiv.style.zIndex = '-9999'
       tempDiv.style.backgroundColor = '#ffffff'
 
       tempDiv.innerHTML = `
@@ -592,13 +598,13 @@ export function PedidosMensaisPage() {
             </tr>
           </table>
 
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed;">
             <thead>
               <tr style="background-color: #3b6fe8; color: white;">
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
+                <th style="width: 18%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
+                <th style="width: 52%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
+                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
+                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -638,7 +644,9 @@ export function PedidosMensaisPage() {
       const canvas = await html2canvas(tempDiv, {
         backgroundColor: '#ffffff',
         scale: 2,
-        logging: false
+        logging: false,
+        width: 650,
+        windowWidth: 650
       })
 
       document.body.removeChild(tempDiv)
@@ -681,10 +689,10 @@ export function PedidosMensaisPage() {
 
           return `
             <tr>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748;">${dataFormatada}</td>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748;">${pecasDetalhadas}</td>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-              <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+              <td style="width: 18%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; white-space: nowrap;">${dataFormatada}</td>
+              <td style="width: 52%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; word-break: break-word; overflow-wrap: break-word;">${pecasDetalhadas}</td>
+              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; white-space: nowrap;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
+              <td style="width: 15%; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #2d3748; text-align: right; font-weight: 600; white-space: nowrap;">${formatBRL(valor)}</td>
             </tr>
           `
         })
@@ -694,10 +702,16 @@ export function PedidosMensaisPage() {
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
       const tempDiv = document.createElement('div')
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
+      tempDiv.style.position = 'fixed'
+      tempDiv.style.left = '0'
       tempDiv.style.top = '0'
       tempDiv.style.width = '650px'
+      tempDiv.style.minWidth = '650px'
+      tempDiv.style.maxWidth = '650px'
+      tempDiv.style.overflow = 'visible'
+      tempDiv.style.opacity = '0'
+      tempDiv.style.pointerEvents = 'none'
+      tempDiv.style.zIndex = '-9999'
       tempDiv.style.backgroundColor = '#ffffff'
 
       tempDiv.innerHTML = `
@@ -739,13 +753,13 @@ export function PedidosMensaisPage() {
             </tr>
           </table>
 
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed;">
             <thead>
               <tr style="background-color: #3b6fe8; color: white;">
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
+                <th style="width: 18%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
+                <th style="width: 52%; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
+                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
+                <th style="width: 15%; font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -785,7 +799,9 @@ export function PedidosMensaisPage() {
       const canvas = await html2canvas(tempDiv, {
         backgroundColor: '#ffffff',
         scale: 2,
-        logging: false
+        logging: false,
+        width: 650,
+        windowWidth: 650
       })
 
       document.body.removeChild(tempDiv)
