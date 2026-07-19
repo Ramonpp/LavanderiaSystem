@@ -7,6 +7,7 @@ import { receitaPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
 function getBase64Image(imgUrl: string): Promise<string> {
   return new Promise((resolve) => {
@@ -604,40 +605,50 @@ export function PedidosUsouPagouPage() {
 
       tempDiv.innerHTML = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain;" />
-              <div>
-                <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0;">Ciclo Novo</h1>
-                <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
-              </div>
-            </div>
-            <div>
-              <h2 style="font-size: 18px; font-weight: 700; text-align: right; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
-              <p style="font-size: 12px; color: #666; text-align: right; margin-top: 4px;">Emitido em: ${dataEmissao}</p>
-            </div>
-          </div>
+          <table style="width: 100%; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <table style="border-collapse: collapse; border: none;">
+                  <tr>
+                    <td style="padding: 0 12px 0 0; border: none; vertical-align: middle;">
+                      <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain; display: block;" />
+                    </td>
+                    <td style="padding: 0; border: none; vertical-align: middle;">
+                      <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0; line-height: 1.1;">Ciclo Novo</h1>
+                      <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="text-align: right; vertical-align: middle;">
+                <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
+                <p style="font-size: 12px; color: #666; margin: 4px 0 0 0;">Emitido em: ${dataEmissao}</p>
+              </td>
+            </tr>
+          </table>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <div>
-              <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
-              <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
-              ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
-            </div>
-            <div>
-              <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
-              <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
-              <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
-            </div>
-          </div>
+          <table style="width: 100%; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; border-collapse: collapse;">
+            <tr>
+              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
+                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
+                ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
+              </td>
+              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
+                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
+                <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+              </td>
+            </tr>
+          </table>
 
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
             <thead>
               <tr style="background-color: #3b6fe8; color: white;">
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Data</th>
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Peças Lavadas</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Peso</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Valor</th>
+                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
+                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
+                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
+                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -645,20 +656,22 @@ export function PedidosUsouPagouPage() {
             </tbody>
           </table>
 
-          <div style="display: flex; justify-content: flex-end; gap: 40px; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0;">
-            <div style="text-align: right;">
-              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
-              <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
-              <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
-              <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
-            </div>
-          </div>
+          <table style="width: 100%; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0; border-collapse: collapse;">
+            <tr>
+              <td style="text-align: right; padding-right: 30px; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
+              </td>
+              <td style="text-align: right; padding-right: 30px; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
+              </td>
+              <td style="text-align: right; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
+                <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
+              </td>
+            </tr>
+          </table>
 
           <div style="background-color: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 15px; margin-top: 20px;">
             <h4 style="margin: 0 0 8px 0; color: #2b6cb0; font-size: 14px;">Dados para Pagamento via PIX</h4>
@@ -697,10 +710,10 @@ export function PedidosUsouPagouPage() {
     }
   }
 
-  // Compartilha a imagem do fechamento usando a API nativa (ideal para PWA no iOS)
-  async function handleCompartilharPNG(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
+  // Compartilha o fechamento em formato PDF usando a API nativa de compartilhamento (ideal para PWA no iOS)
+  async function handleCompartilharPDF(c: Cliente, pedidosCliente: PedidoCliente[], pesoTotal: number, valorTotal: number) {
     try {
-      setMsg('Preparando imagem para compartilhar...')
+      setMsg('Preparando PDF para compartilhar...')
       const logoBase64 = await getBase64Image('/logo.png')
 
       const detalhesPedidos = pedidosCliente
@@ -739,40 +752,50 @@ export function PedidosUsouPagouPage() {
 
       tempDiv.innerHTML = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; padding: 25px; background: #ffffff;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain;" />
-              <div>
-                <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0;">Ciclo Novo</h1>
-                <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
-              </div>
-            </div>
-            <div>
-              <h2 style="font-size: 18px; font-weight: 700; text-align: right; margin: 0; color: #333;">Detalhamento de Pendências</h2>
-              <p style="font-size: 12px; color: #666; text-align: right; margin-top: 4px;">Emitido em: ${dataEmissao}</p>
-            </div>
-          </div>
+          <table style="width: 100%; border-bottom: 2px solid #3b6fe8; padding-bottom: 15px; margin-bottom: 25px; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle;">
+                <table style="border-collapse: collapse; border: none;">
+                  <tr>
+                    <td style="padding: 0 12px 0 0; border: none; vertical-align: middle;">
+                      <img src="${logoBase64}" alt="Logo" style="width: 50px; height: 50px; object-fit: contain; display: block;" />
+                    </td>
+                    <td style="padding: 0; border: none; vertical-align: middle;">
+                      <h1 style="font-size: 22px; font-weight: 800; color: #3b6fe8; margin: 0; line-height: 1.1;">Ciclo Novo</h1>
+                      <p style="font-size: 11px; color: #666; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Lavanderia</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="text-align: right; vertical-align: middle;">
+                <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: #333;">Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</h2>
+                <p style="font-size: 12px; color: #666; margin: 4px 0 0 0;">Emitido em: ${dataEmissao}</p>
+              </td>
+            </tr>
+          </table>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <div>
-              <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
-              <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
-              ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
-            </div>
-            <div>
-              <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
-              <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
-              <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
-            </div>
-          </div>
+          <table style="width: 100%; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; border-collapse: collapse;">
+            <tr>
+              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Cliente</h3>
+                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.nome}</p>
+                ${localStr !== '—' ? `<span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">${localStr}</span>` : ''}
+              </td>
+              <td style="width: 50%; vertical-align: top; border: none; padding: 0;">
+                <h3 style="margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 0.5px;">Contato</h3>
+                <p style="margin: 0; font-size: 15px; font-weight: 600; color: #1a202c;">${c.telefone || 'Sem telefone'}</p>
+                <span style="display: block; font-size: 13px; color: #4a5568; margin-top: 2px; font-weight: 400;">Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+              </td>
+            </tr>
+          </table>
 
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
             <thead>
               <tr style="background-color: #3b6fe8; color: white;">
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Data</th>
-                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Peças Lavadas</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Peso</th>
-                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Valor</th>
+                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Data</th>
+                <th style="font-weight: 600; text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peças Lavadas</th>
+                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Peso</th>
+                <th style="font-weight: 600; text-align: right; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: none;">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -780,20 +803,22 @@ export function PedidosUsouPagouPage() {
             </tbody>
           </table>
 
-          <div style="display: flex; justify-content: flex-end; gap: 40px; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0;">
-            <div style="text-align: right;">
-              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
-              <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
-              <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
-              <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
-            </div>
-          </div>
+          <table style="width: 100%; background: #edf2f7; padding: 12px 20px; border-radius: 8px; margin-bottom: 40px; border: 1px solid #cbd5e0; border-collapse: collapse;">
+            <tr>
+              <td style="text-align: right; padding-right: 30px; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Quantidade de Envios</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${pedidosCliente.length}</div>
+              </td>
+              <td style="text-align: right; padding-right: 30px; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Peso Total</div>
+                <div style="font-size: 18px; font-weight: 700; color: #1a202c;">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
+              </td>
+              <td style="text-align: right; border: none;">
+                <div style="font-size: 11px; color: #4a5568; text-transform: uppercase; margin-bottom: 2px;">Total a Pagar</div>
+                <div style="font-size: 18px; font-weight: 700; color: #3b6fe8;">${formatBRL(valorTotal)}</div>
+              </td>
+            </tr>
+          </table>
 
           <div style="background-color: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 15px; margin-top: 20px;">
             <h4 style="margin: 0 0 8px 0; color: #2b6cb0; font-size: 14px;">Dados para Pagamento via PIX</h4>
@@ -815,32 +840,43 @@ export function PedidosUsouPagouPage() {
 
       document.body.removeChild(tempDiv)
 
-      canvas.toBlob((blob) => {
-        if (!blob) throw new Error('Falha ao gerar imagem blob.')
-        const file = new File([blob], `fechamento-${c.nome.replace(/\s+/g, '-')}.png`, { type: 'image/png' })
+      const imgData = canvas.toDataURL('image/png')
+      
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({
-            files: [file],
-            title: 'Fechamento Lavanderia',
-            text: `Segue o fechamento da lavanderia do cliente ${c.nome}.`
-          }).then(() => {
-            setMsg('Compartilhado com sucesso!')
-            setTimeout(() => setMsg(null), 4000)
-          }).catch((err) => {
-            if (err.name !== 'AbortError') {
-              setErro(`Erro ao compartilhar: ${err.message || err}`)
-            } else {
-              setMsg(null)
-            }
-          })
-        } else {
-          setErro('Seu dispositivo não suporta compartilhamento direto de imagem.')
-          setMsg(null)
-        }
-      }, 'image/png')
+      const imgWidth = 210
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+
+      const pdfBlob = pdf.output('blob')
+      const file = new File([pdfBlob], `fechamento-${c.nome.replace(/\s+/g, '-')}.pdf`, { type: 'application/pdf' })
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+          files: [file],
+          title: 'Fechamento Lavanderia',
+          text: `Segue o fechamento da lavanderia do cliente ${c.nome}.`
+        }).then(() => {
+          setMsg('Compartilhado com sucesso!')
+          setTimeout(() => setMsg(null), 4000)
+        }).catch((err) => {
+          if (err.name !== 'AbortError') {
+            setErro(`Erro ao compartilhar: ${err.message || err}`)
+          } else {
+            setMsg(null)
+          }
+        })
+      } else {
+        setErro('Seu dispositivo não suporta compartilhamento direto de arquivos.')
+        setMsg(null)
+      }
     } catch (err: any) {
-      setErro(`Erro ao processar imagem: ${err.message || err}`)
+      setErro(`Erro ao processar PDF: ${err.message || err}`)
       setMsg(null)
     }
   }
@@ -1547,7 +1583,7 @@ export function PedidosUsouPagouPage() {
                             <button
                               className="btn btnSuccess"
                               type="button"
-                              onClick={() => handleCompartilharPNG(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
+                              onClick={() => handleCompartilharPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
                               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
                             >
                               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
