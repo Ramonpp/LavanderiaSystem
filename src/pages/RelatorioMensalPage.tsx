@@ -140,6 +140,44 @@ export function RelatorioMensalPage() {
       .slice(0, 5),
     [pedidos]
   )
+  // ── Análise de frequência e consumo por cliente ──────
+  const analiseClientes = useMemo(() => {
+    const ativos = pedidos.filter(p => p.status !== 'cancelado')
+    const clienteMap: Record<string, {
+      id: string
+      nome: string
+      frequencia: number
+      pesoTotal: number
+      receitaTotal: number
+    }> = {}
+
+    ativos.forEach(p => {
+      const cId = p.cliente?.id || 'anonimo'
+      const cNome = p.cliente?.nome || 'Cliente avulso'
+      if (!clienteMap[cId]) {
+        clienteMap[cId] = {
+          id: cId,
+          nome: cNome,
+          frequencia: 0,
+          pesoTotal: 0,
+          receitaTotal: 0
+        }
+      }
+      clienteMap[cId].frequencia++
+      clienteMap[cId].pesoTotal += Number(p.peso_kg)
+      clienteMap[cId].receitaTotal += receitaPedido(p)
+    })
+
+    const lista = Object.values(clienteMap)
+      .sort((a, b) => b.frequencia - a.frequencia || b.receitaTotal - a.receitaTotal)
+
+    const totalClientesAtivos = lista.length
+    const freqMedia = totalClientesAtivos > 0 ? kpis.qtd / totalClientesAtivos : 0
+    const kgMedioCliente = totalClientesAtivos > 0 ? kpis.pesoTotal / totalClientesAtivos : 0
+    const receitaMediaCliente = totalClientesAtivos > 0 ? kpis.receita / totalClientesAtivos : 0
+
+    return { lista, freqMedia, kgMedioCliente, receitaMediaCliente, totalClientesAtivos }
+  }, [pedidos, kpis.qtd, kpis.pesoTotal, kpis.receita])
 
   return (
     <div className="grid" style={{ gap: 16 }}>
@@ -316,6 +354,121 @@ export function RelatorioMensalPage() {
                         <div><div className="mobile-card-label">Peso</div><div className="mobile-card-value">{Number(p.peso_kg).toLocaleString('pt-BR')} kg</div></div>
                         <div><div className="mobile-card-label">Receita</div><div className="mobile-card-value" style={{ color: 'var(--ok)', fontWeight: 700 }}>{formatBRL(receitaPedido(p))}</div></div>
                         <div><div className="mobile-card-label">Lucro estimado</div><div className={`mobile-card-value ${luc >= 0 ? 'valPositive' : 'valNegative'}`}>{formatBRL(luc)}</div></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ── Uso e Frequência por Cliente ── */}
+      <section className="panel">
+        <div className="panelHeader">
+          <h2 style={{ fontSize: 15 }}>Uso e Frequência por Cliente</h2>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{analiseClientes.totalClientesAtivos} cliente(s) ativo(s)</span>
+        </div>
+        <div className="panelBody grid" style={{ gap: 16 }}>
+          {/* Médias do Comportamento do Cliente */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{
+              background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+              borderRadius: 8, padding: '12px 14px', flex: '1 1 180px', minWidth: 0
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Frequência Média</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>
+                {analiseClientes.freqMedia.toFixed(1)} envios / cliente
+              </div>
+            </div>
+            <div style={{
+              background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+              borderRadius: 8, padding: '12px 14px', flex: '1 1 180px', minWidth: 0
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Consumo Médio por Cliente</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>
+                {analiseClientes.kgMedioCliente.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg / cliente
+              </div>
+            </div>
+            <div style={{
+              background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+              borderRadius: 8, padding: '12px 14px', flex: '1 1 180px', minWidth: 0
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Faturamento Médio por Cliente</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>
+                {formatBRL(analiseClientes.receitaMediaCliente)} / cliente
+              </div>
+            </div>
+          </div>
+
+          {/* Tabela de frequência */}
+          {analiseClientes.lista.length === 0 ? (
+            <div className="hint" style={{ padding: 12 }}>Nenhum cliente ativo neste mês.</div>
+          ) : (
+            <>
+              {/* Desktop */}
+              <div className="tableWrap desktop-only">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th style={{ textAlign: 'center' }}>Frequência (Envios)</th>
+                      <th style={{ textAlign: 'right' }}>Kg Lavado</th>
+                      <th style={{ textAlign: 'right' }}>Média Kg/Envio</th>
+                      <th style={{ textAlign: 'right' }}>Faturamento</th>
+                      <th style={{ textAlign: 'right' }}>Ticket Médio/Envio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analiseClientes.lista.map(c => {
+                      const mediaKg = c.frequencia > 0 ? c.pesoTotal / c.frequencia : 0
+                      const ticketMed = c.frequencia > 0 ? c.receitaTotal / c.frequencia : 0
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ fontWeight: 600 }}>{c.nome}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--accent)' }}>{c.frequencia}</td>
+                          <td style={{ textAlign: 'right' }}>{c.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</td>
+                          <td style={{ textAlign: 'right' }}>{mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ok)' }}>{formatBRL(c.receitaTotal)}</td>
+                          <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{formatBRL(ticketMed)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile */}
+              <div className="mobile-card-list mobile-only">
+                {analiseClientes.lista.map(c => {
+                  const mediaKg = c.frequencia > 0 ? c.pesoTotal / c.frequencia : 0
+                  const ticketMed = c.frequencia > 0 ? c.receitaTotal / c.frequencia : 0
+                  return (
+                    <div key={c.id} className="mobile-card">
+                      <div className="mobile-card-header">
+                        <div className="mobile-card-title">{c.nome}</div>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--accent)' }}>
+                          {c.frequencia} envio(s)
+                        </span>
+                      </div>
+                      <div className="mobile-card-body">
+                        <div>
+                          <div className="mobile-card-label">Kg Total</div>
+                          <div className="mobile-card-value">{c.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</div>
+                        </div>
+                        <div>
+                          <div className="mobile-card-label">Média Kg</div>
+                          <div className="mobile-card-value">{mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</div>
+                        </div>
+                        <div>
+                          <div className="mobile-card-label">Faturamento</div>
+                          <div className="mobile-card-value" style={{ color: 'var(--ok)', fontWeight: 700 }}>{formatBRL(c.receitaTotal)}</div>
+                        </div>
+                        <div>
+                          <div className="mobile-card-label">Tkt Médio</div>
+                          <div className="mobile-card-value">{formatBRL(ticketMed)}</div>
+                        </div>
                       </div>
                     </div>
                   )
