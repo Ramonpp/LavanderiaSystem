@@ -45,8 +45,8 @@ function MiniBar({ value, max, color, label }: { value: number; max: number; col
 }
 
 // ── KPI Card ─────────────────────────────────────────────
-function KpiCard({ label, value, sub, color, icon }: {
-  label: string; value: string; sub?: string; color?: string; icon: string
+function KpiCard({ label, value, sub, color }: {
+  label: string; value: string; sub?: string; color?: string
 }) {
   return (
     <div style={{
@@ -55,7 +55,6 @@ function KpiCard({ label, value, sub, color, icon }: {
       flexDirection: 'column', gap: 4, flex: '1 1 160px', minWidth: 0,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 20 }}>{icon}</span>
         <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--muted)' }}>{label}</span>
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color: color ?? 'var(--fg)', lineHeight: 1.1 }}>{value}</div>
@@ -169,15 +168,15 @@ export function RelatorioAnualPage() {
       {/* ── KPIs anuais ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>📊 Totais de {ano}</h2>
+          <h2 style={{ fontSize: 15 }}>Totais de {ano}</h2>
         </div>
         <div className="panelBody">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <KpiCard icon="📦" label="Total de pedidos" value={String(totais.pedidos)} sub={`Média: ${totais.pedidos > 0 ? (totais.pedidos / 12).toFixed(1) : 0}/mês`} />
-            <KpiCard icon="⚖️" label="Kg total lavado"  value={`${totais.kg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`} sub={`Média: ${(totais.kg / 12).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg/mês`} />
-            <KpiCard icon="💰" label="Receita anual"    value={formatBRL(totais.receita)}  sub={`Média: ${formatBRL(totais.receita / 12)}/mês`} color="var(--ok)" />
-            <KpiCard icon="💸" label="Despesas anuais"  value={formatBRL(totais.despesas)} sub={`Média: ${formatBRL(totais.despesas / 12)}/mês`} color="#f97316" />
-            <KpiCard icon="📈" label="Lucro anual"      value={formatBRL(totais.lucro)}    sub={`Margem: ${totais.receita > 0 ? ((totais.lucro / totais.receita) * 100).toFixed(1) : 0}%`} color={totais.lucro >= 0 ? 'var(--ok)' : 'var(--danger)'} />
+            <KpiCard label="Total de pedidos" value={String(totais.pedidos)} sub={`Média: ${totais.pedidos > 0 ? (totais.pedidos / 12).toFixed(1) : 0}/mês`} />
+            <KpiCard label="Kg total lavado"  value={`${totais.kg.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`} sub={`Média: ${(totais.kg / 12).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg/mês`} />
+            <KpiCard label="Receita anual"    value={formatBRL(totais.receita)}  sub={`Média: ${formatBRL(totais.receita / 12)}/mês`} color="var(--ok)" />
+            <KpiCard label="Despesas anuais"  value={formatBRL(totais.despesas)} sub={`Média: ${formatBRL(totais.despesas / 12)}/mês`} color="#f97316" />
+            <KpiCard label="Lucro anual"      value={formatBRL(totais.lucro)}    sub={`Margem: ${totais.receita > 0 ? ((totais.lucro / totais.receita) * 100).toFixed(1) : 0}%`} color={totais.lucro >= 0 ? 'var(--ok)' : 'var(--danger)'} />
           </div>
         </div>
       </section>
@@ -185,7 +184,7 @@ export function RelatorioAnualPage() {
       {/* ── Destaques ── */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <section className="panel" style={{ flex: '1 1 200px' }}>
-          <div className="panelHeader"><h2 style={{ fontSize: 15 }}>🥇 Melhor Mês</h2></div>
+          <div className="panelHeader"><h2 style={{ fontSize: 15 }}>Melhor Mês</h2></div>
           <div className="panelBody">
             {melhorMes ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -198,7 +197,7 @@ export function RelatorioAnualPage() {
         </section>
 
         <section className="panel" style={{ flex: '1 1 200px' }}>
-          <div className="panelHeader"><h2 style={{ fontSize: 15 }}>⚠️ Mês com Menor Lucro</h2></div>
+          <div className="panelHeader"><h2 style={{ fontSize: 15 }}>Mês com Menor Lucro</h2></div>
           <div className="panelBody">
             {piorMes ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -211,7 +210,7 @@ export function RelatorioAnualPage() {
         </section>
 
         <section className="panel" style={{ flex: '1 1 200px' }}>
-          <div className="panelHeader"><h2 style={{ fontSize: 15 }}>🔴 Maior Categoria de Despesa</h2></div>
+          <div className="panelHeader"><h2 style={{ fontSize: 15 }}>Maior Categoria de Despesa</h2></div>
           <div className="panelBody">
             {topCategoria ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -229,7 +228,7 @@ export function RelatorioAnualPage() {
       {/* ── Gráfico Receita ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>📈 Evolução da Receita — {ano}</h2>
+          <h2 style={{ fontSize: 15 }}>Evolução da Receita — {ano}</h2>
         </div>
         <div className="panelBody">
           <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 110 }}>
@@ -246,7 +245,7 @@ export function RelatorioAnualPage() {
       {/* ── Gráfico Despesas ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>💸 Evolução das Despesas — {ano}</h2>
+          <h2 style={{ fontSize: 15 }}>Evolução das Despesas — {ano}</h2>
         </div>
         <div className="panelBody">
           <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 110 }}>
@@ -263,7 +262,7 @@ export function RelatorioAnualPage() {
       {/* ── Gráfico kg ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>⚖️ Evolução de Kg Lavados — {ano}</h2>
+          <h2 style={{ fontSize: 15 }}>Evolução de Kg Lavados — {ano}</h2>
         </div>
         <div className="panelBody">
           <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 110 }}>
@@ -280,7 +279,7 @@ export function RelatorioAnualPage() {
       {/* ── Tabela consolidada ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>📋 Resumo Mês a Mês — {ano}</h2>
+          <h2 style={{ fontSize: 15 }}>Resumo Mês a Mês — {ano}</h2>
         </div>
         <div className="panelBody">
           {/* Desktop */}
@@ -307,8 +306,8 @@ export function RelatorioAnualPage() {
                   return (
                     <tr key={m.mes} style={{ background: isMelhor ? 'rgba(34,197,94,0.07)' : isPior ? 'rgba(239,68,68,0.07)' : undefined }}>
                       <td style={{ fontWeight: 600 }}>
-                        {isMelhor && <span title="Melhor mês" style={{ marginRight: 4 }}>🥇</span>}
-                        {isPior && <span title="Pior lucro" style={{ marginRight: 4 }}>⚠️</span>}
+                        {isMelhor && <span title="Melhor mês" style={{ marginRight: 4, color: 'var(--ok)' }}>✓</span>}
+                        {isPior && <span title="Pior lucro" style={{ marginRight: 4, color: 'var(--danger)' }}>!</span>}
                         {MESES_FULL[m.mes - 1]}
                       </td>
                       <td>{m.pedidos > 0 ? m.pedidos : <span style={{ color: 'var(--muted)' }}>—</span>}</td>

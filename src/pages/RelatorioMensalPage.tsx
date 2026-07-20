@@ -21,8 +21,8 @@ function formatMes(v: string) {
 }
 
 // ── KPI Card ─────────────────────────────────────────────
-function KpiCard({ label, value, sub, color, icon }: {
-  label: string; value: string; sub?: string; color?: string; icon: string
+function KpiCard({ label, value, sub, color }: {
+  label: string; value: string; sub?: string; color?: string
 }) {
   return (
     <div style={{
@@ -37,7 +37,6 @@ function KpiCard({ label, value, sub, color, icon }: {
       minWidth: 0,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 20 }}>{icon}</span>
         <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--muted)', lineHeight: 1 }}>{label}</span>
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color: color ?? 'var(--fg)', lineHeight: 1.1 }}>{value}</div>
@@ -170,16 +169,16 @@ export function RelatorioMensalPage() {
       {/* ── KPIs principais ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>📊 Visão Geral — {formatMes(monthValue)}</h2>
+          <h2 style={{ fontSize: 15 }}>Visão Geral — {formatMes(monthValue)}</h2>
         </div>
         <div className="panelBody">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <KpiCard icon="📦" label="Pedidos ativos"      value={String(kpis.qtd)}                                             sub={`${kpis.clientes} cliente(s) únicos`} />
-            <KpiCard icon="⚖️" label="Kg total lavado"    value={`${kpis.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg`} sub={`Média: ${kpis.mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg/pedido`} />
-            <KpiCard icon="💰" label="Receita total"       value={formatBRL(kpis.receita)}                                      sub={`Ticket médio: ${formatBRL(kpis.ticketMed)}`} color="var(--ok)" />
-            <KpiCard icon="💸" label="Despesas totais"     value={formatBRL(kpis.despTotal)}                                    sub={`${despesas.length} lançamento(s)`} color="#f97316" />
-            <KpiCard icon="📈" label="Lucro líquido"       value={formatBRL(kpis.lucro)}                                        sub={`Margem: ${kpis.margem.toFixed(1)}%`} color={kpis.lucro >= 0 ? 'var(--ok)' : 'var(--danger)'} />
-            <KpiCard icon="🔬" label="Lucro estimado"      value={formatBRL(kpis.lucroEstim)}                                   sub="Sem rateio de fixos" color="var(--accent)" />
+            <KpiCard label="Pedidos ativos"      value={String(kpis.qtd)}                                             sub={`${kpis.clientes} cliente(s) únicos`} />
+            <KpiCard label="Kg total lavado"    value={`${kpis.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg`} sub={`Média: ${kpis.mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg/pedido`} />
+            <KpiCard label="Receita total"       value={formatBRL(kpis.receita)}                                      sub={`Ticket médio: ${formatBRL(kpis.ticketMed)}`} color="var(--ok)" />
+            <KpiCard label="Despesas totais"     value={formatBRL(kpis.despTotal)}                                    sub={`${despesas.length} lançamento(s)`} color="#f97316" />
+            <KpiCard label="Lucro líquido"       value={formatBRL(kpis.lucro)}                                        sub={`Margem: ${kpis.margem.toFixed(1)}%`} color={kpis.lucro >= 0 ? 'var(--ok)' : 'var(--danger)'} />
+            <KpiCard label="Lucro estimado"      value={formatBRL(kpis.lucroEstim)}                                   sub="Sem rateio de fixos" color="var(--accent)" />
           </div>
         </div>
       </section>
@@ -187,14 +186,14 @@ export function RelatorioMensalPage() {
       {/* ── Métricas operacionais ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>⚙️ Métricas Operacionais</h2>
+          <h2 style={{ fontSize: 15 }}>Métricas Operacionais</h2>
         </div>
         <div className="panelBody">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <KpiCard icon="📉" label="Custo/kg (despesas)"    value={`${formatBRL(kpis.custoKgMes)}/kg`}  sub="Despesas ÷ peso total" />
-            <KpiCard icon="🧺" label="Custo por lavagem"       value={formatBRL(kpis.custoPorLav)}          sub="Despesas ÷ pedidos" />
-            <KpiCard icon="⚖️" label="Média kg/pedido"         value={`${kpis.mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`} sub="Peso médio das entregas" />
-            <KpiCard icon="🎫" label="Ticket médio"             value={formatBRL(kpis.ticketMed)}            sub="Receita média por pedido" />
+            <KpiCard label="Custo/kg (despesas)"    value={`${formatBRL(kpis.custoKgMes)}/kg`}  sub="Despesas ÷ peso total" />
+            <KpiCard label="Custo por lavagem"       value={formatBRL(kpis.custoPorLav)}          sub="Despesas ÷ pedidos" />
+            <KpiCard label="Média kg/pedido"         value={`${kpis.mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`} sub="Peso médio das entregas" />
+            <KpiCard label="Ticket médio"             value={formatBRL(kpis.ticketMed)}            sub="Receita média por pedido" />
           </div>
         </div>
       </section>
@@ -204,7 +203,7 @@ export function RelatorioMensalPage() {
         {/* Maior despesa */}
         <section className="panel" style={{ flex: '1 1 280px' }}>
           <div className="panelHeader">
-            <h2 style={{ fontSize: 15 }}>🔴 Maior Despesa do Mês</h2>
+            <h2 style={{ fontSize: 15 }}>Maior Despesa do Mês</h2>
           </div>
           <div className="panelBody">
             {kpis.maiorDesp ? (
@@ -238,7 +237,7 @@ export function RelatorioMensalPage() {
         {/* Top categorias */}
         <section className="panel" style={{ flex: '2 1 360px' }}>
           <div className="panelHeader">
-            <h2 style={{ fontSize: 15 }}>📂 Top Categorias de Despesa</h2>
+            <h2 style={{ fontSize: 15 }}>Top Categorias de Despesa</h2>
           </div>
           <div className="panelBody">
             <BarChart
@@ -258,7 +257,7 @@ export function RelatorioMensalPage() {
       {/* ── Top pedidos ── */}
       <section className="panel">
         <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>🏆 Top 5 Pedidos por Receita</h2>
+          <h2 style={{ fontSize: 15 }}>Top 5 Pedidos por Receita</h2>
         </div>
         <div className="panelBody">
           {topPedidos.length === 0 ? (
@@ -331,7 +330,7 @@ export function RelatorioMensalPage() {
       {despesas.length > 0 && (
         <section className="panel">
           <div className="panelHeader">
-            <h2 style={{ fontSize: 15 }}>💸 Todas as Despesas do Mês</h2>
+            <h2 style={{ fontSize: 15 }}>Todas as Despesas do Mês</h2>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>{despesas.length} lançamento(s)</span>
           </div>
           <div className="panelBody">
