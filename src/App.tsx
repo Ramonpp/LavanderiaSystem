@@ -12,7 +12,8 @@ import { MaquinasPage } from './pages/MaquinasPage'
 import { CriarPedidoPage } from './pages/CriarPedidoPage'
 import { PedidosCadastradosPage } from './pages/PedidosCadastradosPage'
 import { EmLavagemPage } from './pages/EmLavagemPage'
-import { RelatoriosPage } from './pages/RelatoriosPage'
+import { RelatorioMensalPage } from './pages/RelatorioMensalPage'
+import { RelatorioAnualPage } from './pages/RelatorioAnualPage'
 import { SimulacaoPage } from './pages/SimulacaoPage'
 import { TiposPecaPage } from './pages/TiposPecaPage'
 import { ManchasPage } from './pages/ManchasPage'
@@ -90,7 +91,9 @@ export default function App() {
         <Route path="/despesas" element={<Navigate to="/despesas/lista" replace />} />
         <Route path="/maquinas" element={<MaquinasPage />} />
         <Route path="/custos" element={<CustosMaquinasPage />} />
-        <Route path="/relatorios" element={<RelatoriosPage />} />
+        <Route path="/relatorios/mensal" element={<RelatorioMensalPage />} />
+        <Route path="/relatorios/anual" element={<RelatorioAnualPage />} />
+        <Route path="/relatorios" element={<Navigate to="/relatorios/mensal" replace />} />
         <Route path="/simulacao" element={<SimulacaoPage />} />
         <Route path="/configuracoes" element={<ConfigWebhookPage />} />
         <Route path="/manchas" element={<ManchasPage />} />

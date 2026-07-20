@@ -184,7 +184,12 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
     setMsg(null)
 
     if (!nome.trim()) {
-      setErro('Nome é obrigatório.')
+      setErro('Categoria da despesa é obrigatória.')
+      return
+    }
+
+    if (!descricao.trim()) {
+      setErro('Descrição / Nome do Produto é obrigatório.')
       return
     }
 
@@ -313,13 +318,24 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
             {/* Linha 1 — Nome + Data/Mês */}
             <div className="row">
               <div className="field" style={{ flex: '2 1 220px' }}>
-                <label htmlFor="nomeDespesa">Nome da despesa</label>
-                <input
+                <label htmlFor="nomeDespesa">Categoria da despesa</label>
+                <select
                   id="nomeDespesa"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  placeholder="ex: Aluguel, Energia, Produto X"
-                />
+                  style={{ padding: '8px 10px', borderRadius: 8, height: 38 }}
+                >
+                  <option value="">Selecione uma categoria...</option>
+                  <option value="Produtos de Limpeza">Produtos de Limpeza</option>
+                  <option value="Energia">Energia</option>
+                  <option value="Água e Esgoto">Água e Esgoto</option>
+                  <option value="Aluguel e Condomínio">Aluguel e Condomínio</option>
+                  <option value="Manutenção de Máquinas">Manutenção de Máquinas</option>
+                  <option value="Marketing e Divulgação">Marketing e Divulgação</option>
+                  <option value="Impostos e Taxas">Impostos e Taxas</option>
+                  <option value="Pessoal e Pró-labore">Pessoal e Pró-labore</option>
+                  <option value="Outros">Outros</option>
+                </select>
               </div>
 
               {!parcelado ? (
@@ -479,13 +495,13 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
             {/* Descrição */}
             <div className="field">
               <label htmlFor="desc">
-                Descrição {parcelado ? '(aparece antes de "— Parcela X/N")' : '(opcional)'}
+                Descrição / Nome do Produto / Especificação (obrigatório)
               </label>
               <input
                 id="desc"
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
-                placeholder={parcelado ? 'ex: Máquina de lavar 2' : ''}
+                placeholder="ex: Conta de Luz Junho, Sabão Líquido Omo 5L, Conserto Secadora 2"
               />
             </div>
 
@@ -607,8 +623,8 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               <thead>
                 <tr>
                   <th>Data</th>
-                  <th>Nome</th>
-                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Descrição / Produto</th>
                   <th style={{ textAlign: 'right' }}>Valor</th>
                   <th style={{ width: 140, textAlign: 'center' }}>Ações</th>
                 </tr>
@@ -710,23 +726,22 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               <div key={d.id} className="mobile-card">
                 <div className="mobile-card-header">
                   <div>
-                    <div className="mobile-card-title">{d.categoria}</div>
-                    <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
-                      Data: {new Date(`${d.data}T00:00:00`).toLocaleDateString('pt-BR')}
+                    <div className="mobile-card-title" style={{ fontSize: 14, fontWeight: 700 }}>
+                      {d.descricao || '—'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                      <span className="badge badgeMuted" style={{ fontSize: 10, padding: '2px 6px', fontWeight: 600 }}>
+                        {d.categoria}
+                      </span>
+                      <span className="hint" style={{ fontSize: 11 }}>
+                        {new Date(`${d.data}T00:00:00`).toLocaleDateString('pt-BR')}
+                      </span>
                     </div>
                   </div>
                   <span style={{ fontWeight: 800, color: 'var(--text-h)', fontSize: 14 }}>
                     {formatBRL(Number(d.valor))}
                   </span>
                 </div>
-                {d.descricao && (
-                  <div className="mobile-card-body" style={{ gridTemplateColumns: '1fr' }}>
-                    <div>
-                      <div className="mobile-card-label">Descrição</div>
-                      <div className="mobile-card-value">{d.descricao}</div>
-                    </div>
-                  </div>
-                )}
                 <div className="mobile-card-actions">
                   {deletingId === d.id ? (
                     <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>

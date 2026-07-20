@@ -171,6 +171,7 @@ export function AppShell() {
   const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos'))
   const [isDespesasOpen, setIsDespesasOpen] = useState(() => location.pathname.startsWith('/despesas'))
   const [isClientesOpen, setIsClientesOpen] = useState(() => location.pathname.startsWith('/clientes'))
+  const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(() => location.pathname.startsWith('/relatorios'))
 
   useEffect(() => {
     if (location.pathname.startsWith('/pedidos')) {
@@ -181,6 +182,9 @@ export function AppShell() {
     }
     if (location.pathname.startsWith('/clientes')) {
       setIsClientesOpen(true)
+    }
+    if (location.pathname.startsWith('/relatorios')) {
+      setIsRelatoriosOpen(true)
     }
   }, [location.pathname])
 
@@ -430,6 +434,64 @@ export function AppShell() {
                       }
                     >
                       Clientes cadastrados
+                    </NavLink>
+                  </div>
+                </div>
+              )
+            }
+
+            const isRelatorios = item.to === '/relatorios'
+
+            if (isRelatorios) {
+              return (
+                <div key={item.to} className={styles.navGroup}>
+                  <div
+                    title={isCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false)
+                        setIsRelatoriosOpen(true)
+                      } else {
+                        setIsRelatoriosOpen(!isRelatoriosOpen)
+                      }
+                    }}
+                    className={styles.navItem}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className={styles.navIcon} aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className={styles.navLabel}>
+                      <span className={styles.navItemTitle}>{item.label}</span>
+                      <span className={styles.navItemDesc}>{item.desc}</span>
+                    </span>
+                    {!isCollapsed && (
+                      <span className={`${styles.chevron} ${isRelatoriosOpen ? styles.chevronOpen : ''}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className={`${styles.subMenu} ${isRelatoriosOpen ? styles.subMenuOpen : styles.subMenuClosed}`}>
+                    <NavLink
+                      to="/relatorios/mensal"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Relatório Mensal
+                    </NavLink>
+                    <NavLink
+                      to="/relatorios/anual"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Relatório Anual
                     </NavLink>
                   </div>
                 </div>
