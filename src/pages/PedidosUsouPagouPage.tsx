@@ -31,6 +31,39 @@ function getBase64Image(imgUrl: string): Promise<string> {
   })
 }
 
+// Desenha um retângulo arredondado no Canvas 2D
+function roundRectU(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+// Quebra texto em linhas para caber na largura máxima
+function wrapTextU(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word
+    if (ctx.measureText(test).width <= maxWidth) {
+      current = test
+    } else {
+      if (current) lines.push(current)
+      current = word
+    }
+  }
+  if (current) lines.push(current)
+  return lines.length ? lines : [text]
+}
+
 export function PedidosUsouPagouPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
@@ -571,116 +604,157 @@ export function PedidosUsouPagouPage() {
       const localStr = formatarLocal(c)
       const dataEmissao = new Date().toLocaleDateString('pt-BR')
 
-      // ── Mesmo layout do PDF compartilhado ─────────────────
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const PW = 210; const ML = 14; const MR = 14; const CW = PW - ML - MR
-      let y = 14
+      // ── Canvas 2D nativo — proporcional ao A4 ────────────
+      const DPI   = 2
+      const W     = 794 * DPI
+      const H     = 1123 * DPI
+      const MM    = W / 210
 
-      const BLUE  = [59, 111, 232] as const
-      const DARK  = [26, 32, 44]   as const
-      const GRAY  = [74, 85, 104]  as const
-      const LGRAY = [226, 232, 240] as const
-      const BGCARD= [248, 250, 252] as const
-      const ct = (text: string, cx: number, cy: number) => { const w = pdf.getTextWidth(text); pdf.text(text, cx - w / 2, cy) }
+      const canvas = document.createElement('canvas')
+      canvas.width  = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')!
+      ctx.scale(DPI, DPI)
 
-      try { pdf.addImage(logoBase64, 'PNG', ML, y, 14, 14) } catch { /* ignora */ }
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.setTextColor(...BLUE)
-      pdf.text('Ciclo Novo', ML + 17, y + 6)
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(...GRAY)
-      pdf.text('LAVANDERIA', ML + 17, y + 11)
+      const BLUE  = '#3b6fe8'
+      const DARK  = '#1a202c'
+      const GRAY  = '#4a5568'
+      const LGRAY = '#e2e8f0'
+      const BGCARD= '#f8fafc'
 
-      // Título direita com nome + apartamento + bloco
+      const mm = (v: number) => v * MM / DPI
+      const ml = mm(14); const mr = mm(196); const cw = mr - ml
+
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, 794, 1123)
+
+      let cy = mm(14)
+
+      const logo = new Image()
+      logo.src = logoBase64
+      await new Promise<void>((res) => { logo.onload = () => res(); logo.onerror = () => res() })
+      try { ctx.drawImage(logo, ml, cy, mm(14), mm(14)) } catch { /* ignora */ }
+
+      ctx.fillStyle = BLUE
+      ctx.font = `bold ${mm(5.6)}px Arial, sans-serif`
+      ctx.fillText('Ciclo Novo', ml + mm(17), cy + mm(6))
+      ctx.fillStyle = GRAY
+      ctx.font = `${mm(2.5)}px Arial, sans-serif`
+      ctx.fillText('LAVANDERIA', ml + mm(17), cy + mm(11))
+
       const titleParts = [`Pendência - ${c.nome}`, c.apartamento ? `Apto ${c.apartamento}` : '', c.bloco ? `Bloco ${c.bloco}` : ''].filter(Boolean).join(' ')
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(...DARK)
-      const tw = pdf.getTextWidth(titleParts)
-      pdf.text(titleParts, PW - MR - tw, y + 6)
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...GRAY)
-      const dw = pdf.getTextWidth(`Emitido em: ${dataEmissao}`)
-      pdf.text(`Emitido em: ${dataEmissao}`, PW - MR - dw, y + 11)
-      y += 18; pdf.setDrawColor(...BLUE); pdf.setLineWidth(0.5); pdf.line(ML, y, PW - MR, y); y += 6
+      ctx.fillStyle = DARK
+      ctx.font = `bold ${mm(3.9)}px Arial, sans-serif`
+      const titleW = ctx.measureText(titleParts).width
+      ctx.fillText(titleParts, mr - titleW, cy + mm(6))
+      ctx.fillStyle = GRAY
+      ctx.font = `${mm(2.8)}px Arial, sans-serif`
+      const dateStr = `Emitido em: ${dataEmissao}`
+      const dateW = ctx.measureText(dateStr).width
+      ctx.fillText(dateStr, mr - dateW, cy + mm(11))
 
-      pdf.setFillColor(...BGCARD); pdf.setDrawColor(...LGRAY); pdf.setLineWidth(0.3)
-      pdf.roundedRect(ML, y, CW, 20, 2, 2, 'FD')
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(...GRAY)
-      pdf.text('CLIENTE', ML + 4, y + 5)
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.setTextColor(...DARK)
-      pdf.text(c.nome, ML + 4, y + 11)
-      if (localStr !== '—') { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...GRAY); pdf.text(localStr, ML + 4, y + 16) }
-      const hx = ML + CW / 2 + 4
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(...GRAY); pdf.text('CONTATO', hx, y + 5)
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.setTextColor(...DARK); pdf.text(c.telefone || 'Sem telefone', hx, y + 11)
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...GRAY)
-      pdf.text(`Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}`, hx, y + 16)
-      y += 26
+      cy += mm(18)
+      ctx.strokeStyle = BLUE; ctx.lineWidth = mm(0.5)
+      ctx.beginPath(); ctx.moveTo(ml, cy); ctx.lineTo(mr, cy); ctx.stroke()
+      cy += mm(6)
 
-      const colW = [26, CW - 26 - 22 - 28, 22, 28]
-      const colX = [ML, ML + colW[0], ML + colW[0] + colW[1], ML + colW[0] + colW[1] + colW[2]]
-      pdf.setFillColor(...BLUE); pdf.rect(ML, y, CW, 7, 'F')
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(255, 255, 255)
+      ctx.fillStyle = BGCARD
+      ctx.strokeStyle = LGRAY; ctx.lineWidth = mm(0.3)
+      roundRectU(ctx, ml, cy, cw, mm(20), mm(2))
+      ctx.fill(); ctx.stroke()
+
+      ctx.fillStyle = GRAY; ctx.font = `bold ${mm(2.5)}px Arial, sans-serif`
+      ctx.fillText('CLIENTE', ml + mm(4), cy + mm(5))
+      ctx.fillStyle = DARK; ctx.font = `bold ${mm(3.5)}px Arial, sans-serif`
+      ctx.fillText(c.nome, ml + mm(4), cy + mm(11))
+      if (localStr !== '—') {
+        ctx.fillStyle = GRAY; ctx.font = `${mm(2.8)}px Arial, sans-serif`
+        ctx.fillText(localStr, ml + mm(4), cy + mm(16))
+      }
+      const hx = ml + cw / 2 + mm(4)
+      ctx.fillStyle = GRAY; ctx.font = `bold ${mm(2.5)}px Arial, sans-serif`
+      ctx.fillText('CONTATO', hx, cy + mm(5))
+      ctx.fillStyle = DARK; ctx.font = `bold ${mm(3.5)}px Arial, sans-serif`
+      ctx.fillText(c.telefone || 'Sem telefone', hx, cy + mm(11))
+      ctx.fillStyle = GRAY; ctx.font = `${mm(2.8)}px Arial, sans-serif`
+      ctx.fillText(`Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}`, hx, cy + mm(16))
+      cy += mm(26)
+
+      const colWmm = [26, cw/MM*DPI - 26 - 22 - 28, 22, 28].map(v => v < 30 ? mm(v) : cw - mm(26) - mm(22) - mm(28))
+      const c0 = ml; const c1 = ml + mm(26); const c2 = ml + mm(26) + colWmm[1]; const c3 = c2 + mm(22)
+      ctx.fillStyle = BLUE
+      ctx.fillRect(ml, cy, cw, mm(7))
+      ctx.fillStyle = '#ffffff'; ctx.font = `bold ${mm(2.5)}px Arial, sans-serif`
       ;['DATA', 'PEÇAS LAVADAS', 'PESO', 'VALOR'].forEach((h, i) => {
-        const hw = pdf.getTextWidth(h)
-        pdf.text(h, i >= 2 ? colX[i] + colW[i] - hw - 2 : colX[i] + 2, y + 4.8)
+        const xs = [c0, c1, c2, c3]
+        const ws = [mm(26), colWmm[1], mm(22), mm(28)]
+        if (i >= 2) {
+          ctx.fillText(h, xs[i] + ws[i] - ctx.measureText(h).width - mm(2), cy + mm(4.8))
+        } else {
+          ctx.fillText(h, xs[i] + mm(2), cy + mm(4.8))
+        }
       })
-      y += 7
+      cy += mm(7)
 
       ;[...pedidosCliente].reverse().forEach((p, idx) => {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const valor = receitaPedido(p)
         const pecas = (itensMap[p.id] || []).map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`).join(', ') || 'Sem especificações'
-        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8)
-        const linhas = pdf.splitTextToSize(pecas, colW[1] - 4)
-        const rowH = Math.max(7, linhas.length * 4 + 3)
-        if (y + rowH > 280) { pdf.addPage(); y = 14 }
-        if (idx % 2 === 0) { pdf.setFillColor(248, 250, 252); pdf.rect(ML, y, CW, rowH, 'F') }
-        pdf.setDrawColor(...LGRAY); pdf.setLineWidth(0.2); pdf.line(ML, y + rowH, PW - MR, y + rowH)
-        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...DARK)
-        pdf.text(`${dia}/${mes}/${ano}`, colX[0] + 2, y + 4.8)
-        pdf.text(linhas, colX[1] + 2, y + 4.8)
+        ctx.font = `${mm(2.8)}px Arial, sans-serif`
+        const pecasLines = wrapTextU(ctx, pecas, colWmm[1] - mm(4))
+        const rowH = Math.max(mm(7), pecasLines.length * mm(4) + mm(3))
+        if (idx % 2 === 0) { ctx.fillStyle = BGCARD; ctx.fillRect(ml, cy, cw, rowH) }
+        ctx.strokeStyle = LGRAY; ctx.lineWidth = mm(0.2)
+        ctx.beginPath(); ctx.moveTo(ml, cy + rowH); ctx.lineTo(mr, cy + rowH); ctx.stroke()
+        ctx.fillStyle = DARK; ctx.font = `${mm(2.8)}px Arial, sans-serif`
+        ctx.fillText(`${dia}/${mes}/${ano}`, c0 + mm(2), cy + mm(4.8))
+        pecasLines.forEach((line, li) => ctx.fillText(line, c1 + mm(2), cy + mm(4.8) + li * mm(4)))
         const pt = `${Number(p.peso_kg).toLocaleString('pt-BR')} kg`
-        pdf.text(pt, colX[2] + colW[2] - pdf.getTextWidth(pt) - 2, y + 4.8)
-        const vt = formatBRL(valor); pdf.setFont('helvetica', 'bold')
-        pdf.text(vt, colX[3] + colW[3] - pdf.getTextWidth(vt) - 2, y + 4.8)
-        y += rowH
+        ctx.fillText(pt, c2 + mm(22) - ctx.measureText(pt).width - mm(2), cy + mm(4.8))
+        ctx.font = `bold ${mm(2.8)}px Arial, sans-serif`
+        const vt = formatBRL(valor)
+        ctx.fillText(vt, c3 + mm(28) - ctx.measureText(vt).width - mm(2), cy + mm(4.8))
+        cy += rowH
       })
-      y += 6
+      cy += mm(6)
 
-      if (y + 18 > 280) { pdf.addPage(); y = 14 }
-      pdf.setFillColor(237, 242, 247); pdf.setDrawColor(203, 213, 224); pdf.setLineWidth(0.3)
-      pdf.roundedRect(ML, y, CW, 16, 2, 2, 'FD')
-      const t1 = ML + CW * 0.33; const t2 = ML + CW * 0.66; const t3 = ML + CW - 4
+      ctx.fillStyle = '#edf2f7'; ctx.strokeStyle = '#cbd5e0'; ctx.lineWidth = mm(0.3)
+      roundRectU(ctx, ml, cy, cw, mm(16), mm(2)); ctx.fill(); ctx.stroke()
+      const tt1 = ml + cw * 0.33; const tt2 = ml + cw * 0.66; const tt3 = ml + cw
       ;[
-        { label: 'QUANTIDADE DE ENVIOS', value: String(pedidosCliente.length), cx: ML + CW * 0.165 },
-        { label: 'PESO TOTAL', value: `${Number(pesoTotal).toLocaleString('pt-BR')} kg`, cx: (t1 + t2) / 2 },
-        { label: 'TOTAL A PAGAR', value: formatBRL(valorTotal), cx: (t2 + t3) / 2 },
+        { label: 'QUANTIDADE DE ENVIOS', value: String(pedidosCliente.length), cx: ml + cw * 0.165 },
+        { label: 'PESO TOTAL', value: `${Number(pesoTotal).toLocaleString('pt-BR')} kg`, cx: (tt1 + tt2) / 2 },
+        { label: 'TOTAL A PAGAR', value: formatBRL(valorTotal), cx: (tt2 + tt3) / 2 },
       ].forEach((t) => {
-        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(...GRAY); ct(t.label, t.cx, y + 5)
-        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10)
-        pdf.setTextColor(t.label === 'TOTAL A PAGAR' ? BLUE[0] : DARK[0], t.label === 'TOTAL A PAGAR' ? BLUE[1] : DARK[1], t.label === 'TOTAL A PAGAR' ? BLUE[2] : DARK[2])
-        ct(t.value, t.cx, y + 12)
+        ctx.fillStyle = GRAY; ctx.font = `${mm(2.5)}px Arial, sans-serif`
+        ctx.fillText(t.label, t.cx - ctx.measureText(t.label).width / 2, cy + mm(5))
+        ctx.fillStyle = t.label === 'TOTAL A PAGAR' ? BLUE : DARK
+        ctx.font = `bold ${mm(3.5)}px Arial, sans-serif`
+        ctx.fillText(t.value, t.cx - ctx.measureText(t.value).width / 2, cy + mm(12))
       })
-      pdf.setDrawColor(203, 213, 224); pdf.setLineWidth(0.3)
-      pdf.line(t1, y + 2, t1, y + 14); pdf.line(t2, y + 2, t2, y + 14)
-      y += 22
+      ctx.strokeStyle = '#cbd5e0'; ctx.lineWidth = mm(0.3)
+      ctx.beginPath(); ctx.moveTo(tt1, cy + mm(2)); ctx.lineTo(tt1, cy + mm(14)); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(tt2, cy + mm(2)); ctx.lineTo(tt2, cy + mm(14)); ctx.stroke()
+      cy += mm(22)
 
-      if (y + 22 > 280) { pdf.addPage(); y = 14 }
-      pdf.setFillColor(235, 248, 255); pdf.setDrawColor(190, 227, 248); pdf.setLineWidth(0.3)
-      pdf.roundedRect(ML, y, CW, 22, 2, 2, 'FD')
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(43, 108, 176)
-      pdf.text('Dados para Pagamento via PIX', ML + 4, y + 7)
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(...DARK)
-      pdf.text('Beneficiário: Ramon Pereira Paixão', ML + 4, y + 13)
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8.5); pdf.setTextColor(...BLUE)
-      pdf.text('Chave PIX (CNPJ): 59.815.300/0001-71', ML + 4, y + 19)
-      y += 28
-      pdf.setDrawColor(...LGRAY); pdf.setLineWidth(0.3); pdf.line(ML, y, PW - MR, y); y += 5
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(...GRAY)
-      ct('Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas', PW / 2, y)
+      ctx.fillStyle = '#ebf8ff'; ctx.strokeStyle = '#bee3f8'; ctx.lineWidth = mm(0.3)
+      roundRectU(ctx, ml, cy, cw, mm(22), mm(2)); ctx.fill(); ctx.stroke()
+      ctx.fillStyle = '#2b6cb0'; ctx.font = `bold ${mm(3.2)}px Arial, sans-serif`
+      ctx.fillText('Dados para Pagamento via PIX', ml + mm(4), cy + mm(7))
+      ctx.fillStyle = DARK; ctx.font = `${mm(3)}px Arial, sans-serif`
+      ctx.fillText('Beneficiário: Ramon Pereira Paixão', ml + mm(4), cy + mm(13))
+      ctx.fillStyle = BLUE; ctx.font = `bold ${mm(3)}px Arial, sans-serif`
+      ctx.fillText('Chave PIX (CNPJ): 59.815.300/0001-71', ml + mm(4), cy + mm(19))
+      cy += mm(28)
 
-      // ── Extrair PNG do canvas interno do jsPDF ────────────
-      const internalCanvas: HTMLCanvasElement | undefined = (pdf as any).canvas || (pdf as any).internal?.canvas
-      if (!internalCanvas) throw new Error('Canvas interno do jsPDF não disponível.')
+      ctx.strokeStyle = LGRAY; ctx.lineWidth = mm(0.3)
+      ctx.beginPath(); ctx.moveTo(ml, cy); ctx.lineTo(mr, cy); ctx.stroke()
+      cy += mm(5)
+      ctx.fillStyle = GRAY; ctx.font = `${mm(2.5)}px Arial, sans-serif`
+      const footerText = 'Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas'
+      ctx.fillText(footerText, (794 - ctx.measureText(footerText).width) / 2, cy)
 
-      internalCanvas.toBlob((blob) => {
+      canvas.toBlob((blob) => {
         if (!blob) { setErro('Falha ao gerar imagem.'); return }
         navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
           .then(() => { setMsg('Imagem copiada com sucesso!'); setTimeout(() => setMsg(null), 4000) })
