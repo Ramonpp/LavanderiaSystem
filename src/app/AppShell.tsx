@@ -5,6 +5,7 @@ import { SetupBanner } from '../components/SetupBanner'
 import { checkDbHealth, type DbHealth } from '../lib/healthCheck'
 import { resolveTheme, toggleTheme, type Theme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
+import { executarExpurgoAutomatico30Dias } from '../lib/autoPurge'
 
 /* ── SVG icons ─────────────────────────────────────────── */
 const Ico = {
@@ -190,6 +191,7 @@ export function AppShell() {
 
   useEffect(() => {
     checkDbHealth().then(setHealth)
+    void executarExpurgoAutomatico30Dias()
   }, [])
 
   function handleToggleCollapse() {

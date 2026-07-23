@@ -3,7 +3,12 @@ import type { TipoPeca } from '../types/models'
 import { dbErrorMessage } from './errors'
 
 export async function fetchTiposPeca(): Promise<{ data: TipoPeca[]; error: string | null }> {
-  const { data, error } = await supabase.from('tipo_peca').select('*').order('nome', { ascending: true })
+  let { data, error } = await supabase.from('tipo_peca').select('*').is('deletado_em', null).order('nome', { ascending: true })
+  if (error) {
+    const res = await supabase.from('tipo_peca').select('*').order('nome', { ascending: true })
+    data = res.data
+    error = res.error
+  }
   return { data: (data ?? []) as TipoPeca[], error: error ? dbErrorMessage(error) : null }
 }
 
@@ -21,8 +26,13 @@ export async function updateTipoPeca(
 }
 
 export async function deleteTipoPeca(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('tipo_peca').delete().eq('id', id)
-  return { error: error ? dbErrorMessage(error) : null }
+  const agora = new Date().toISOString()
+  const { error } = await supabase.from('tipo_peca').update({ deletado_em: agora }).eq('id', id)
+  if (!error) return { error: null }
+
+  // Fallback se coluna deletado_em não existe
+  const { error: e2 } = await supabase.from('tipo_peca').delete().eq('id', id)
+  return { error: e2 ? dbErrorMessage(e2) : null }
 }
 
 const CATALOGO_PADRAO: Omit<TipoPeca, 'id' | 'criado_em'>[] = [

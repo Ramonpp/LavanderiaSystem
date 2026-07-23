@@ -59,6 +59,7 @@ create table if not exists public.cliente (
   forma_pagamento public.cliente_forma_pagamento not null default 'pix',
   dia_pagamento int,
   ativo boolean not null default true,
+  deletado_em timestamptz default null,
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
@@ -73,6 +74,7 @@ create table if not exists public.tipo_peca (
   nome text not null unique,
   descricao text,
   peso_referencia_kg numeric,
+  deletado_em timestamptz default null,
   criado_em timestamptz not null default now()
 );
 
@@ -87,6 +89,7 @@ create table if not exists public.pedido (
   preco_por_kg numeric,
   preco_fixo numeric,
   observacoes text,
+  deletado_em timestamptz default null,
   criado_em timestamptz not null default now(),
   constraint pedido_precificacao_ok check (
     (preco_por_kg is not null or preco_fixo is not null)
@@ -112,6 +115,7 @@ create table if not exists public.despesa (
   categoria text not null,
   descricao text,
   valor numeric not null check (valor >= 0),
+  deletado_em timestamptz default null,
   criado_em timestamptz not null default now()
 );
 
@@ -125,6 +129,7 @@ create table if not exists public.maquina (
   minutos_por_ciclo numeric,
   ciclos_por_dia_util numeric not null check (ciclos_por_dia_util > 0),
   ativo boolean not null default true,
+  deletado_em timestamptz default null,
   criado_em timestamptz not null default now()
 );
 

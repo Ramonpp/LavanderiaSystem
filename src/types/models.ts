@@ -20,6 +20,7 @@ export type Cliente = {
   forma_pagamento: ClienteFormaPagamento
   dia_pagamento: number | null
   ativo: boolean
+  deletado_em?: string | null
   criado_em: string
   atualizado_em: string
 }
@@ -29,6 +30,7 @@ export type TipoPeca = {
   nome: string
   descricao: string | null
   peso_referencia_kg: number | null
+  deletado_em?: string | null
   criado_em: string
 }
 
@@ -46,6 +48,7 @@ export type Pedido = {
   desconto_tipo?: 'percentual' | 'fixo' | null
   observacoes: string | null
   foto_drive_id?: string | null
+  deletado_em?: string | null
   criado_em: string
 }
 
@@ -81,6 +84,7 @@ export type Despesa = {
   categoria: string
   descricao: string | null
   valor: number
+  deletado_em?: string | null
   criado_em: string
 }
 
@@ -94,6 +98,7 @@ export type Maquina = {
   minutos_por_ciclo: number | null
   ciclos_por_dia_util: number
   ativo: boolean
+  deletado_em?: string | null
   criado_em: string
 }
 

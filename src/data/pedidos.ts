@@ -29,7 +29,13 @@ async function hydratePedidosComCliente(pedidos: Pedido[]): Promise<{
 }
 
 export async function fetchPedidos(): Promise<{ data: PedidoCliente[]; error: string | null }> {
-  const { data, error } = await supabase.from('pedido').select('*').order('data_pedido', { ascending: false })
+  let { data, error } = await supabase.from('pedido').select('*').is('deletado_em', null).order('data_pedido', { ascending: false })
+  if (error) {
+    // Fallback se coluna deletado_em ainda não foi criada no banco
+    const res = await supabase.from('pedido').select('*').order('data_pedido', { ascending: false })
+    data = res.data
+    error = res.error
+  }
   if (error) return { data: [], error: dbErrorMessage(error) }
   return hydratePedidosComCliente((data ?? []) as Pedido[])
 }
@@ -38,12 +44,24 @@ export async function fetchPedidosPorPeriodo(params: {
   inicioIsoDate: string
   fimIsoDate: string
 }): Promise<{ data: PedidoCliente[]; error: string | null }> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('pedido')
     .select('*')
+    .is('deletado_em', null)
     .gte('data_pedido', params.inicioIsoDate)
     .lte('data_pedido', params.fimIsoDate)
     .order('data_pedido', { ascending: false })
+
+  if (error) {
+    const res = await supabase
+      .from('pedido')
+      .select('*')
+      .gte('data_pedido', params.inicioIsoDate)
+      .lte('data_pedido', params.fimIsoDate)
+      .order('data_pedido', { ascending: false })
+    data = res.data
+    error = res.error
+  }
 
   if (error) return { data: [], error: dbErrorMessage(error) }
   return hydratePedidosComCliente((data ?? []) as Pedido[])
@@ -107,8 +125,13 @@ export async function updatePedido(
 }
 
 export async function deletePedido(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('pedido').delete().eq('id', id)
-  return { error: error ? dbErrorMessage(error) : null }
+  const agora = new Date().toISOString()
+  const { error } = await supabase.from('pedido').update({ status: 'cancelado', deletado_em: agora }).eq('id', id)
+  if (!error) return { error: null }
+
+  // Fallback se coluna deletado_em não existe
+  const { error: e2 } = await supabase.from('pedido').update({ status: 'cancelado' }).eq('id', id)
+  return { error: e2 ? dbErrorMessage(e2) : null }
 }
 
 export async function updateItemPedido(
@@ -120,11 +143,22 @@ export async function updateItemPedido(
 }
 
 export async function fetchPedidosEmLavagem(): Promise<{ data: PedidoCliente[]; error: string | null }> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('pedido')
     .select('*')
+    .is('deletado_em', null)
     .eq('status', 'em_lavagem')
     .order('data_pedido', { ascending: false })
+
+  if (error) {
+    const res = await supabase
+      .from('pedido')
+      .select('*')
+      .eq('status', 'em_lavagem')
+      .order('data_pedido', { ascending: false })
+    data = res.data
+    error = res.error
+  }
 
   if (error) return { data: [], error: dbErrorMessage(error) }
   return hydratePedidosComCliente((data ?? []) as Pedido[])

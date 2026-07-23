@@ -8,10 +8,28 @@ function isMissingColumnError(msg: string, col: string) {
 }
 
 export async function fetchClientes(todos?: boolean): Promise<{ data: Cliente[]; error: string | null }> {
-  const q = supabase.from('cliente').select('*').order('nome', { ascending: true })
-  const { data, error } = todos ? await q : await q.eq('ativo', true)
+  let q = supabase.from('cliente').select('*').order('nome', { ascending: true })
 
-  return { data: (data ?? []) as Cliente[], error: error ? dbErrorMessage(error) : null }
+  if (!todos) {
+    q = q.eq('ativo', true)
+  }
+
+  // Tenta filtrar excluídos por deletado_em
+  const { data, error } = await q.is('deletado_em', null)
+
+  if (error) {
+    const msg = dbErrorMessage(error)
+    // Fallback se coluna deletado_em ainda não foi criada no banco
+    if (isMissingColumnError(msg, 'deletado_em')) {
+      const { data: d2, error: e2 } = todos
+        ? await supabase.from('cliente').select('*').order('nome', { ascending: true })
+        : await supabase.from('cliente').select('*').eq('ativo', true).order('nome', { ascending: true })
+      return { data: (d2 ?? []) as Cliente[], error: e2 ? dbErrorMessage(e2) : null }
+    }
+    return { data: [], error: msg }
+  }
+
+  return { data: (data ?? []) as Cliente[], error: null }
 }
 
 export async function insertCliente(input: {
@@ -82,7 +100,23 @@ export async function updateCliente(
   return { error: msg }
 }
 
-export async function deleteClienteHard(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('cliente').delete().eq('id', id)
-  return { error: error ? dbErrorMessage(error) : null }
+export async function deleteCliente(id: string): Promise<{ error: string | null }> {
+  const agora = new Date().toISOString()
+  const { error } = await supabase
+    .from('cliente')
+    .update({ ativo: false, deletado_em: agora })
+    .eq('id', id)
+
+  if (!error) return { error: null }
+
+  const msg = dbErrorMessage(error)
+  if (isMissingColumnError(msg, 'deletado_em')) {
+    const { error: e2 } = await supabase.from('cliente').update({ ativo: false }).eq('id', id)
+    return { error: e2 ? dbErrorMessage(e2) : null }
+  }
+
+  return { error: msg }
 }
+
+export const deleteClienteHard = deleteCliente
+
