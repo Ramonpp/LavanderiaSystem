@@ -19,7 +19,7 @@ import { TiposPecaPage } from './pages/TiposPecaPage'
 import { ManchasPage } from './pages/ManchasPage'
 import { PedidosMensaisPage } from './pages/PedidosMensaisPage'
 import { PedidosUsouPagouPage } from './pages/PedidosUsouPagouPage'
-
+import { FluxoEmpresaPage } from './pages/FluxoEmpresaPage'
 export default function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -97,6 +97,7 @@ export default function App() {
         <Route path="/simulacao" element={<SimulacaoPage />} />
         <Route path="/configuracoes" element={<ConfigWebhookPage />} />
         <Route path="/manchas" element={<ManchasPage />} />
+        <Route path="/fluxo-empresa" element={<FluxoEmpresaPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

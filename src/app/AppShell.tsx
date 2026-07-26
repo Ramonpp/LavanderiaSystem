@@ -92,6 +92,14 @@ const Ico = {
       <circle cx="11" cy="18" r="2" />
     </svg>
   ),
+  fluxo: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+      <path d="M13 8l2 2 4-4" />
+      <path d="M13 16l2 2 4-4" />
+    </svg>
+  ),
   sun: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="5" />
@@ -147,6 +155,7 @@ const navItems = [
   { to: '/relatorios', icon: Ico.relatorios, label: 'Relatórios',  desc: 'Fechamento mensal'      },
   { to: '/simulacao',  icon: Ico.simulacao,  label: 'Simulação',   desc: 'Teste de ganhos'        },
   { to: '/manchas',    icon: Ico.manchas,    label: 'Manchas',     desc: 'Guia de tratamento'     },
+  { to: '/fluxo-empresa', icon: Ico.fluxo,   label: 'Organograma',   desc: 'Fluxo operacional'     },
   { to: '/configuracoes', icon: Ico.config,  label: 'Config',      desc: 'Webhook e integrações'  },
 ] as const
 
