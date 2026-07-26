@@ -334,6 +334,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                   <option value="Marketing e Divulgação">Marketing e Divulgação</option>
                   <option value="Impostos e Taxas">Impostos e Taxas</option>
                   <option value="Pessoal e Pró-labore">Pessoal e Pró-labore</option>
+                  <option value="Combustível / Transporte">Combustível / Transporte</option>
                   <option value="Outros">Outros</option>
                 </select>
               </div>

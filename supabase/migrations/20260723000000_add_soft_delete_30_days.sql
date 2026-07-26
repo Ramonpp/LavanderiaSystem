@@ -52,14 +52,6 @@ begin
 end;
 $$;
 
--- Tenta agendar o cron job diário (se a extensão pg_cron estiver ativada no Supabase)
-do $$ begin
-  perform cron.schedule(
-    'expurgar-deletados-30-dias',
-    '0 3 * * *',
-    $$ select public.expurgar_registros_deletados_30_dias() $$
-  );
-exception when others then null;
-end $$;
+-- (O agendamento automático via pg_cron foi removido pois o frontend cuida do expurgo via autoPurge.ts)
 
 commit;

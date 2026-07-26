@@ -87,6 +87,7 @@
 
 body {
   margin: 0;
+  overscroll-behavior-x: none;
 }
 
 a {
