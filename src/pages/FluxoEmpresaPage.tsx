@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 /* ── Fases do processo ─────────────────────────────────── */
 type Phase = 'entrada' | 'triagem' | 'processo' | 'lavagem'
@@ -8,7 +8,7 @@ interface Step {
   desc: string
   phase: Phase
   tips?: string[]
-  icon: JSX.Element
+  icon: ReactNode
   branches?: { label: string; color: string }[]
 }
 
