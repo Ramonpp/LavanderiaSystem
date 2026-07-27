@@ -66,6 +66,7 @@ function KpiCard({ label, value, sub, color }: {
 export function RelatorioAnualPage() {
   const [ano, setAno]           = useState(anoDefault)
   const [pedidos, setPedidos]   = useState<PedidoCliente[]>([])
+  const [ordenacaoClientes, setOrdenacaoClientes] = useState<'frequencia' | 'kg' | 'receita'>('frequencia')
   const [despesas, setDespesas] = useState<Despesa[]>([])
   const [loading, setLoading]   = useState(false)
   const [erro, setErro]         = useState<string | null>(null)
@@ -132,6 +133,48 @@ export function RelatorioAnualPage() {
 
     return { porMes, totais, melhorMes, piorMes, maxReceita, maxDespesa, maxKg, topCategoria, maiorDesp }
   }, [pedidos, despesas])
+
+  const analiseClientes = useMemo(() => {
+    const ativos = pedidos.filter(p => p.status !== 'cancelado')
+    const clienteMap: Record<string, {
+      id: string
+      nome: string
+      frequencia: number
+      pesoTotal: number
+      receitaTotal: number
+    }> = {}
+
+    ativos.forEach(p => {
+      const cId = p.cliente?.id || 'anonimo'
+      const cNome = p.cliente?.nome || 'Cliente avulso'
+      if (!clienteMap[cId]) {
+        clienteMap[cId] = {
+          id: cId,
+          nome: cNome,
+          frequencia: 0,
+          pesoTotal: 0,
+          receitaTotal: 0
+        }
+      }
+      clienteMap[cId].frequencia++
+      clienteMap[cId].pesoTotal += Number(p.peso_kg)
+      clienteMap[cId].receitaTotal += receitaPedido(p)
+    })
+
+    const lista = Object.values(clienteMap)
+      .sort((a, b) => {
+        if (ordenacaoClientes === 'kg') return b.pesoTotal - a.pesoTotal
+        if (ordenacaoClientes === 'receita') return b.receitaTotal - a.receitaTotal
+        return b.frequencia - a.frequencia
+      })
+
+    const totalClientesAtivos = Object.keys(clienteMap).length
+    const freqMedia = totalClientesAtivos > 0 ? totais.pedidos / totalClientesAtivos : 0
+    const kgMedioCliente = totalClientesAtivos > 0 ? totais.kg / totalClientesAtivos : 0
+    const receitaMediaCliente = totalClientesAtivos > 0 ? totais.receita / totalClientesAtivos : 0
+
+    return { lista: lista.slice(0, 100), freqMedia, kgMedioCliente, receitaMediaCliente, totalClientesAtivos }
+  }, [pedidos, totais.pedidos, totais.kg, totais.receita, ordenacaoClientes])
 
   const anosDisponiveis = useMemo(() => {
     const atual = new Date().getFullYear()
@@ -366,6 +409,93 @@ export function RelatorioAnualPage() {
               <div className="hint" style={{ textAlign: 'center', padding: 20 }}>Nenhum dado para {ano}.</div>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* ── Top Clientes no Ano ── */}
+      <section className="panel">
+        <div className="panelHeader">
+          <h2 style={{ fontSize: 15 }}>Top Clientes no Ano</h2>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{analiseClientes.totalClientesAtivos} cliente(s) ativo(s)</span>
+        </div>
+        <div className="panelBody">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <div className="field" style={{ minWidth: 160, margin: 0 }}>
+              <label htmlFor="ordem-clientes-ano" style={{ marginBottom: 4 }}>Ordenar por</label>
+              <select
+                id="ordem-clientes-ano"
+                value={ordenacaoClientes}
+                onChange={(e) => setOrdenacaoClientes(e.target.value as any)}
+                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+              >
+                <option value="frequencia">Frequência (Quantidade)</option>
+                <option value="kg">KG Lavado</option>
+                <option value="receita">Faturamento (Preço)</option>
+              </select>
+            </div>
+          </div>
+          
+          {analiseClientes.lista.length === 0 ? (
+            <div className="hint" style={{ padding: 12 }}>Nenhum cliente ativo neste ano.</div>
+          ) : (
+            <>
+              {/* Desktop */}
+              <div className="tableWrap desktop-only">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Cliente</th>
+                      <th style={{ textAlign: 'center' }}>Frequência (Envios)</th>
+                      <th style={{ textAlign: 'right' }}>Kg Lavado</th>
+                      <th style={{ textAlign: 'right' }}>Média Kg/Envio</th>
+                      <th style={{ textAlign: 'right' }}>Faturamento</th>
+                      <th style={{ textAlign: 'right' }}>Ticket Médio/Envio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analiseClientes.lista.map((c, i) => {
+                      const mediaKg = c.frequencia > 0 ? c.pesoTotal / c.frequencia : 0
+                      const ticketMed = c.frequencia > 0 ? c.receitaTotal / c.frequencia : 0
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ color: 'var(--muted)', fontSize: 12 }}>{i + 1}</td>
+                          <td style={{ fontWeight: 600 }}>{c.nome}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--accent)' }}>{c.frequencia}</td>
+                          <td style={{ textAlign: 'right' }}>{c.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</td>
+                          <td style={{ textAlign: 'right' }}>{mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--ok)' }}>{formatBRL(c.receitaTotal)}</td>
+                          <td style={{ textAlign: 'right', color: 'var(--muted)' }}>{formatBRL(ticketMed)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile */}
+              <div className="mobile-card-list mobile-only">
+                {analiseClientes.lista.map((c, i) => {
+                  const mediaKg = c.frequencia > 0 ? c.pesoTotal / c.frequencia : 0
+                  const ticketMed = c.frequencia > 0 ? c.receitaTotal / c.frequencia : 0
+                  return (
+                    <div key={c.id} className="mobile-card">
+                      <div className="mobile-card-header">
+                        <div className="mobile-card-title">{i + 1}. {c.nome}</div>
+                        <span style={{ fontWeight: 700, color: 'var(--ok)' }}>{formatBRL(c.receitaTotal)}</span>
+                      </div>
+                      <div className="mobile-card-body">
+                        <div><div className="mobile-card-label">Envios</div><div className="mobile-card-value" style={{ color: 'var(--accent)', fontWeight: 600 }}>{c.frequencia}</div></div>
+                        <div><div className="mobile-card-label">Kg Total</div><div className="mobile-card-value">{c.pesoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</div></div>
+                        <div><div className="mobile-card-label">Média Kg</div><div className="mobile-card-value">{mediaKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg</div></div>
+                        <div><div className="mobile-card-label">Ticket Méd.</div><div className="mobile-card-value">{formatBRL(ticketMed)}</div></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>

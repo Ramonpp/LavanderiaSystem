@@ -596,6 +596,7 @@ export function AppShell() {
           { to: '/pedidos/criar',  icon: Ico.plus,       label: 'Novo',        isPlus: true   },
           { to: '/clientes',       icon: Ico.clientes,   label: 'Clientes'                    },
           { to: '/despesas/lista', icon: Ico.despesas,   label: 'Despesas'                    },
+          { to: '/fluxo-empresa',  icon: Ico.fluxo,      label: 'Organograma'                 },
         ].map((item) => {
           if (item.isPlus) {
             return (

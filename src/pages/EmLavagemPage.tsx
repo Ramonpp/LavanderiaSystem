@@ -14,6 +14,7 @@ export function EmLavagemPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
+  const [ordenacao, setOrdenacao] = useState<'padrao' | 'proximo'>('padrao')
 
   // Carrega todos os dados necessários
   async function loadData() {
@@ -120,23 +121,67 @@ export function EmLavagemPage() {
     return parts.length > 0 ? `${c.nome} (${parts.join(' - ')})` : c.nome
   }
 
-  const pedidosFiltrados = useMemo(() => {
-    const termo = normalizeSearch(busca)
-    if (!termo) return pedidos
-    return pedidos.filter((p) => {
-      const nomeCliente = normalizeSearch(formatarNomeCliente(p.cliente))
-      if (nomeCliente.includes(termo)) return true
+  // Verifica se todas as peças de todos os itens de um pedido estão conferidas
+  const statusConferenciaPedidos = useMemo(() => {
+    const statusMap: Record<string, { total: number; conferidas: number; finalizado: boolean }> = {}
 
+    pedidos.forEach((p) => {
       const orderItems = itensMap[p.id] || []
-      const matchPeca = orderItems.some((item) => {
-        const pecasList = item.pecas || []
-        return pecasList.some((peca) => normalizeSearch(peca.id_peca || '').includes(termo))
-      })
-      if (matchPeca) return true
+      let total = 0
+      let conferidas = 0
 
-      return false
+      orderItems.forEach((item) => {
+        total += item.quantidade
+        const pecasList = item.pecas || []
+        for (let i = 0; i < item.quantidade; i++) {
+          if (pecasList[i]?.conferido) {
+            conferidas++
+          }
+        }
+      });
+
+      statusMap[p.id] = {
+        total,
+        conferidas,
+        finalizado: total > 0 && total === conferidas,
+      }
     })
-  }, [pedidos, busca, itensMap])
+
+    return statusMap
+  }, [pedidos, itensMap])
+
+  const pedidosFiltrados = useMemo(() => {
+    let filtrados = pedidos
+
+    const termo = normalizeSearch(busca)
+    if (termo) {
+      filtrados = filtrados.filter((p) => {
+        const nomeCliente = normalizeSearch(formatarNomeCliente(p.cliente))
+        if (nomeCliente.includes(termo)) return true
+
+        const orderItems = itensMap[p.id] || []
+        const matchPeca = orderItems.some((item) => {
+          const pecasList = item.pecas || []
+          return pecasList.some((peca) => normalizeSearch(peca.id_peca || '').includes(termo))
+        })
+        if (matchPeca) return true
+
+        return false
+      })
+    }
+
+    if (ordenacao === 'proximo') {
+      filtrados = [...filtrados].sort((a, b) => {
+        const statA = statusConferenciaPedidos[a.id]
+        const statB = statusConferenciaPedidos[b.id]
+        const percA = statA && statA.total > 0 ? statA.conferidas / statA.total : 0
+        const percB = statB && statB.total > 0 ? statB.conferidas / statB.total : 0
+        return percB - percA
+      })
+    }
+
+    return filtrados
+  }, [pedidos, busca, itensMap, ordenacao, statusConferenciaPedidos])
 
   // Alterna o estado 'conferido' de uma peça específica
   async function handleTogglePeca(pedidoId: string, itemId: string, pecaIndex: number) {
@@ -175,35 +220,6 @@ export function EmLavagemPage() {
       void loadData()
     }
   }
-
-  // Verifica se todas as peças de todos os itens de um pedido estão conferidas
-  const statusConferenciaPedidos = useMemo(() => {
-    const statusMap: Record<string, { total: number; conferidas: number; finalizado: boolean }> = {}
-
-    pedidos.forEach((p) => {
-      const orderItems = itensMap[p.id] || []
-      let total = 0
-      let conferidas = 0
-
-      orderItems.forEach((item) => {
-        total += item.quantidade
-        const pecasList = item.pecas || []
-        for (let i = 0; i < item.quantidade; i++) {
-          if (pecasList[i]?.conferido) {
-            conferidas++
-          }
-        }
-      });
-
-      statusMap[p.id] = {
-        total,
-        conferidas,
-        finalizado: total > 0 && total === conferidas,
-      }
-    })
-
-    return statusMap
-  }, [pedidos, itensMap])
 
   // Altera o status do pedido para "Pronto"
   async function handleFinalizarPedido(pedidoId: string) {
@@ -274,6 +290,18 @@ export function EmLavagemPage() {
                 onChange={(e) => setBusca(e.target.value)}
                 style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
               />
+            </div>
+            <div className="field" style={{ minWidth: 160 }}>
+              <label htmlFor="ordenacao" style={{ marginBottom: 4 }}>Ordenar por</label>
+              <select
+                id="ordenacao"
+                value={ordenacao}
+                onChange={(e) => setOrdenacao(e.target.value as any)}
+                style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+              >
+                <option value="padrao">Padrão</option>
+                <option value="proximo">Mais próximo de acabar</option>
+              </select>
             </div>
           </div>
           <div className="hint" style={{ fontWeight: 600 }}>
