@@ -591,12 +591,11 @@ export function AppShell() {
       {/* ── Navegação inferior (mobile) ──────────────────── */}
       <nav className={styles.bottomNav} aria-label="Navegação rápida">
         {[
-          { to: '/dashboard',      icon: Ico.dashboard,  label: 'Início'                      },
-          { to: '/pedidos/lista',  icon: Ico.pedidos,    label: 'Pedidos'                     },
-          { to: '/pedidos/criar',  icon: Ico.plus,       label: 'Novo',        isPlus: true   },
-          { to: '/clientes',       icon: Ico.clientes,   label: 'Clientes'                    },
-          { to: '/despesas/lista', icon: Ico.despesas,   label: 'Despesas'                    },
-          { to: '/fluxo-empresa',  icon: Ico.fluxo,      label: 'Organograma'                 },
+          { to: '/dashboard',         icon: Ico.dashboard,  label: 'Início'                      },
+          { to: '/pedidos/lista',     icon: Ico.pedidos,    label: 'Pedidos'                     },
+          { to: '/pedidos/criar',     icon: Ico.plus,       label: 'Novo',        isPlus: true   },
+          { to: '/clientes',          icon: Ico.clientes,   label: 'Clientes'                    },
+          { to: '/pedidos/em-lavagem',icon: Ico.maquinas,   label: 'Lavagem'                     },
         ].map((item) => {
           if (item.isPlus) {
             return (
@@ -624,7 +623,7 @@ export function AppShell() {
                   const isItemActive = isActive ||
                     (item.to === '/clientes' && location.pathname.startsWith('/clientes')) ||
                     (item.to === '/despesas/lista' && location.pathname.startsWith('/despesas')) ||
-                    (item.to === '/pedidos/lista' && location.pathname.startsWith('/pedidos') && !location.pathname.includes('/criar'))
+                    (item.to === '/pedidos/lista' && location.pathname.startsWith('/pedidos') && !location.pathname.includes('/criar') && !location.pathname.includes('/em-lavagem'))
                   return isItemActive
                     ? `${styles.bottomNavItem} ${styles.bottomNavItemActive}`
                     : styles.bottomNavItem
