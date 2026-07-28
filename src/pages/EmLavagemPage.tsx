@@ -14,7 +14,7 @@ export function EmLavagemPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
-  const [ordenacao, setOrdenacao] = useState<'padrao' | 'proximo'>('padrao')
+  const [ordenacao, setOrdenacao] = useState<'padrao' | 'proximo' | 'antigos'>('padrao')
 
   // Carrega todos os dados necessários
   async function loadData() {
@@ -178,6 +178,10 @@ export function EmLavagemPage() {
         const percB = statB && statB.total > 0 ? statB.conferidas / statB.total : 0
         return percB - percA
       })
+    } else if (ordenacao === 'antigos') {
+      filtrados = [...filtrados].sort((a, b) => {
+        return (a.data_pedido || '').localeCompare(b.data_pedido || '')
+      })
     }
 
     return filtrados
@@ -300,6 +304,7 @@ export function EmLavagemPage() {
                 style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
               >
                 <option value="padrao">Padrão</option>
+                <option value="antigos">Mais antigos</option>
                 <option value="proximo">Mais próximo de acabar</option>
               </select>
             </div>

@@ -272,12 +272,31 @@ export function PedidosUsouPagouPage() {
   }
 
   // Copia a mensagem simplificada de cobrança para a área de transferência
-  function handleCopiarMensagemPronta(c: Cliente) {
+  function handleCopiarMensagemPronta(c: Cliente, pedidosCliente: PedidoCliente[], valorTotal: number) {
     const primeiroNome = c.nome.trim().split(' ')[0]
     
-    const texto = `Olá, ${primeiroNome}! Tudo bem?\n\n` +
-      `Segue o fechamento da lavanderia.\n\n` +
-      `Qualquer dúvida estou à disposição! 💙`
+    // Constrói a lista de lavagens por data com peso e valor em negrito para WhatsApp
+    const listaDatas = pedidosCliente
+      .slice()
+      .reverse() // Do mais antigo ao mais recente
+      .map((p) => {
+        const [, mes, dia] = p.data_pedido.split('-')
+        const dataFormatada = `${dia}/${mes}`
+        const peso = Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        const valor = receitaPedido(p)
+        const valorFormatado = formatBRL(valor)
+        return `Dia ${dataFormatada}\n🧺 Peso: *${peso} kg*\n💰 Valor: *${valorFormatado}*`
+      })
+      .join('\n\n')
+
+    const totalFormatado = formatBRL(valorTotal)
+
+    const texto = `Olá, ${primeiroNome}!\n\n` +
+      `Seu enxoval já foi lavado e está a caminho da entrega.\n\n` +
+      `${listaDatas}\n\n` +
+      `Total: *${totalFormatado}*\n\n` +
+      `Em seguida, enviaremos a chave Pix.\n\n` +
+      `Abraços, Equipe Ciclo Novo Lavanderia 💙`
 
     navigator.clipboard.writeText(texto).then(() => {
       setMsg(`Mensagem pronta para ${primeiroNome} copiada!`)
@@ -1698,52 +1717,7 @@ export function PedidosUsouPagouPage() {
                             Gerar Relatório (PDF)
                           </button>
 
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => handleCopiarPNG(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
-                            style={{ 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: 8, 
-                              fontSize: 13, 
-                              padding: '8px 14px',
-                              background: 'var(--panel)',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text-h)',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                            </svg>
-                            Copiar PNG
-                          </button>
 
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, true)}
-                            style={{ 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: 8, 
-                              fontSize: 13, 
-                              padding: '8px 14px',
-                              background: 'var(--panel)',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text-h)',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                              <circle cx="8.5" cy="8.5" r="1.5" />
-                              <polyline points="21 15 16 10 5 21" />
-                            </svg>
-                            Baixar PNG
-                          </button>
 
                           {typeof navigator.share !== 'undefined' && (
                             <button
@@ -1766,7 +1740,7 @@ export function PedidosUsouPagouPage() {
                           <button
                             className="btn"
                             type="button"
-                            onClick={() => handleCopiarMensagemPronta(item.cliente)}
+                            onClick={() => handleCopiarMensagemPronta(item.cliente, item.pedidos, item.valorTotal)}
                             style={{ 
                               display: 'inline-flex', 
                               alignItems: 'center', 
