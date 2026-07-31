@@ -312,6 +312,29 @@ export function HistoricoPedidosPage() {
     printWindow.document.close()
   }
 
+  // Compartilhar resumo por WhatsApp (texto)
+  function handleCompartilharWhatsApp() {
+    if (pedidosFiltrados.length === 0) return
+
+    const dataInicioStr = new Date(`${dataInicio}T00:00:00`).toLocaleDateString('pt-BR')
+    const dataFimStr = new Date(`${dataFim}T00:00:00`).toLocaleDateString('pt-BR')
+
+    let texto = `*Histórico de Pedidos* (${dataInicioStr} a ${dataFimStr})\n\n`
+
+    resumoPorCliente.forEach((r) => {
+      texto += `👤 *${r.cliente?.nome || '—'}*\n`
+      texto += `Envios: ${r.pedidos.length} | Peso: ${Number(r.pesoTotal).toLocaleString('pt-BR')} kg\n`
+      texto += `Total: *${formatBRL(r.valorTotal)}*\n\n`
+    })
+
+    texto += `📦 *Total Geral:* ${pedidosFiltrados.length} envios\n`
+    texto += `⚖️ *Peso Total:* ${Number(totalGeral.peso).toLocaleString('pt-BR')} kg\n`
+    texto += `💰 *Valor Total:* ${formatBRL(totalGeral.valor)}\n`
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
+  }
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: 12 }}>
@@ -333,7 +356,7 @@ export function HistoricoPedidosPage() {
 
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid gridCols2" style={{ gap: 16 }}>
         {/* Coluna esquerda: seleção de clientes */}
         <section className="panel">
           <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
@@ -494,7 +517,7 @@ export function HistoricoPedidosPage() {
       {/* Resultados */}
       {pedidosFiltrados.length > 0 && (
         <section className="panel">
-          <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+          <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0 }}>
                 Resultados — {pedidosFiltrados.length} {pedidosFiltrados.length === 1 ? 'pedido' : 'pedidos'}
@@ -504,21 +527,37 @@ export function HistoricoPedidosPage() {
                 Valor total: <strong style={{ color: 'var(--ok)' }}>{formatBRL(totalGeral.valor)}</strong>
               </div>
             </div>
-            <button
-              type="button"
-              className="btn btnPrimary"
-              onClick={handleGerarPDF}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-              </svg>
-              Gerar PDF
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleCompartilharWhatsApp}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13,
+                  background: '#25D366', color: '#fff', borderColor: '#25D366'
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
+                WhatsApp
+              </button>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                onClick={handleGerarPDF}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                Gerar PDF
+              </button>
+            </div>
           </div>
           <div className="panelBody" style={{ gap: 20 }}>
             {resumoPorCliente.map((r) => (
