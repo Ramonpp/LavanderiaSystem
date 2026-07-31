@@ -31,38 +31,6 @@ function getBase64Image(imgUrl: string): Promise<string> {
   })
 }
 
-// Desenha um retângulo arredondado no Canvas 2D
-function roundRectU(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-  ctx.lineTo(x + r, y + h)
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath()
-}
-
-// Quebra texto em linhas para caber na largura máxima
-function wrapTextU(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const words = text.split(' ')
-  const lines: string[] = []
-  let current = ''
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word
-    if (ctx.measureText(test).width <= maxWidth) {
-      current = test
-    } else {
-      if (current) lines.push(current)
-      current = word
-    }
-  }
-  if (current) lines.push(current)
-  return lines.length ? lines : [text]
-}
 
 export function PedidosUsouPagouPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
