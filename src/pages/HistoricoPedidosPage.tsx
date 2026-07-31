@@ -322,7 +322,10 @@ export function HistoricoPedidosPage() {
     let texto = `*Histórico de Pedidos* (${dataInicioStr} a ${dataFimStr})\n\n`
 
     resumoPorCliente.forEach((r) => {
-      texto += `👤 *${r.cliente?.nome || '—'}*\n`
+      const nome = r.cliente?.nome || '—'
+      const local = r.cliente ? formatarLocal(r.cliente as unknown as Cliente) : '—'
+      const nomeComLocal = local !== '—' ? `${nome} - ${local}` : nome
+      texto += `👤 *${nomeComLocal}*\n`
       texto += `Envios: ${r.pedidos.length} | Peso: ${Number(r.pesoTotal).toLocaleString('pt-BR')} kg\n`
       texto += `Total: *${formatBRL(r.valorTotal)}*\n\n`
     })
