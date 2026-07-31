@@ -245,15 +245,14 @@ export function CriarPedidoPage() {
 
   function handleQuantidadeChange(key: string, value: string) {
     const q = Math.max(0, Math.round(Number(value.replace(',', '.'))) || 0)
-    const selected = clientes.find((c) => c.id === clienteId)
-    const defaultId = selected ? [selected.apartamento?.trim(), selected.bloco?.trim()].filter(Boolean).join(' / ') : ''
 
     setItensLinhas((xs) =>
       xs.map((l) => {
         if (l.key !== key) return l
         const currentPecas = l.pecas || []
         const updatedPecas = Array.from({ length: q }, (_, i) => {
-          return currentPecas[i] || { id_peca: defaultId, conferido: false }
+          // Preserva IDs existentes; novos slots ficam em branco
+          return currentPecas[i] || { id_peca: '', conferido: false }
         })
         return { ...l, quantidade: value, pecas: updatedPecas }
       })

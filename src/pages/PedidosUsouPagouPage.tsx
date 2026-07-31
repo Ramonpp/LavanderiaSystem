@@ -81,6 +81,8 @@ export function PedidosUsouPagouPage() {
 
   // Estado para múltiplos clientes selecionados
   const [selectedClientesIds, setSelectedClientesIds] = useState<Set<string>>(new Set())
+  // Estado para pedidos individuais selecionados por cliente (clienteId -> Set<pedidoId>)
+  const [selectedPedidoIds, setSelectedPedidoIds] = useState<Record<string, Set<string>>>({})
 
   function handleChavePixChange(val: string) {
     setChavePix(val)
@@ -239,6 +241,36 @@ export function PedidosUsouPagouPage() {
         return next
       })
     }
+  }
+
+  // Obter pedidos selecionados de um cliente (ou todos se nenhum marcado)
+  function getPedidosParaAcao(clienteId: string, todosPedidos: PedidoCliente[]): PedidoCliente[] {
+    const sel = selectedPedidoIds[clienteId]
+    if (!sel || sel.size === 0) return todosPedidos
+    return todosPedidos.filter((p) => sel.has(p.id))
+  }
+
+  function handleTogglePedidoSelect(clienteId: string, pedidoId: string) {
+    setSelectedPedidoIds((prev) => {
+      const clienteSet = new Set(prev[clienteId] || [])
+      if (clienteSet.has(pedidoId)) clienteSet.delete(pedidoId)
+      else clienteSet.add(pedidoId)
+      return { ...prev, [clienteId]: clienteSet }
+    })
+  }
+
+  function handleToggleAllPedidosCliente(clienteId: string, todosPedidos: PedidoCliente[]) {
+    setSelectedPedidoIds((prev) => {
+      const clienteSet = prev[clienteId] || new Set<string>()
+      const allSelected = todosPedidos.every((p) => clienteSet.has(p.id))
+      const next = new Set(clienteSet)
+      if (allSelected) {
+        todosPedidos.forEach((p) => next.delete(p.id))
+      } else {
+        todosPedidos.forEach((p) => next.add(p.id))
+      }
+      return { ...prev, [clienteId]: next }
+    })
   }
 
   // Gera o link de cobrança do WhatsApp
@@ -1704,7 +1736,12 @@ export function PedidosUsouPagouPage() {
                           <button
                             className="btn btnPrimary"
                             type="button"
-                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, false)}
+                            onClick={() => {
+                              const pedidosParaAcao = getPedidosParaAcao(item.cliente.id, item.pedidos)
+                              const pesoSel = pedidosParaAcao.reduce((s, p) => s + Number(p.peso_kg || 0), 0)
+                              const valorSel = pedidosParaAcao.reduce((s, p) => s + receitaPedido(p), 0)
+                              handleGerarPDF(item.cliente, pedidosParaAcao, pesoSel, valorSel, false)
+                            }}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
                           >
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1714,7 +1751,12 @@ export function PedidosUsouPagouPage() {
                               <line x1="16" y1="17" x2="8" y2="17" />
                               <polyline points="10 9 9 9 8 9" />
                             </svg>
-                            Gerar Relatório (PDF)
+                            {(() => {
+                              const sel = selectedPedidoIds[item.cliente.id]
+                              return sel && sel.size > 0
+                                ? `Gerar PDF (${sel.size} selecionado${sel.size > 1 ? 's' : ''})`
+                                : 'Gerar Relatório (PDF)'
+                            })()}
                           </button>
 
 
@@ -1761,11 +1803,30 @@ export function PedidosUsouPagouPage() {
                           </button>
                         </div>
 
-                        {/* Tabela de Pedidos do Cliente */}
+                        {/* Tabela de Pedidos do Cliente com checkboxes de seleção */}
                         <div className="tableWrap" style={{ background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                          {/* Info de seleção */}
+                          {(() => {
+                            const sel = selectedPedidoIds[item.cliente.id]
+                            const qtdSel = sel?.size || 0
+                            return qtdSel > 0 ? (
+                              <div style={{ padding: '6px 12px', background: 'var(--accent-bg)', borderBottom: '1px solid var(--accent-border)', fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+                                {qtdSel} pedido{qtdSel > 1 ? 's' : ''} selecionado{qtdSel > 1 ? 's' : ''} para o PDF · <button type="button" onClick={() => setSelectedPedidoIds(prev => ({ ...prev, [item.cliente.id]: new Set() }))} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontSize: 12, padding: 0 }}>Limpar seleção</button>
+                              </div>
+                            ) : null
+                          })()}
                           <table style={{ margin: 0 }}>
                             <thead>
                               <tr>
+                                <th style={{ width: 36 }}>
+                                  <input
+                                    type="checkbox"
+                                    title="Selecionar todos"
+                                    checked={item.pedidos.length > 0 && item.pedidos.every((p) => selectedPedidoIds[item.cliente.id]?.has(p.id))}
+                                    onChange={() => handleToggleAllPedidosCliente(item.cliente.id, item.pedidos)}
+                                    style={{ width: 15, height: 15, cursor: 'pointer' }}
+                                  />
+                                </th>
                                 <th>Data</th>
                                 <th>Peças Lavadas</th>
                                 <th style={{ textAlign: 'right' }}>Peso</th>
@@ -1778,8 +1839,21 @@ export function PedidosUsouPagouPage() {
                                 .reverse()
                                 .map((p) => {
                                   const itens = itensMap[p.id] || []
+                                  const isChecked = selectedPedidoIds[item.cliente.id]?.has(p.id) || false
                                   return (
-                                    <tr key={p.id}>
+                                    <tr
+                                      key={p.id}
+                                      style={{ background: isChecked ? 'var(--accent-bg)' : undefined, cursor: 'pointer' }}
+                                      onClick={() => handleTogglePedidoSelect(item.cliente.id, p.id)}
+                                    >
+                                      <td onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => handleTogglePedidoSelect(item.cliente.id, p.id)}
+                                          style={{ width: 15, height: 15, cursor: 'pointer' }}
+                                        />
+                                      </td>
                                       <td>
                                         {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}
                                       </td>

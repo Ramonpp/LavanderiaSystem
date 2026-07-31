@@ -330,6 +330,15 @@ export function AppShell() {
                     >
                       Usou e Pagou
                     </NavLink>
+                    <NavLink
+                      to="/pedidos/historico"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Histórico
+                    </NavLink>
                   </div>
                 </div>
               )

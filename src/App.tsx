@@ -19,6 +19,7 @@ import { TiposPecaPage } from './pages/TiposPecaPage'
 import { ManchasPage } from './pages/ManchasPage'
 import { PedidosMensaisPage } from './pages/PedidosMensaisPage'
 import { PedidosUsouPagouPage } from './pages/PedidosUsouPagouPage'
+import { HistoricoPedidosPage } from './pages/HistoricoPedidosPage'
 import { FluxoEmpresaPage } from './pages/FluxoEmpresaPage'
 export default function App() {
   const [session, setSession] = useState<any>(null)
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/pedidos/em-lavagem" element={<EmLavagemPage />} />
         <Route path="/pedidos/mensais" element={<PedidosMensaisPage />} />
         <Route path="/pedidos/usou-pagou" element={<PedidosUsouPagouPage />} />
+        <Route path="/pedidos/historico" element={<HistoricoPedidosPage />} />
         <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
         <Route path="/pecas" element={<TiposPecaPage />} />
         <Route path="/despesas/criar" element={<DespesasPage mode="criar" />} />

@@ -303,7 +303,7 @@ export function EmLavagemPage() {
                 onChange={(e) => setOrdenacao(e.target.value as any)}
                 style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
               >
-                <option value="padrao">Padrão</option>
+                <option value="padrao">Mais recente</option>
                 <option value="antigos">Mais antigos</option>
                 <option value="proximo">Mais próximo de acabar</option>
               </select>
