@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchClientes } from '../data/clientes'
-import { fetchPedidos, type PedidoCliente } from '../data/pedidos'
-import { fetchTiposPeca, type TipoPeca } from '../data/tiposPeca'
-import { fetchItensPorPedidos, type ItemPedido } from '../data/itensPedido'
+import { fetchPedidos, fetchItensPorPedidos } from '../data/pedidos'
+import { fetchTiposPeca } from '../data/tiposPeca'
+import type { Cliente, ItemPedido, PedidoCliente, TipoPeca } from '../types/models'
 import { receitaPedido, receitaOriginalPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
@@ -1288,13 +1288,6 @@ export function PedidosUsouPagouPage() {
     printWindow.document.close()
   }
 
-  const FORMA_PAGTO_LABELS: Record<string, string> = {
-    pix: 'Pix',
-    dinheiro: 'Dinheiro',
-    cartao: 'Cartão',
-    transferencia: 'Transferência Bancária',
-    outro: 'Outro',
-  }
 
   if (loading) {
     return (
