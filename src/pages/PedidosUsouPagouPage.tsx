@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchClientes } from '../data/clientes'
-import { fetchPedidos, fetchItensPorPedidos } from '../data/pedidos'
-import { fetchTiposPeca } from '../data/tiposPeca'
-import type { Cliente, PedidoCliente, ItemPedido, TipoPeca } from '../types/models'
-import { receitaPedido } from '../domain/finance'
+import { fetchPedidos, type PedidoCliente } from '../data/pedidos'
+import { fetchTiposPeca, type TipoPeca } from '../data/tiposPeca'
+import { fetchItensPorPedidos, type ItemPedido } from '../data/itensPedido'
+import { receitaPedido, receitaOriginalPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { jsPDF } from 'jspdf'
@@ -254,8 +254,10 @@ export function PedidosUsouPagouPage() {
       .map((p) => {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const dataFormatada = `${dia}/${mes}/${ano.slice(-2)}`
-        const valor = receitaPedido(p)
-        return `📅 ${dataFormatada}: ${p.peso_kg} kg - ${formatBRL(valor)}`
+        const valorOriginal = receitaOriginalPedido(p)
+        const valorFinal = receitaPedido(p)
+        const descontoTexto = valorOriginal > valorFinal ? ` (De ~${formatBRL(valorOriginal)}~ por *${formatBRL(valorFinal)}*)` : ` - *${formatBRL(valorFinal)}*`
+        return `📅 ${dataFormatada}: ${p.peso_kg} kg${descontoTexto}`
       })
       .join('\n')
 
@@ -283,9 +285,17 @@ export function PedidosUsouPagouPage() {
         const [, mes, dia] = p.data_pedido.split('-')
         const dataFormatada = `${dia}/${mes}`
         const peso = Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        const valor = receitaPedido(p)
-        const valorFormatado = formatBRL(valor)
-        return `Dia ${dataFormatada}\n🧺 Peso: *${peso} kg*\n💰 Valor: *${valorFormatado}*`
+        const valorOriginal = receitaOriginalPedido(p)
+        const valorFinal = receitaPedido(p)
+        const valorOriginalFormatado = formatBRL(valorOriginal)
+        const valorFinalFormatado = formatBRL(valorFinal)
+        
+        let linhaValor = `💰 Valor: *${valorFinalFormatado}*`
+        if (valorOriginal > valorFinal) {
+           linhaValor = `💰 Valor: ~${valorOriginalFormatado}~ por *${valorFinalFormatado}*`
+        }
+
+        return `Dia ${dataFormatada}\n🧺 Peso: *${peso} kg*\n${linhaValor}`
       })
       .join('\n\n')
 
@@ -317,7 +327,14 @@ export function PedidosUsouPagouPage() {
       .map((p) => {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const dataFormatada = `${dia}/${mes}/${ano}`
-        const valor = receitaPedido(p)
+        const valorOriginal = receitaOriginalPedido(p)
+        const valorFinal = receitaPedido(p)
+        const temDesconto = valorOriginal > valorFinal
+
+        let valorStr = `<span style="font-weight:600;color:#3b6fe8">${formatBRL(valorFinal)}</span>`
+        if (temDesconto) {
+          valorStr = `<span style="text-decoration:line-through;color:#a0aec0;font-size:10px;margin-right:4px">${formatBRL(valorOriginal)}</span>` + valorStr
+        }
         
         const itens = itensMap[p.id] || []
         const pecasDetalhadas = itens
@@ -328,8 +345,8 @@ export function PedidosUsouPagouPage() {
           <tr>
             <td>${dataFormatada}</td>
             <td>${pecasDetalhadas}</td>
-            <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-            <td style="text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+            <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+            <td style="text-align: right;">${valorStr}</td>
           </tr>
         `
       })
@@ -549,7 +566,6 @@ export function PedidosUsouPagouPage() {
           <div class="info-block">
             <h3>Contato</h3>
             <p>${c.telefone || 'Sem telefone'}</p>
-            <span>Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
           </div>
         </div>
 
@@ -574,7 +590,7 @@ export function PedidosUsouPagouPage() {
           </div>
           <div class="total-item">
             <div class="total-label">Peso Total</div>
-            <div class="total-value">${Number(pesoTotal).toLocaleString('pt-BR')} kg</div>
+            <div class="total-value">${Number(pesoTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</div>
           </div>
           <div class="total-item">
             <div class="total-label">Total a Pagar</div>
@@ -713,11 +729,6 @@ export function PedidosUsouPagouPage() {
       pdf.setTextColor(...DARK)
       pdf.text(c.telefone || 'Sem telefone', halfX, y + 11)
 
-      pdf.setFont('helvetica', 'normal')
-      pdf.setFontSize(8)
-      pdf.setTextColor(...GRAY)
-      pdf.text(`Pagamento via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}`, halfX, y + 16)
-
       y += 26
 
       // ── TABELA DE PEDIDOS ────────────────────────────────
@@ -746,7 +757,8 @@ export function PedidosUsouPagouPage() {
       pedidosOrdenados.forEach((p, idx) => {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const dataFormatada = `${dia}/${mes}/${ano}`
-        const valor = receitaPedido(p)
+        const valorOriginal = receitaOriginalPedido(p)
+        const valorFinal = receitaPedido(p)
         const itens = itensMap[p.id] || []
         const pecasDetalhadas = itens
           .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
@@ -779,10 +791,33 @@ export function PedidosUsouPagouPage() {
         const pesoW = pdf.getTextWidth(pesoText)
         pdf.text(pesoText, colX[2] + colW[2] - pesoW - 2, y + 4.8)
 
-        const valorText = formatBRL(valor)
-        pdf.setFont('helvetica', 'bold')
+        const valorText = formatBRL(valorFinal)
+        let finalValorY = y + 4.8
+        
+        if (valorOriginal > valorFinal) {
+          pdf.setFontSize(6)
+          pdf.setFont('helvetica', 'normal')
+          pdf.setTextColor(160, 174, 192)
+          const origText = formatBRL(valorOriginal)
+          const origW = pdf.getTextWidth(origText)
+          const origX = colX[3] + colW[3] - origW - 2
+          pdf.text(origText, origX, y + 3)
+          pdf.setDrawColor(160, 174, 192)
+          pdf.setLineWidth(0.2)
+          pdf.line(origX, y + 2.2, origX + origW, y + 2.2)
+          
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(59, 111, 232) // BLUE
+          finalValorY = y + 6.5
+        } else {
+          pdf.setFontSize(8)
+          pdf.setFont('helvetica', 'bold')
+          pdf.setTextColor(26, 32, 44) // DARK
+        }
+        
         const valorW = pdf.getTextWidth(valorText)
-        pdf.text(valorText, colX[3] + colW[3] - valorW - 2, y + 4.8)
+        pdf.text(valorText, colX[3] + colW[3] - valorW - 2, finalValorY)
 
         y += rowH
       })
@@ -1682,6 +1717,11 @@ export function PedidosUsouPagouPage() {
                                         {Number(p.peso_kg).toLocaleString('pt-BR')} kg
                                       </td>
                                       <td style={{ textAlign: 'right', fontWeight: 650, color: 'var(--text-h)' }}>
+                                        {receitaOriginalPedido(p) > receitaPedido(p) && (
+                                          <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontSize: 11, marginRight: 6, fontWeight: 400 }}>
+                                            {formatBRL(receitaOriginalPedido(p))}
+                                          </span>
+                                        )}
                                         {formatBRL(receitaPedido(p))}
                                       </td>
                                     </tr>
