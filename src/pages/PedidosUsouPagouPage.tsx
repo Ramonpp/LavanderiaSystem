@@ -971,10 +971,15 @@ export function PedidosUsouPagouPage() {
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
+    const temAlgumDescontoGeral = selecionados.some((item) =>
+      item.pedidos.some((p) => receitaOriginalPedido(p) > receitaPedido(p))
+    )
+
     // 1) Linhas da tabela de resumo
     let totalEnviosGeral = 0
     let totalPesoGeral = 0
     let totalValorGeral = 0
+    let totalOriginalGeral = 0
 
     const linhasResumo = selecionados
       .map((item) => {
@@ -982,7 +987,26 @@ export function PedidosUsouPagouPage() {
         totalPesoGeral += item.pesoTotal
         totalValorGeral += item.valorTotal
 
+        const valorOriginalTotal = item.pedidos.reduce((sum, p) => sum + receitaOriginalPedido(p), 0)
+        totalOriginalGeral += valorOriginalTotal
+
         const localStr = formatarLocal(item.cliente)
+        const temDescontoCliente = valorOriginalTotal > item.valorTotal
+
+        if (temAlgumDescontoGeral) {
+          return `
+            <tr>
+              <td style="font-weight: 600;">${item.cliente.nome}</td>
+              <td>${localStr}</td>
+              <td>${item.cliente.telefone || '—'}</td>
+              <td style="text-align: center;">${item.pedidos.length}</td>
+              <td style="text-align: right;">${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</td>
+              <td style="text-align: right; color: #e53e3e; font-size: 13px;">${temDescontoCliente ? formatBRL(valorOriginalTotal) : '—'}</td>
+              <td style="text-align: right; font-weight: 700; color: #3b6fe8;">${formatBRL(item.valorTotal)}</td>
+            </tr>
+          `
+        }
+
         return `
           <tr>
             <td style="font-weight: 600;">${item.cliente.nome}</td>
@@ -1000,25 +1024,55 @@ export function PedidosUsouPagouPage() {
     const detalhamentoClientes = selecionados
       .map((item) => {
         const localStr = formatarLocal(item.cliente)
+        const valorOriginalTotal = item.pedidos.reduce((sum, p) => sum + receitaOriginalPedido(p), 0)
+
         const linhasPedidos = item.pedidos
           .slice()
           .reverse()
           .map((p) => {
             const [ano, mes, dia] = p.data_pedido.split('-')
             const dataFormatada = `${dia}/${mes}/${ano}`
-            const valor = receitaPedido(p)
+            const valorOriginal = receitaOriginalPedido(p)
+            const valorFinal = receitaPedido(p)
+            const temDesconto = valorOriginal > valorFinal
             
             const itens = itensMap[p.id] || []
             const pecasDetalhadas = itens
               .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
               .join(', ') || 'Sem especificações'
 
+            if (temAlgumDescontoGeral) {
+              if (temDesconto) {
+                return `
+                  <tr>
+                    <td>${dataFormatada}</td>
+                    <td>${pecasDetalhadas}</td>
+                    <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                    <td style="text-align: right; color: #e53e3e; font-size: 13px;">${formatBRL(valorOriginal)}</td>
+                    <td style="text-align: right;">
+                      <span style="font-weight: 700; color: #3b6fe8; font-size: 13px;">${formatBRL(valorFinal)}</span>
+                      <span style="display: inline-block; margin-left: 5px; font-size: 9px; background: #c6f6d5; color: #276749; border-radius: 4px; padding: 1px 5px; font-weight: 600; vertical-align: middle;">DESCONTO</span>
+                    </td>
+                  </tr>
+                `
+              }
+              return `
+                <tr>
+                  <td>${dataFormatada}</td>
+                  <td>${pecasDetalhadas}</td>
+                  <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                  <td style="text-align: right; color: transparent; font-size: 13px;">—</td>
+                  <td style="text-align: right; font-weight: 700; color: #3b6fe8;">${formatBRL(valorFinal)}</td>
+                </tr>
+              `
+            }
+
             return `
               <tr>
                 <td>${dataFormatada}</td>
                 <td>${pecasDetalhadas}</td>
                 <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-                <td style="text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+                <td style="text-align: right; font-weight: 600;">${formatBRL(valorFinal)}</td>
               </tr>
             `
           })
@@ -1032,12 +1086,22 @@ export function PedidosUsouPagouPage() {
             </div>
             <table>
               <thead>
+                ${temAlgumDescontoGeral ? `
+                <tr>
+                  <th style="width: 14%;">Data</th>
+                  <th style="width: 44%;">Peças Lavadas</th>
+                  <th style="width: 12%; text-align: right;">Peso</th>
+                  <th style="width: 14%; text-align: right;">Valor Original</th>
+                  <th style="width: 16%; text-align: right;">Valor c/ Desconto</th>
+                </tr>
+                ` : `
                 <tr>
                   <th style="width: 15%;">Data</th>
                   <th style="width: 50%;">Peças Lavadas</th>
                   <th style="width: 15%; text-align: right;">Peso</th>
                   <th style="width: 20%; text-align: right;">Valor</th>
                 </tr>
+                `}
               </thead>
               <tbody>
                 ${linhasPedidos}
@@ -1046,7 +1110,12 @@ export function PedidosUsouPagouPage() {
             <div style="display: flex; justify-content: flex-end; gap: 20px; font-weight: 700; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: -15px; margin-bottom: 25px;">
               <div>Envios: ${item.pedidos.length}</div>
               <div>Peso: ${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</div>
-              <div style="color: #3b6fe8;">Total: ${formatBRL(item.valorTotal)}</div>
+              ${temAlgumDescontoGeral && valorOriginalTotal > item.valorTotal ? `
+                <div style="color: #e53e3e;">Original: ${formatBRL(valorOriginalTotal)}</div>
+                <div style="color: #3b6fe8;">Total c/ Desc.: ${formatBRL(item.valorTotal)}</div>
+              ` : `
+                <div style="color: #3b6fe8;">Total: ${formatBRL(item.valorTotal)}</div>
+              `}
             </div>
           </div>
         `
@@ -1261,6 +1330,17 @@ export function PedidosUsouPagouPage() {
         <h2 class="section-title">Resumo Financeiro por Cliente</h2>
         <table>
           <thead>
+            ${temAlgumDescontoGeral ? `
+            <tr>
+              <th>Cliente</th>
+              <th>Local / Unidade</th>
+              <th>Telefone</th>
+              <th style="text-align: center;">Qtd Envios</th>
+              <th style="text-align: right;">Peso Acumulado</th>
+              <th style="text-align: right;">Valor Original</th>
+              <th style="text-align: right;">Valor c/ Desconto</th>
+            </tr>
+            ` : `
             <tr>
               <th>Cliente</th>
               <th>Local / Unidade</th>
@@ -1269,6 +1349,7 @@ export function PedidosUsouPagouPage() {
               <th style="text-align: right;">Peso Acumulado</th>
               <th style="text-align: right;">Saldo devedor</th>
             </tr>
+            `}
           </thead>
           <tbody>
             ${linhasResumo}
@@ -1288,10 +1369,21 @@ export function PedidosUsouPagouPage() {
             <div class="total-label">Peso Acumulado</div>
             <div class="total-value">${Number(totalPesoGeral).toLocaleString('pt-BR')} kg</div>
           </div>
+          ${temAlgumDescontoGeral ? `
+          <div class="total-item">
+            <div class="total-label">Valor Original Geral</div>
+            <div class="total-value" style="color: #e53e3e; font-size: 14px; font-weight:600;">${formatBRL(totalOriginalGeral)}</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Valor Geral c/ Desc.</div>
+            <div class="total-value" style="color: #3b6fe8;">${formatBRL(totalValorGeral)}</div>
+          </div>
+          ` : `
           <div class="total-item">
             <div class="total-label">Valor Geral Pendente</div>
             <div class="total-value" style="color: #ef4444;">${formatBRL(totalValorGeral)}</div>
           </div>
+          `}
         </div>
 
         <div class="payment-instructions">
