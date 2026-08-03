@@ -246,11 +246,11 @@ export function HistoricoPedidosPage() {
           th { background: #3b6fe8; color: #fff; font-size: 11px; text-align: left; padding: 8px 10px; text-transform: uppercase; letter-spacing: 0.4px; }
           td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
           tr:nth-child(even) td { background: #f8fafc; }
-          .subtotal { display: flex; justify-content: flex-end; gap: 24px; background: #edf2f7; padding: 8px 14px; border-radius: 6px; font-size: 13px; margin-top: -4px; }
-          .total-geral { display: flex; justify-content: flex-end; gap: 30px; background: #1a202c; color: #fff; padding: 12px 20px; border-radius: 8px; margin-top: 20px; margin-bottom: 30px; }
-          .total-geral div { text-align: right; }
-          .total-label { font-size: 10px; color: #a0aec0; text-transform: uppercase; margin-bottom: 2px; }
-          .total-value { font-size: 18px; font-weight: 700; }
+          .subtotal { display: flex; justify-content: space-around; align-items: center; gap: 24px; background: #edf2f7; padding: 8px 14px; border-radius: 6px; font-size: 13px; margin-top: -4px; text-align: center; }
+          .total-geral { display: flex; justify-content: space-around; align-items: center; gap: 30px; background: #1a202c; color: #fff; padding: 12px 20px; border-radius: 8px; margin-top: 20px; margin-bottom: 30px; text-align: center; }
+          .total-geral div { text-align: center; }
+          .total-label { font-size: 10px; color: #a0aec0; text-transform: uppercase; margin-bottom: 2px; text-align: center; }
+          .total-value { font-size: 18px; font-weight: 700; text-align: center; }
           .payment-box { background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 14px; margin-top: 16px; }
           .payment-box h4 { margin: 0 0 6px; color: #2b6cb0; font-size: 14px; }
           .footer-note { text-align: center; font-size: 10px; color: #a0aec0; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 12px; }

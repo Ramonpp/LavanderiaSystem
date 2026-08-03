@@ -497,8 +497,9 @@ export function PedidosUsouPagouPage() {
           }
           .totals-bar {
             display: flex;
-            justify-content: flex-end;
-            gap: 40px;
+            justify-content: space-around;
+            align-items: center;
+            gap: 20px;
             background: #edf2f7;
             padding: 12px 20px;
             border-radius: 8px;
@@ -506,18 +507,20 @@ export function PedidosUsouPagouPage() {
             border: 1px solid #cbd5e0;
           }
           .total-item {
-            text-align: right;
+            text-align: center;
           }
           .total-label {
             font-size: 11px;
             color: #4a5568;
             text-transform: uppercase;
             margin-bottom: 2px;
+            text-align: center;
           }
           .total-value {
             font-size: 18px;
             font-weight: 700;
             color: #1a202c;
+            text-align: center;
           }
           .payment-instructions {
             background-color: #ebf8ff;
@@ -1109,14 +1112,14 @@ export function PedidosUsouPagouPage() {
                 ${linhasPedidos}
               </tbody>
             </table>
-            <div style="display: flex; justify-content: flex-end; gap: 20px; font-weight: 700; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: -15px; margin-bottom: 25px;">
-              <div>Envios: ${item.pedidos.length}</div>
-              <div>Peso: ${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</div>
+            <div style="display: flex; justify-content: space-around; align-items: center; gap: 20px; font-weight: 700; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: -15px; margin-bottom: 25px; text-align: center;">
+              <div style="text-align: center;">Envios: ${item.pedidos.length}</div>
+              <div style="text-align: center;">Peso: ${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</div>
               ${temAlgumDescontoGeral && valorOriginalTotal > item.valorTotal ? `
-                <div style="color: #e53e3e;">Original: ${formatBRL(valorOriginalTotal)}</div>
-                <div style="color: #3b6fe8;">Total c/ Desc.: ${formatBRL(item.valorTotal)}</div>
+                <div style="text-align: center; color: #e53e3e;">Original: ${formatBRL(valorOriginalTotal)}</div>
+                <div style="text-align: center; color: #3b6fe8;">Total c/ Desc.: ${formatBRL(item.valorTotal)}</div>
               ` : `
-                <div style="color: #3b6fe8;">Total: ${formatBRL(item.valorTotal)}</div>
+                <div style="text-align: center; color: #3b6fe8;">Total: ${formatBRL(item.valorTotal)}</div>
               `}
             </div>
           </div>
@@ -1221,8 +1224,9 @@ export function PedidosUsouPagouPage() {
           
           .totals-bar {
             display: flex;
-            justify-content: flex-end;
-            gap: 30px;
+            justify-content: space-around;
+            align-items: center;
+            gap: 20px;
             background: #edf2f7;
             padding: 10px 15px;
             border-radius: 8px;
@@ -1230,18 +1234,20 @@ export function PedidosUsouPagouPage() {
             border: 1px solid #cbd5e0;
           }
           .total-item {
-            text-align: right;
+            text-align: center;
           }
           .total-label {
             font-size: 10px;
             color: #4a5568;
             text-transform: uppercase;
             margin-bottom: 2px;
+            text-align: center;
           }
           .total-value {
             font-size: 16px;
             font-weight: 700;
             color: #1a202c;
+            text-align: center;
           }
 
           .cliente-breakdown {
