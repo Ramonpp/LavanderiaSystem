@@ -1264,6 +1264,56 @@ export function PedidosUsouPagouPage() {
             color: #718096;
           }
           
+          .nowrap {
+            white-space: nowrap;
+          }
+
+          @media print {
+            @page {
+              margin: 0;
+            }
+            body {
+              margin: 1.6cm;
+              padding: 0;
+            }
+            .cliente-breakdown {
+              page-break-inside: avoid;
+            }
+            .no-print {
+              display: none !important;
+            }
+          }
+
+          @media screen and (max-width: 768px) {
+            body {
+              padding: 10px;
+              font-size: 11px;
+            }
+            .header {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 8px;
+            }
+            .doc-title {
+              text-align: left;
+              font-size: 16px;
+            }
+            .doc-date {
+              text-align: left;
+            }
+            table {
+              font-size: 10px;
+            }
+            th, td {
+              padding: 6px 4px;
+            }
+            .totals-bar {
+              flex-wrap: wrap;
+              gap: 10px;
+              justify-content: space-between;
+            }
+          }
+          
           .payment-instructions {
             background-color: #ebf8ff;
             border: 1px solid #bee3f8;
@@ -1290,22 +1340,6 @@ export function PedidosUsouPagouPage() {
             margin-top: 40px;
             border-top: 1px solid #e2e8f0;
             padding-top: 10px;
-          }
-          
-          @media print {
-            @page {
-              margin: 0;
-            }
-            body {
-              margin: 1.6cm;
-              padding: 0;
-            }
-            .cliente-breakdown {
-              page-break-inside: avoid;
-            }
-            .no-print {
-              display: none !important;
-            }
           }
         </style>
       </head>
@@ -1334,20 +1368,20 @@ export function PedidosUsouPagouPage() {
           <thead>
             ${temAlgumDescontoGeral ? `
             <tr>
-              <th style="width: 25%;">Cliente</th>
-              <th style="width: 35%;">Local / Unidade</th>
-              <th style="width: 12%; text-align: center;">Qtd Envios</th>
-              <th style="width: 12%; text-align: right;">Peso Acumulado</th>
-              <th style="width: 8%; text-align: right;">Valor Original</th>
-              <th style="width: 8%; text-align: right;">Valor c/ Desconto</th>
+              <th style="width: 26%;">Cliente</th>
+              <th style="width: 22%;">Local / Unidade</th>
+              <th style="width: 10%; text-align: center;" class="nowrap">Qtd Envios</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Peso Acum.</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Valor Orig.</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Valor c/ Desc.</th>
             </tr>
             ` : `
             <tr>
               <th style="width: 30%;">Cliente</th>
-              <th style="width: 45%;">Local / Unidade</th>
-              <th style="width: 10%; text-align: center;">Qtd Envios</th>
-              <th style="width: 10%; text-align: right;">Peso Acumulado</th>
-              <th style="width: 5%; text-align: right;">Saldo devedor</th>
+              <th style="width: 30%;">Local / Unidade</th>
+              <th style="width: 12%; text-align: center;" class="nowrap">Qtd Envios</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Peso Acum.</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Saldo Devedor</th>
             </tr>
             `}
           </thead>

@@ -104,6 +104,7 @@ export function CriarPedidoPage() {
     setItensLinhas((xs) =>
       xs.map((l) => {
         const q = Math.round(Number(l.quantidade)) || 0
+        if (q <= 0) return l
         const currentPecas = l.pecas || []
         const updatedPecas = Array.from({ length: q }, (_, i) => {
           const existing = currentPecas[i]
@@ -244,15 +245,27 @@ export function CriarPedidoPage() {
   }
 
   function handleQuantidadeChange(key: string, value: string) {
+    const isBlank = value.trim() === ''
     const q = Math.max(0, Math.round(Number(value.replace(',', '.'))) || 0)
+
+    const selected = clientes.find((c) => c.id === clienteId)
+    const defaultId = selected ? [selected.apartamento?.trim(), selected.bloco?.trim()].filter(Boolean).join(' / ') : ''
 
     setItensLinhas((xs) =>
       xs.map((l) => {
         if (l.key !== key) return l
         const currentPecas = l.pecas || []
+
+        // Se o campo de quantidade for limpo temporariamente enquanto o usuário digita, mantém as peças atuais
+        if (isBlank || q === 0) {
+          return { ...l, quantidade: value }
+        }
+
+        const fallbackId = currentPecas.find((p) => p.id_peca?.trim())?.id_peca || defaultId
+
         const updatedPecas = Array.from({ length: q }, (_, i) => {
-          // Preserva IDs existentes; novos slots ficam em branco
-          return currentPecas[i] || { id_peca: '', conferido: false }
+          // Preserva ID existente se houver; se for novo slot, herda o ID existente ou default
+          return currentPecas[i] || { id_peca: fallbackId, conferido: false }
         })
         return { ...l, quantidade: value, pecas: updatedPecas }
       })

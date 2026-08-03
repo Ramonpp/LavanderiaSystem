@@ -634,4 +634,15 @@ select.badge-select:focus {
   outline-offset: 2px;
 }
 
-
+/* Previne zoom automático do iOS / PWA ao focar campos de texto */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
