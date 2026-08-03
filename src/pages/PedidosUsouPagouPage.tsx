@@ -321,6 +321,8 @@ export function PedidosUsouPagouPage() {
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
+    const temAlgumDesconto = pedidosCliente.some((p) => receitaOriginalPedido(p) > receitaPedido(p))
+
     const detalhesPedidos = pedidosCliente
       .slice()
       .reverse()
@@ -336,26 +338,37 @@ export function PedidosUsouPagouPage() {
           .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
           .join(', ') || 'Sem especificações'
 
-        if (temDesconto) {
+        if (temAlgumDesconto) {
+          if (temDesconto) {
+            return `
+              <tr>
+                <td>${dataFormatada}</td>
+                <td>${pecasDetalhadas}</td>
+                <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                <td style="text-align:right;color:#e53e3e;font-size:13px">${formatBRL(valorOriginal)}</td>
+                <td style="text-align:right">
+                  <span style="font-weight:700;color:#3b6fe8;font-size:13px">${formatBRL(valorFinal)}</span>
+                  <span style="display:inline-block;margin-left:5px;font-size:9px;background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 5px;font-weight:600;vertical-align:middle">DESCONTO</span>
+                </td>
+              </tr>`
+          }
+
           return `
             <tr>
               <td>${dataFormatada}</td>
               <td>${pecasDetalhadas}</td>
               <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
-              <td style="text-align:right;color:#e53e3e;font-size:13px">${formatBRL(valorOriginal)}</td>
-              <td style="text-align:right">
-                <span style="font-weight:700;color:#3b6fe8;font-size:13px">${formatBRL(valorFinal)}</span>
-                <span style="display:inline-block;margin-left:5px;font-size:9px;background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 5px;font-weight:600;vertical-align:middle">DESCONTO</span>
-              </td>
+              <td style="text-align:right;color:transparent;font-size:13px">—</td>
+              <td style="text-align:right;font-weight:700;color:#3b6fe8">${formatBRL(valorFinal)}</td>
             </tr>`
         }
 
+        // Sem nenhum desconto, layout padrão de 4 colunas
         return `
           <tr>
             <td>${dataFormatada}</td>
             <td>${pecasDetalhadas}</td>
             <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
-            <td style="text-align:right;color:transparent;font-size:13px">—</td>
             <td style="text-align:right;font-weight:700;color:#3b6fe8">${formatBRL(valorFinal)}</td>
           </tr>`
       })
@@ -580,6 +593,7 @@ export function PedidosUsouPagouPage() {
 
         <table>
           <thead>
+            ${temAlgumDesconto ? `
             <tr>
               <th style="width: 14%;">Data</th>
               <th style="width: 44%;">Peças Lavadas</th>
@@ -587,6 +601,14 @@ export function PedidosUsouPagouPage() {
               <th style="width: 14%; text-align: right;">Valor Original</th>
               <th style="width: 16%; text-align: right;">Valor c/ Desconto</th>
             </tr>
+            ` : `
+            <tr>
+              <th style="width: 15%;">Data</th>
+              <th style="width: 50%;">Peças Lavadas</th>
+              <th style="width: 15%; text-align: right;">Peso</th>
+              <th style="width: 20%; text-align: right;">Valor</th>
+            </tr>
+            `}
           </thead>
           <tbody>
             ${detalhesPedidos}
