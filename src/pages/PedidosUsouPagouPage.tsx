@@ -347,8 +347,10 @@ export function PedidosUsouPagouPage() {
                 <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
                 <td style="text-align:right;color:#e53e3e;font-size:13px">${formatBRL(valorOriginal)}</td>
                 <td style="text-align:right">
-                  <span style="font-weight:700;color:#3b6fe8;font-size:13px">${formatBRL(valorFinal)}</span>
-                  <span style="display:inline-block;margin-left:5px;font-size:9px;background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 5px;font-weight:600;vertical-align:middle">DESCONTO</span>
+                  <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                    <span style="font-size:9px;background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 5px;font-weight:600">DESCONTO</span>
+                    <span style="font-weight:700;color:#3b6fe8;font-size:13px">${formatBRL(valorFinal)}</span>
+                  </div>
                 </td>
               </tr>`
           }
@@ -998,7 +1000,6 @@ export function PedidosUsouPagouPage() {
             <tr>
               <td style="font-weight: 600;">${item.cliente.nome}</td>
               <td>${localStr}</td>
-              <td>${item.cliente.telefone || '—'}</td>
               <td style="text-align: center;">${item.pedidos.length}</td>
               <td style="text-align: right;">${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</td>
               <td style="text-align: right; color: #e53e3e; font-size: 13px;">${temDescontoCliente ? formatBRL(valorOriginalTotal) : '—'}</td>
@@ -1011,10 +1012,9 @@ export function PedidosUsouPagouPage() {
           <tr>
             <td style="font-weight: 600;">${item.cliente.nome}</td>
             <td>${localStr}</td>
-            <td>${item.cliente.telefone || '—'}</td>
             <td style="text-align: center;">${item.pedidos.length}</td>
             <td style="text-align: right;">${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</td>
-            <td style="text-align: right; font-weight: 700; color: #ef4444;">${formatBRL(item.valorTotal)}</td>
+            <td style="text-align: right; font-weight: 700; color: #3b6fe8;">${formatBRL(item.valorTotal)}</td>
           </tr>
         `
       })
@@ -1050,8 +1050,10 @@ export function PedidosUsouPagouPage() {
                     <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
                     <td style="text-align: right; color: #e53e3e; font-size: 13px;">${formatBRL(valorOriginal)}</td>
                     <td style="text-align: right;">
-                      <span style="font-weight: 700; color: #3b6fe8; font-size: 13px;">${formatBRL(valorFinal)}</span>
-                      <span style="display: inline-block; margin-left: 5px; font-size: 9px; background: #c6f6d5; color: #276749; border-radius: 4px; padding: 1px 5px; font-weight: 600; vertical-align: middle;">DESCONTO</span>
+                      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                        <span style="font-size: 9px; background: #c6f6d5; color: #276749; border-radius: 4px; padding: 1px 5px; font-weight: 600;">DESCONTO</span>
+                        <span style="font-weight: 700; color: #3b6fe8; font-size: 13px;">${formatBRL(valorFinal)}</span>
+                      </div>
                     </td>
                   </tr>
                 `
@@ -1082,7 +1084,7 @@ export function PedidosUsouPagouPage() {
           <div class="cliente-breakdown">
             <div class="cliente-breakdown-header">
               <h3>${item.cliente.nome}</h3>
-              <p>${localStr !== '—' ? `📍 ${localStr} &nbsp;·&nbsp; ` : ''} 📞 ${item.cliente.telefone || 'Sem telefone'}</p>
+              <p>${localStr !== '—' ? `📍 ${localStr}` : ''}</p>
             </div>
             <table>
               <thead>
@@ -1145,7 +1147,7 @@ export function PedidosUsouPagouPage() {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #ef4444;
+            border-bottom: 2px solid #3b6fe8;
             padding-bottom: 12px;
             margin-bottom: 20px;
           }
@@ -1157,7 +1159,7 @@ export function PedidosUsouPagouPage() {
           .brand-name {
             font-size: 22px;
             font-weight: 800;
-            color: #ef4444;
+            color: #3b6fe8;
             margin: 0;
           }
           .brand-sub {
@@ -1263,8 +1265,8 @@ export function PedidosUsouPagouPage() {
           }
           
           .payment-instructions {
-            background-color: #fef2f2;
-            border: 1px solid #fee2e2;
+            background-color: #ebf8ff;
+            border: 1px solid #bee3f8;
             border-radius: 8px;
             padding: 15px;
             margin-top: 20px;
@@ -1272,7 +1274,7 @@ export function PedidosUsouPagouPage() {
           }
           .payment-instructions h4 {
             margin: 0 0 8px 0;
-            color: #991b1b;
+            color: #2b6cb0;
             font-size: 14px;
           }
           .payment-instructions p {
@@ -1332,22 +1334,20 @@ export function PedidosUsouPagouPage() {
           <thead>
             ${temAlgumDescontoGeral ? `
             <tr>
-              <th>Cliente</th>
-              <th>Local / Unidade</th>
-              <th>Telefone</th>
-              <th style="text-align: center;">Qtd Envios</th>
-              <th style="text-align: right;">Peso Acumulado</th>
-              <th style="text-align: right;">Valor Original</th>
-              <th style="text-align: right;">Valor c/ Desconto</th>
+              <th style="width: 25%;">Cliente</th>
+              <th style="width: 35%;">Local / Unidade</th>
+              <th style="width: 12%; text-align: center;">Qtd Envios</th>
+              <th style="width: 12%; text-align: right;">Peso Acumulado</th>
+              <th style="width: 8%; text-align: right;">Valor Original</th>
+              <th style="width: 8%; text-align: right;">Valor c/ Desconto</th>
             </tr>
             ` : `
             <tr>
-              <th>Cliente</th>
-              <th>Local / Unidade</th>
-              <th>Telefone</th>
-              <th style="text-align: center;">Qtd Envios</th>
-              <th style="text-align: right;">Peso Acumulado</th>
-              <th style="text-align: right;">Saldo devedor</th>
+              <th style="width: 30%;">Cliente</th>
+              <th style="width: 45%;">Local / Unidade</th>
+              <th style="width: 10%; text-align: center;">Qtd Envios</th>
+              <th style="width: 10%; text-align: right;">Peso Acumulado</th>
+              <th style="width: 5%; text-align: right;">Saldo devedor</th>
             </tr>
             `}
           </thead>
@@ -1381,7 +1381,7 @@ export function PedidosUsouPagouPage() {
           ` : `
           <div class="total-item">
             <div class="total-label">Valor Geral Pendente</div>
-            <div class="total-value" style="color: #ef4444;">${formatBRL(totalValorGeral)}</div>
+            <div class="total-value" style="color: #3b6fe8;">${formatBRL(totalValorGeral)}</div>
           </div>
           `}
         </div>
@@ -1389,7 +1389,7 @@ export function PedidosUsouPagouPage() {
         <div class="payment-instructions">
           <h4>Dados para Pagamento via PIX</h4>
           <p style="margin: 0; font-weight: 600;">Beneficiário: Ramon Pereira Paixão</p>
-          <p style="margin: 4px 0 0 0; font-weight: bold; color: #ef4444; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
+          <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX (CNPJ): 59.815.300/0001-71</p>
         </div>
 
         <h2 class="section-title" style="page-break-before: auto;">Detalhamento das Pendências</h2>
