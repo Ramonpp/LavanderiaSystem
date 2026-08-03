@@ -3,7 +3,7 @@ import { fetchClientes } from '../data/clientes'
 import { fetchPedidos, fetchItensPorPedidos } from '../data/pedidos'
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, PedidoCliente, ItemPedido, TipoPeca } from '../types/models'
-import { receitaPedido } from '../domain/finance'
+import { receitaPedido, receitaOriginalPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { jsPDF } from 'jspdf'
@@ -177,6 +177,88 @@ export function PedidosMensaisPage() {
         return true
       })
   }, [clientes, pedidos, busca])
+
+  // Estado para múltiplos clientes selecionados
+  const [selectedClientesIds, setSelectedClientesIds] = useState<Set<string>>(new Set())
+  // Estado para pedidos individuais selecionados por cliente (clienteId -> Set<pedidoId>)
+  const [selectedPedidoIds, setSelectedPedidoIds] = useState<Record<string, Set<string>>>({})
+
+  // Limpa IDs de clientes selecionados se eles não estiverem mais na lista visível filtrada
+  useEffect(() => {
+    const visiveisIds = new Set(mensalistasComPendencia.map(item => item.cliente.id))
+    setSelectedClientesIds(prev => {
+      const next = new Set<string>()
+      prev.forEach(id => {
+        if (visiveisIds.has(id)) next.add(id)
+      })
+      return next
+    })
+  }, [mensalistasComPendencia])
+
+  // Alternar seleção de cliente específico
+  function handleToggleSelect(clienteId: string) {
+    setSelectedClientesIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(clienteId)) {
+        next.delete(clienteId)
+      } else {
+        next.add(clienteId)
+      }
+      return next
+    })
+  }
+
+  // Alternar todos os visíveis
+  const todosSelecionados = useMemo(() => {
+    if (mensalistasComPendencia.length === 0) return false
+    return mensalistasComPendencia.every((item) => selectedClientesIds.has(item.cliente.id))
+  }, [mensalistasComPendencia, selectedClientesIds])
+
+  function handleSelectAll() {
+    if (todosSelecionados) {
+      setSelectedClientesIds((prev) => {
+        const next = new Set(prev)
+        mensalistasComPendencia.forEach((item) => next.delete(item.cliente.id))
+        return next
+      })
+    } else {
+      setSelectedClientesIds((prev) => {
+        const next = new Set(prev)
+        mensalistasComPendencia.forEach((item) => next.add(item.cliente.id))
+        return next
+      })
+    }
+  }
+
+  // Obter pedidos selecionados de um cliente (ou todos se nenhum marcado)
+  function getPedidosParaAcao(clienteId: string, todosPedidos: PedidoCliente[]): PedidoCliente[] {
+    const sel = selectedPedidoIds[clienteId]
+    if (!sel || sel.size === 0) return todosPedidos
+    return todosPedidos.filter((p) => sel.has(p.id))
+  }
+
+  function handleTogglePedidoSelect(clienteId: string, pedidoId: string) {
+    setSelectedPedidoIds((prev) => {
+      const clienteSet = new Set(prev[clienteId] || [])
+      if (clienteSet.has(pedidoId)) clienteSet.delete(pedidoId)
+      else clienteSet.add(pedidoId)
+      return { ...prev, [clienteId]: clienteSet }
+    })
+  }
+
+  function handleToggleAllPedidosCliente(clienteId: string, todosPedidos: PedidoCliente[]) {
+    setSelectedPedidoIds((prev) => {
+      const clienteSet = prev[clienteId] || new Set<string>()
+      const allSelected = todosPedidos.every((p) => clienteSet.has(p.id))
+      const next = new Set(clienteSet)
+      if (allSelected) {
+        todosPedidos.forEach((p) => next.delete(p.id))
+      } else {
+        todosPedidos.forEach((p) => next.add(p.id))
+      }
+      return { ...prev, [clienteId]: next }
+    })
+  }
 
   function formatarLocal(c: Cliente) {
     const parts = []
@@ -479,9 +561,9 @@ export function PedidosMensaisPage() {
             ${localStr !== '—' ? `<span>${localStr}</span>` : ''}
           </div>
           <div class="info-block">
-            <h3>Contato</h3>
-            <p>${c.telefone || 'Sem telefone'}</p>
-            <span>Plano Mensal · Pagamento acordado via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
+            <h3>Plano e Pagamento</h3>
+            <p>Plano Mensal</p>
+            <span>Pagamento acordado via: ${FORMA_PAGTO_LABELS[c.forma_pagamento] || c.forma_pagamento}</span>
           </div>
         </div>
 
@@ -537,6 +619,499 @@ export function PedidosMensaisPage() {
                 ` 
                 : 'window.print();'
               }
+            }, 500);
+          }
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  // Gera o PDF consolidado com todas as pendências para os clientes mensalistas SELECIONADOS
+  function handleGerarPDFConsolidado() {
+    if (selectedClientesIds.size === 0) return
+
+    const selecionados = mensalistasComPendencia
+      .filter((item) => selectedClientesIds.has(item.cliente.id))
+      .map((item) => {
+        const pedidosParaAcao = getPedidosParaAcao(item.cliente.id, item.pedidos)
+        const pesoTotal = pedidosParaAcao.reduce((sum, p) => sum + Number(p.peso_kg || 0), 0)
+        const valorTotal = pedidosParaAcao.reduce((sum, p) => sum + receitaPedido(p), 0)
+        return {
+          ...item,
+          pedidos: pedidosParaAcao,
+          pesoTotal,
+          valorTotal,
+        }
+      })
+      .filter((item) => item.pedidos.length > 0)
+
+    if (selecionados.length === 0) return
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const temAlgumDescontoGeral = selecionados.some((item) =>
+      item.pedidos.some((p) => receitaOriginalPedido(p) > receitaPedido(p))
+    )
+
+    let totalEnviosGeral = 0
+    let totalPesoGeral = 0
+    let totalValorGeral = 0
+    let totalOriginalGeral = 0
+
+    const linhasResumo = selecionados
+      .map((item) => {
+        totalEnviosGeral += item.pedidos.length
+        totalPesoGeral += item.pesoTotal
+        totalValorGeral += item.valorTotal
+
+        const valorOriginalTotal = item.pedidos.reduce((sum, p) => sum + receitaOriginalPedido(p), 0)
+        totalOriginalGeral += valorOriginalTotal
+
+        const localStr = formatarLocal(item.cliente)
+        const temDescontoCliente = valorOriginalTotal > item.valorTotal
+
+        if (temAlgumDescontoGeral) {
+          return `
+            <tr>
+              <td style="font-weight: 600;">${item.cliente.nome}</td>
+              <td>${localStr}</td>
+              <td style="text-align: center;">${item.pedidos.length}</td>
+              <td style="text-align: right;">${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</td>
+              <td style="text-align: right; color: #e53e3e; font-size: 13px;">${temDescontoCliente ? formatBRL(valorOriginalTotal) : '—'}</td>
+              <td style="text-align: right; font-weight: 700; color: #3b6fe8;">${formatBRL(item.valorTotal)}</td>
+            </tr>
+          `
+        }
+
+        return `
+          <tr>
+            <td style="font-weight: 600;">${item.cliente.nome}</td>
+            <td>${localStr}</td>
+            <td style="text-align: center;">${item.pedidos.length}</td>
+            <td style="text-align: right;">${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</td>
+            <td style="text-align: right; font-weight: 700; color: #3b6fe8;">${formatBRL(item.valorTotal)}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    const detalhamentoClientes = selecionados
+      .map((item) => {
+        const localStr = formatarLocal(item.cliente)
+        const valorOriginalTotal = item.pedidos.reduce((sum, p) => sum + receitaOriginalPedido(p), 0)
+
+        const linhasPedidos = item.pedidos
+          .slice()
+          .reverse()
+          .map((p) => {
+            const [ano, mes, dia] = p.data_pedido.split('-')
+            const dataFormatada = `${dia}/${mes}/${ano}`
+            const valorOriginal = receitaOriginalPedido(p)
+            const valorFinal = receitaPedido(p)
+            const temDesconto = valorOriginal > valorFinal
+            
+            const itens = itensMap[p.id] || []
+            const pecasDetalhadas = itens
+              .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+              .join(', ') || 'Sem especificações'
+
+            if (temAlgumDescontoGeral) {
+              if (temDesconto) {
+                return `
+                  <tr>
+                    <td>${dataFormatada}</td>
+                    <td>${pecasDetalhadas}</td>
+                    <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                    <td style="text-align: right; color: #e53e3e; font-size: 13px;">${formatBRL(valorOriginal)}</td>
+                    <td style="text-align: right;">
+                      <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                        <span style="font-size: 9px; background: #c6f6d5; color: #276749; border-radius: 4px; padding: 1px 5px; font-weight: 600;">DESCONTO</span>
+                        <span style="font-weight: 700; color: #3b6fe8; font-size: 13px;">${formatBRL(valorFinal)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                `
+              }
+              return `
+                <tr>
+                  <td>${dataFormatada}</td>
+                  <td>${pecasDetalhadas}</td>
+                  <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+                  <td style="text-align: right; color: transparent; font-size: 13px;">—</td>
+                  <td style="text-align: right; font-weight: 700; color: #3b6fe8;">${formatBRL(valorFinal)}</td>
+                </tr>
+              `
+            }
+
+            return `
+              <tr>
+                <td>${dataFormatada}</td>
+                <td>${pecasDetalhadas}</td>
+                <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
+                <td style="text-align: right; font-weight: 600;">${formatBRL(valorFinal)}</td>
+              </tr>
+            `
+          })
+          .join('')
+
+        return `
+          <div class="cliente-breakdown">
+            <div class="cliente-breakdown-header">
+              <h3>${item.cliente.nome}</h3>
+              <p>${localStr !== '—' ? `📍 ${localStr}` : ''}</p>
+            </div>
+            <table>
+              <thead>
+                ${temAlgumDescontoGeral ? `
+                <tr>
+                  <th style="width: 14%;">Data</th>
+                  <th style="width: 44%;">Peças Lavadas</th>
+                  <th style="width: 12%; text-align: right;">Peso</th>
+                  <th style="width: 14%; text-align: right;">Valor Original</th>
+                  <th style="width: 16%; text-align: right;">Valor c/ Desconto</th>
+                </tr>
+                ` : `
+                <tr>
+                  <th style="width: 15%;">Data</th>
+                  <th style="width: 50%;">Peças Lavadas</th>
+                  <th style="width: 15%; text-align: right;">Peso</th>
+                  <th style="width: 20%; text-align: right;">Valor</th>
+                </tr>
+                `}
+              </thead>
+              <tbody>
+                ${linhasPedidos}
+              </tbody>
+            </table>
+            <div style="display: flex; justify-content: flex-end; gap: 20px; font-weight: 700; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: -15px; margin-bottom: 25px;">
+              <div>Envios: ${item.pedidos.length}</div>
+              <div>Peso: ${Number(item.pesoTotal).toLocaleString('pt-BR')} kg</div>
+              ${temAlgumDescontoGeral && valorOriginalTotal > item.valorTotal ? `
+                <div style="color: #e53e3e;">Original: ${formatBRL(valorOriginalTotal)}</div>
+                <div style="color: #3b6fe8;">Total c/ Desc.: ${formatBRL(item.valorTotal)}</div>
+              ` : `
+                <div style="color: #3b6fe8;">Total: ${formatBRL(item.valorTotal)}</div>
+              `}
+            </div>
+          </div>
+        `
+      })
+      .join('')
+
+    const dataEmissao = new Date().toLocaleDateString('pt-BR')
+    const baseUrl = window.location.origin
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Pendências - Clientes Mensalistas</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #333;
+            background-color: #ffffff !important;
+            margin: 0;
+            padding: 20px;
+            font-size: 13px;
+            line-height: 1.4;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #3b6fe8;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+          }
+          .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .brand-name {
+            font-size: 22px;
+            font-weight: 800;
+            color: #3b6fe8;
+            margin: 0;
+          }
+          .brand-sub {
+            font-size: 11px;
+            color: #666;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .doc-title {
+            font-size: 18px;
+            font-weight: 700;
+            text-align: right;
+            margin: 0;
+            color: #333;
+          }
+          .doc-date {
+            font-size: 12px;
+            color: #666;
+            text-align: right;
+            margin-top: 4px;
+          }
+          
+          h2.section-title {
+            font-size: 15px;
+            color: #1a202c;
+            border-bottom: 1.5px solid #cbd5e0;
+            padding-bottom: 6px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+          }
+          th {
+            background-color: #4a5568;
+            color: white;
+            font-weight: 600;
+            text-align: left;
+            padding: 8px 10px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #2d3748;
+          }
+          tr:nth-child(even) td {
+            background-color: #f8fafc;
+          }
+          
+          .totals-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 30px;
+            background: #edf2f7;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid #cbd5e0;
+          }
+          .total-item {
+            text-align: right;
+          }
+          .total-label {
+            font-size: 10px;
+            color: #4a5568;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+          }
+          .total-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a202c;
+          }
+
+          .cliente-breakdown {
+            page-break-inside: avoid;
+            margin-bottom: 30px;
+          }
+          .cliente-breakdown-header {
+            margin-bottom: 10px;
+            padding-left: 4px;
+            border-left: 3px solid #3b6fe8;
+          }
+          .cliente-breakdown-header h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #1a202c;
+          }
+          .cliente-breakdown-header p {
+            margin: 2px 0 0 0;
+            font-size: 11px;
+            color: #718096;
+          }
+          
+          .nowrap {
+            white-space: nowrap;
+          }
+
+          @media print {
+            @page {
+              margin: 0;
+            }
+            body {
+              margin: 1.6cm;
+              padding: 0;
+            }
+            .cliente-breakdown {
+              page-break-inside: avoid;
+            }
+            .no-print {
+              display: none !important;
+            }
+          }
+
+          @media screen and (max-width: 768px) {
+            body {
+              padding: 10px;
+              font-size: 11px;
+            }
+            .header {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 8px;
+            }
+            .doc-title {
+              text-align: left;
+              font-size: 16px;
+            }
+            .doc-date {
+              text-align: left;
+            }
+            table {
+              font-size: 10px;
+            }
+            th, td {
+              padding: 6px 4px;
+            }
+            .totals-bar {
+              flex-wrap: wrap;
+              gap: 10px;
+              justify-content: space-between;
+            }
+          }
+          
+          .payment-instructions {
+            background-color: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            margin-bottom: 25px;
+          }
+          .payment-instructions h4 {
+            margin: 0 0 8px 0;
+            color: #2b6cb0;
+            font-size: 14px;
+          }
+          .payment-instructions p {
+            margin: 0;
+            font-size: 13px;
+            color: #2d3748;
+          }
+
+          .footer-note {
+            text-align: center;
+            font-size: 10px;
+            color: #a0aec0;
+            margin-top: 40px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print" style="margin-bottom: 20px;">
+          <button onclick="window.close(); if(window.history.length > 1) { window.history.back(); } else { window.location.href = '${baseUrl}'; }" style="padding: 10px 16px; font-size: 14px; background-color: #e2e8f0; color: #1a202c; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+            ⬅ Voltar ao Aplicativo
+          </button>
+        </div>
+        <div class="header">
+          <div class="logo-container">
+            <img src="${baseUrl}/logo.png" alt="Logo" class="logo-img" onerror="this.style.display='none'" style="width:40px;height:40px;object-fit:contain;" />
+            <div>
+              <h1 class="brand-name">Ciclo Novo</h1>
+              <p class="brand-sub">Lavanderia</p>
+            </div>
+          </div>
+          <div>
+            <h2 class="doc-title">Relatório Geral de Pendências (Mensalistas)</h2>
+            <p class="doc-date">Emitido em: ${dataEmissao}</p>
+          </div>
+        </div>
+
+        <h2 class="section-title">Resumo Financeiro por Cliente</h2>
+        <table>
+          <thead>
+            ${temAlgumDescontoGeral ? `
+            <tr>
+              <th style="width: 26%;">Cliente</th>
+              <th style="width: 22%;">Local / Unidade</th>
+              <th style="width: 10%; text-align: center;" class="nowrap">Qtd Envios</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Peso Acum.</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Valor Orig.</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Valor c/ Desc.</th>
+            </tr>
+            ` : `
+            <tr>
+              <th style="width: 30%;">Cliente</th>
+              <th style="width: 30%;">Local / Unidade</th>
+              <th style="width: 12%; text-align: center;" class="nowrap">Qtd Envios</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Peso Acum.</th>
+              <th style="width: 14%; text-align: right;" class="nowrap">Saldo Devedor</th>
+            </tr>
+            `}
+          </thead>
+          <tbody>
+            ${linhasResumo}
+          </tbody>
+        </table>
+
+        <div class="totals-bar">
+          <div class="total-item">
+            <div class="total-label">Clientes Selecionados</div>
+            <div class="total-value">${selecionados.length}</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Quantidade de Envios</div>
+            <div class="total-value">${totalEnviosGeral}</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Peso Acumulado</div>
+            <div class="total-value">${Number(totalPesoGeral).toLocaleString('pt-BR')} kg</div>
+          </div>
+          ${temAlgumDescontoGeral ? `
+          <div class="total-item">
+            <div class="total-label">Valor Original Geral</div>
+            <div class="total-value" style="color: #e53e3e; font-size: 14px; font-weight:600;">${formatBRL(totalOriginalGeral)}</div>
+          </div>
+          <div class="total-item">
+            <div class="total-label">Valor Geral c/ Desc.</div>
+            <div class="total-value" style="color: #3b6fe8;">${formatBRL(totalValorGeral)}</div>
+          </div>
+          ` : `
+          <div class="total-item">
+            <div class="total-label">Valor Geral Pendente</div>
+            <div class="total-value" style="color: #3b6fe8;">${formatBRL(totalValorGeral)}</div>
+          </div>
+          `}
+        </div>
+
+        <div class="payment-instructions">
+          <h4>Dados para Pagamento via PIX</h4>
+          <p style="margin: 0; font-weight: 600;">Beneficiário: Ramon Pereira Paixão</p>
+          <p style="margin: 4px 0 0 0; font-weight: bold; color: #3b6fe8; font-size: 15px;">Chave PIX: ${chavePix || '59.815.300/0001-71 (CNPJ)'}</p>
+        </div>
+
+        <h2 class="section-title" style="page-break-before: auto;">Detalhamento das Pendências</h2>
+        ${detalhamentoClientes}
+
+        <p class="footer-note">Ciclo Novo Lavanderia · Relatório Gerencial Gerado em ${dataEmissao}</p>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
             }, 500);
           }
         </script>
@@ -1123,10 +1698,32 @@ export function PedidosMensaisPage() {
 
       <section className="panel" style={{ marginTop: 12 }}>
         <div className="panelHeader" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12, flexWrap: 'wrap', gap: 12 }}>
-          <h2 style={{ fontSize: 18, color: 'var(--accent)', margin: 0 }}>Clientes Mensalistas</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h2 style={{ fontSize: 18, color: 'var(--accent)', margin: 0 }}>Clientes Mensalistas</h2>
+            <span className="badge badgeRed" style={{ fontSize: 12 }}>
+              {selectedClientesIds.size} selecionado(s)
+            </span>
+          </div>
           
           <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-end' }}>
-            <div className="field" style={{ minWidth: 240, margin: 0, flex: '1 1 auto' }}>
+            <button
+              className="btn btnPrimary"
+              type="button"
+              disabled={selectedClientesIds.size === 0}
+              onClick={handleGerarPDFConsolidado}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+              Gerar PDF de Pendências Selecionadas
+            </button>
+
+            <div className="field" style={{ minWidth: 220, margin: 0, flex: '1 1 auto' }}>
               <input
                 type="text"
                 placeholder="Buscar por nome ou condomínio..."
@@ -1144,7 +1741,7 @@ export function PedidosMensaisPage() {
               />
             </div>
             
-            <div className="field" style={{ minWidth: 240, margin: 0, flex: '1 1 auto' }}>
+            <div className="field" style={{ minWidth: 220, margin: 0, flex: '1 1 auto' }}>
               <input
                 type="text"
                 placeholder="Chave Pix para cobrança..."
@@ -1171,8 +1768,29 @@ export function PedidosMensaisPage() {
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 14, padding: '0 16px' }}>
+              
+              {/* Opção de Selecionar Todos */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '4px 10px', gap: 10, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+                <input
+                  type="checkbox"
+                  id="select-all-checkbox-mensal"
+                  checked={todosSelecionados}
+                  onChange={handleSelectAll}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    cursor: 'pointer',
+                    margin: 0
+                  }}
+                />
+                <label htmlFor="select-all-checkbox-mensal" style={{ margin: 0, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  Selecionar todos os clientes filtrados ({mensalistasComPendencia.length})
+                </label>
+              </div>
+
               {mensalistasComPendencia.map((item) => {
                 const isExpanded = expandedClienteId === item.cliente.id
+                const isSelected = selectedClientesIds.has(item.cliente.id)
                 return (
                   <div
                     key={item.cliente.id}
@@ -1182,10 +1800,33 @@ export function PedidosMensaisPage() {
                       background: 'var(--bg)',
                       overflow: 'hidden',
                       transition: 'all 0.2s ease-in-out',
-                      boxShadow: isExpanded ? 'var(--shadow-raised)' : 'none'
+                      boxShadow: isExpanded ? 'var(--shadow-raised)' : 'none',
+                      borderColor: isSelected ? 'var(--accent)' : 'var(--border)'
                     }}
                   >
                     {/* Header do Card */}
+                    <div
+                      style={{
+                        padding: '14px 18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 14
+                      }}
+                    >
+                      {/* Checkbox de seleção */}
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelect(item.cliente.id)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer',
+                          margin: 0,
+                          flexShrink: 0
+                        }}
+                      />
+
                       <div
                         onClick={() => setExpandedClienteId(isExpanded ? null : item.cliente.id)}
                         className="client-card-header"
@@ -1225,6 +1866,7 @@ export function PedidosMensaisPage() {
                           </div>
                         </div>
                       </div>
+                    </div>
 
                     {/* Detalhamento Expandido */}
                     {isExpanded && (
@@ -1253,7 +1895,12 @@ export function PedidosMensaisPage() {
                           <button
                             className="btn btnPrimary"
                             type="button"
-                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, false)}
+                            onClick={() => {
+                              const pedidosParaAcao = getPedidosParaAcao(item.cliente.id, item.pedidos)
+                              const pesoSel = pedidosParaAcao.reduce((s, p) => s + Number(p.peso_kg || 0), 0)
+                              const valorSel = pedidosParaAcao.reduce((s, p) => s + receitaPedido(p), 0)
+                              handleGerarPDF(item.cliente, pedidosParaAcao, pesoSel, valorSel, false)
+                            }}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
                           >
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1263,13 +1910,23 @@ export function PedidosMensaisPage() {
                               <line x1="16" y1="17" x2="8" y2="17" />
                               <polyline points="10 9 9 9 8 9" />
                             </svg>
-                            Gerar Relatório (PDF)
+                            {(() => {
+                              const sel = selectedPedidoIds[item.cliente.id]
+                              return sel && sel.size > 0
+                                ? `Gerar PDF (${sel.size} selecionado${sel.size > 1 ? 's' : ''})`
+                                : 'Gerar Relatório (PDF)'
+                            })()}
                           </button>
 
                           <button
                             className="btn"
                             type="button"
-                            onClick={() => handleCopiarPNG(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
+                            onClick={() => {
+                              const pedidosParaAcao = getPedidosParaAcao(item.cliente.id, item.pedidos)
+                              const pesoSel = pedidosParaAcao.reduce((s, p) => s + Number(p.peso_kg || 0), 0)
+                              const valorSel = pedidosParaAcao.reduce((s, p) => s + receitaPedido(p), 0)
+                              handleCopiarPNG(item.cliente, pedidosParaAcao, pesoSel, valorSel)
+                            }}
                             style={{ 
                               display: 'inline-flex', 
                               alignItems: 'center', 
@@ -1292,7 +1949,12 @@ export function PedidosMensaisPage() {
                           <button
                             className="btn"
                             type="button"
-                            onClick={() => handleGerarPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal, true)}
+                            onClick={() => {
+                              const pedidosParaAcao = getPedidosParaAcao(item.cliente.id, item.pedidos)
+                              const pesoSel = pedidosParaAcao.reduce((s, p) => s + Number(p.peso_kg || 0), 0)
+                              const valorSel = pedidosParaAcao.reduce((s, p) => s + receitaPedido(p), 0)
+                              handleGerarPDF(item.cliente, pedidosParaAcao, pesoSel, valorSel, true)
+                            }}
                             style={{ 
                               display: 'inline-flex', 
                               alignItems: 'center', 
@@ -1317,7 +1979,12 @@ export function PedidosMensaisPage() {
                             <button
                               className="btn btnSuccess"
                               type="button"
-                              onClick={() => handleCompartilharPDF(item.cliente, item.pedidos, item.pesoTotal, item.valorTotal)}
+                              onClick={() => {
+                                const pedidosParaAcao = getPedidosParaAcao(item.cliente.id, item.pedidos)
+                                const pesoSel = pedidosParaAcao.reduce((s, p) => s + Number(p.peso_kg || 0), 0)
+                                const valorSel = pedidosParaAcao.reduce((s, p) => s + receitaPedido(p), 0)
+                                handleCompartilharPDF(item.cliente, pedidosParaAcao, pesoSel, valorSel)
+                              }}
                               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '8px 14px' }}
                             >
                               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1355,11 +2022,30 @@ export function PedidosMensaisPage() {
                           </button>
                         </div>
 
-                        {/* Tabela de Pedidos do Cliente */}
+                        {/* Tabela de Pedidos do Cliente com checkboxes de seleção */}
                         <div className="tableWrap" style={{ background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                          {/* Info de seleção */}
+                          {(() => {
+                            const sel = selectedPedidoIds[item.cliente.id]
+                            const qtdSel = sel?.size || 0
+                            return qtdSel > 0 ? (
+                              <div style={{ padding: '6px 12px', background: 'var(--accent-bg)', borderBottom: '1px solid var(--accent-border)', fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+                                {qtdSel} pedido{qtdSel > 1 ? 's' : ''} selecionado{qtdSel > 1 ? 's' : ''} para o PDF · <button type="button" onClick={() => setSelectedPedidoIds(prev => ({ ...prev, [item.cliente.id]: new Set() }))} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontSize: 12, padding: 0 }}>Limpar seleção</button>
+                              </div>
+                            ) : null
+                          })()}
                           <table style={{ margin: 0 }}>
                             <thead>
                               <tr>
+                                <th style={{ width: 36 }}>
+                                  <input
+                                    type="checkbox"
+                                    title="Selecionar todos"
+                                    checked={item.pedidos.length > 0 && item.pedidos.every((p) => selectedPedidoIds[item.cliente.id]?.has(p.id))}
+                                    onChange={() => handleToggleAllPedidosCliente(item.cliente.id, item.pedidos)}
+                                    style={{ width: 15, height: 15, cursor: 'pointer' }}
+                                  />
+                                </th>
                                 <th>Data</th>
                                 <th>Peças Lavadas</th>
                                 <th style={{ textAlign: 'right' }}>Peso</th>
@@ -1372,8 +2058,21 @@ export function PedidosMensaisPage() {
                                 .reverse()
                                 .map((p) => {
                                   const itens = itensMap[p.id] || []
+                                  const isChecked = selectedPedidoIds[item.cliente.id]?.has(p.id) || false
                                   return (
-                                    <tr key={p.id}>
+                                    <tr
+                                      key={p.id}
+                                      style={{ background: isChecked ? 'var(--accent-bg)' : undefined, cursor: 'pointer' }}
+                                      onClick={() => handleTogglePedidoSelect(item.cliente.id, p.id)}
+                                    >
+                                      <td onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => handleTogglePedidoSelect(item.cliente.id, p.id)}
+                                          style={{ width: 15, height: 15, cursor: 'pointer' }}
+                                        />
+                                      </td>
                                       <td>
                                         {new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}
                                       </td>
