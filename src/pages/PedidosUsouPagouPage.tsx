@@ -331,24 +331,33 @@ export function PedidosUsouPagouPage() {
         const valorFinal = receitaPedido(p)
         const temDesconto = valorOriginal > valorFinal
 
-        let valorStr = `<span style="font-weight:700;color:#3b6fe8;font-size:12px">${formatBRL(valorFinal)}</span>`
-        if (temDesconto) {
-          valorStr = `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">${valorStr}<span style="font-size:9px;color:#e53e3e;background:rgba(229,62,62,0.1);border:1px solid rgba(229,62,62,0.3);border-radius:3px;padding:1px 4px;font-weight:500">De ${formatBRL(valorOriginal)}</span></div>`
-        }
-        
         const itens = itensMap[p.id] || []
         const pecasDetalhadas = itens
           .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
           .join(', ') || 'Sem especificações'
 
+        if (temDesconto) {
+          return `
+            <tr>
+              <td>${dataFormatada}</td>
+              <td>${pecasDetalhadas}</td>
+              <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+              <td style="text-align:right;color:#718096;font-size:11px">${formatBRL(valorOriginal)}</td>
+              <td style="text-align:right">
+                <span style="font-weight:700;color:#3b6fe8;font-size:13px">${formatBRL(valorFinal)}</span>
+                <span style="display:inline-block;margin-left:5px;font-size:9px;background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 5px;font-weight:600;vertical-align:middle">DESCONTO</span>
+              </td>
+            </tr>`
+        }
+
         return `
           <tr>
             <td>${dataFormatada}</td>
             <td>${pecasDetalhadas}</td>
-            <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
-            <td style="text-align: right;">${valorStr}</td>
-          </tr>
-        `
+            <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
+            <td style="text-align:right;color:transparent;font-size:11px">—</td>
+            <td style="text-align:right;font-weight:700;color:#3b6fe8">${formatBRL(valorFinal)}</td>
+          </tr>`
       })
       .join('')
 
@@ -572,10 +581,11 @@ export function PedidosUsouPagouPage() {
         <table>
           <thead>
             <tr>
-              <th style="width: 15%;">Data</th>
-              <th style="width: 50%;">Peças Lavadas</th>
-              <th style="width: 15%; text-align: right;">Peso</th>
-              <th style="width: 20%; text-align: right;">Valor</th>
+              <th style="width: 14%;">Data</th>
+              <th style="width: 44%;">Peças Lavadas</th>
+              <th style="width: 12%; text-align: right;">Peso</th>
+              <th style="width: 14%; text-align: right; color: #a0aec0; font-weight:500;">Valor Original</th>
+              <th style="width: 16%; text-align: right;">Valor c/ Desconto</th>
             </tr>
           </thead>
           <tbody>
@@ -795,19 +805,19 @@ export function PedidosUsouPagouPage() {
         let finalValorY = y + 4.8
         
         if (valorOriginal > valorFinal) {
-          // Original em vermelho, menor
+          // Label "Original:" em cinza, pequeno
           pdf.setFontSize(6)
           pdf.setFont('helvetica', 'normal')
-          pdf.setTextColor(229, 62, 62) // vermelho
-          const origText = `De ${formatBRL(valorOriginal)}`
-          const origW = pdf.getTextWidth(origText)
-          pdf.text(origText, colX[3] + colW[3] - origW - 2, y + 6.5)
-          
-          // Final em azul, acima
+          pdf.setTextColor(160, 174, 192)
+          const origLabel = `Original: ${formatBRL(valorOriginal)}`
+          const origW = pdf.getTextWidth(origLabel)
+          pdf.text(origLabel, colX[3] + colW[3] - origW - 2, y + 3)
+
+          // Label "c/ Desc.:" em azul, negrito
           pdf.setFontSize(8)
           pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(59, 111, 232) // azul
-          finalValorY = y + 3
+          pdf.setTextColor(59, 111, 232)
+          finalValorY = y + 7
         } else {
           pdf.setFontSize(8)
           pdf.setFont('helvetica', 'bold')
