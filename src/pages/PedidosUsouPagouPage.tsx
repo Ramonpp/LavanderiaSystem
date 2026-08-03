@@ -342,7 +342,7 @@ export function PedidosUsouPagouPage() {
               <td>${dataFormatada}</td>
               <td>${pecasDetalhadas}</td>
               <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
-              <td style="text-align:right;color:#718096;font-size:11px">${formatBRL(valorOriginal)}</td>
+              <td style="text-align:right;color:#e53e3e;font-size:13px">${formatBRL(valorOriginal)}</td>
               <td style="text-align:right">
                 <span style="font-weight:700;color:#3b6fe8;font-size:13px">${formatBRL(valorFinal)}</span>
                 <span style="display:inline-block;margin-left:5px;font-size:9px;background:#c6f6d5;color:#276749;border-radius:4px;padding:1px 5px;font-weight:600;vertical-align:middle">DESCONTO</span>
@@ -355,7 +355,7 @@ export function PedidosUsouPagouPage() {
             <td>${dataFormatada}</td>
             <td>${pecasDetalhadas}</td>
             <td style="text-align:right">${Number(p.peso_kg).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
-            <td style="text-align:right;color:transparent;font-size:11px">—</td>
+            <td style="text-align:right;color:transparent;font-size:13px">—</td>
             <td style="text-align:right;font-weight:700;color:#3b6fe8">${formatBRL(valorFinal)}</td>
           </tr>`
       })
@@ -584,7 +584,7 @@ export function PedidosUsouPagouPage() {
               <th style="width: 14%;">Data</th>
               <th style="width: 44%;">Peças Lavadas</th>
               <th style="width: 12%; text-align: right;">Peso</th>
-              <th style="width: 14%; text-align: right; color: #a0aec0; font-weight:500;">Valor Original</th>
+              <th style="width: 14%; text-align: right;">Valor Original</th>
               <th style="width: 16%; text-align: right;">Valor c/ Desconto</th>
             </tr>
           </thead>
