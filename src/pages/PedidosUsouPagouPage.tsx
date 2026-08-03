@@ -331,9 +331,9 @@ export function PedidosUsouPagouPage() {
         const valorFinal = receitaPedido(p)
         const temDesconto = valorOriginal > valorFinal
 
-        let valorStr = `<span style="font-weight:600;color:#3b6fe8">${formatBRL(valorFinal)}</span>`
+        let valorStr = `<span style="font-weight:700;color:#3b6fe8;font-size:12px">${formatBRL(valorFinal)}</span>`
         if (temDesconto) {
-          valorStr = `<span style="text-decoration:line-through;color:#a0aec0;font-size:10px;margin-right:4px">${formatBRL(valorOriginal)}</span>` + valorStr
+          valorStr = `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">${valorStr}<span style="font-size:9px;color:#e53e3e;background:rgba(229,62,62,0.1);border:1px solid rgba(229,62,62,0.3);border-radius:3px;padding:1px 4px;font-weight:500">De ${formatBRL(valorOriginal)}</span></div>`
         }
         
         const itens = itensMap[p.id] || []
@@ -795,25 +795,23 @@ export function PedidosUsouPagouPage() {
         let finalValorY = y + 4.8
         
         if (valorOriginal > valorFinal) {
+          // Original em vermelho, menor
           pdf.setFontSize(6)
           pdf.setFont('helvetica', 'normal')
-          pdf.setTextColor(160, 174, 192)
-          const origText = formatBRL(valorOriginal)
+          pdf.setTextColor(229, 62, 62) // vermelho
+          const origText = `De ${formatBRL(valorOriginal)}`
           const origW = pdf.getTextWidth(origText)
-          const origX = colX[3] + colW[3] - origW - 2
-          pdf.text(origText, origX, y + 3)
-          pdf.setDrawColor(160, 174, 192)
-          pdf.setLineWidth(0.2)
-          pdf.line(origX, y + 2.2, origX + origW, y + 2.2)
+          pdf.text(origText, colX[3] + colW[3] - origW - 2, y + 6.5)
           
+          // Final em azul, acima
           pdf.setFontSize(8)
           pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(59, 111, 232) // BLUE
-          finalValorY = y + 6.5
+          pdf.setTextColor(59, 111, 232) // azul
+          finalValorY = y + 3
         } else {
           pdf.setFontSize(8)
           pdf.setFont('helvetica', 'bold')
-          pdf.setTextColor(26, 32, 44) // DARK
+          pdf.setTextColor(26, 32, 44)
         }
         
         const valorW = pdf.getTextWidth(valorText)
@@ -1709,13 +1707,33 @@ export function PedidosUsouPagouPage() {
                                       <td style={{ textAlign: 'right' }}>
                                         {Number(p.peso_kg).toLocaleString('pt-BR')} kg
                                       </td>
-                                      <td style={{ textAlign: 'right', fontWeight: 650, color: 'var(--text-h)' }}>
-                                        {receitaOriginalPedido(p) > receitaPedido(p) && (
-                                          <span style={{ textDecoration: 'line-through', color: 'var(--muted)', fontSize: 11, marginRight: 6, fontWeight: 400 }}>
-                                            {formatBRL(receitaOriginalPedido(p))}
-                                          </span>
-                                        )}
-                                        {formatBRL(receitaPedido(p))}
+                                      <td style={{ textAlign: 'right' }}>
+                                        {(() => {
+                                          const orig = receitaOriginalPedido(p)
+                                          const final = receitaPedido(p)
+                                          const temDesconto = orig > final
+                                          return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                              <span style={{ fontWeight: 700, color: '#3b6fe8', fontSize: 13 }}>
+                                                {formatBRL(final)}
+                                              </span>
+                                              {temDesconto && (
+                                                <span style={{
+                                                  fontSize: 10,
+                                                  color: '#e53e3e',
+                                                  fontWeight: 500,
+                                                  background: 'rgba(229,62,62,0.08)',
+                                                  border: '1px solid rgba(229,62,62,0.25)',
+                                                  borderRadius: 4,
+                                                  padding: '1px 5px',
+                                                  letterSpacing: 0,
+                                                }}>
+                                                  De {formatBRL(orig)}
+                                                </span>
+                                              )}
+                                            </div>
+                                          )
+                                        })()}
                                       </td>
                                     </tr>
                                   )
