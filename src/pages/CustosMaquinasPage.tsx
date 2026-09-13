@@ -8,6 +8,13 @@ import { monthBoundsLocal } from '../lib/dates'
 import type { ResumoMensal } from '../types/models'
 import { supabase } from '../lib/supabase'
 import { fetchMaquinas } from '../data/maquinas'
+import {
+  TABELA_ENEL_RESIDENCIAL,
+  calcularCustoEnergiaEnelResidencial,
+  TABELA_AGUA_PROLAGOS,
+  calcularCustoAguaProlagos,
+} from '../lib/tarifasUtilidades'
+
 
 
 
@@ -84,7 +91,11 @@ function currentMonth() {
 export function CustosMaquinasPage() {
   const [mes, setMes] = useState(currentMonth)
 
-  const [tarifaKwh, setTarifaKwh] = useState(() => lsGet('lav_custos_tarifaKwh', '0.85'))
+  const [tarifaKwh, setTarifaKwh] = useState(() => lsGet('lav_custos_tarifaKwh', '1.09'))
+  const [modoEnergia, setModoEnergia] = useState<'enel_residencial' | 'manual'>(
+    () => (lsGet('lav_custos_modo_energia', 'enel_residencial') as 'enel_residencial' | 'manual')
+  )
+  const [mostrarTabelas, setMostrarTabelas] = useState(false)
 
   const [machineData, setMachineData] = useState<Record<MaqKey, MachineData>>(() => ({
     maq_753: loadMachineData('maq_753'),
@@ -252,9 +263,15 @@ export function CustosMaquinasPage() {
   }
 
 
+  function toggleModoEnergia(modo: 'enel_residencial' | 'manual') {
+    setModoEnergia(modo)
+    lsSet('lav_custos_modo_energia', modo)
+  }
+
   function salvarTarifas() {
     lsSet('lav_custos_tarifaKwh', tarifaKwh)
-    setMsg('Tarifa de energia salva.')
+    lsSet('lav_custos_modo_energia', modoEnergia)
+    setMsg('Tarifa e enquadramento salvos com sucesso.')
   }
 
   async function buscarLg(key: MaqKey, deviceId: string, nome: string) {
@@ -294,6 +311,22 @@ export function CustosMaquinasPage() {
     }
   }
 
+  /* ── Cálculos de Energia Global (Enel Residencial B1 Trifásico) ── */
+  const totalKwhMesMedido = (Object.keys(monthData) as MaqKey[]).reduce((acc, key) => {
+    const md = monthData[key]
+    return acc + (md.consumo_wh !== null ? md.consumo_wh / 1000 : 0)
+  }, 0)
+
+  const energyCalculated = calcularCustoEnergiaEnelResidencial(totalKwhMesMedido, true)
+  const tarifaManual = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
+
+  const tarifaKwhEfetiva = modoEnergia === 'enel_residencial'
+    ? (energyCalculated.tarifaKwh > 0 ? energyCalculated.tarifaKwh : 1.09)
+    : tarifaManual
+
+  const custoEnergiaTotal = modoEnergia === 'enel_residencial'
+    ? energyCalculated.custoTotal
+    : totalKwhMesMedido * tarifaKwhEfetiva
 
   /* ── Cálculos de Água Global (Tabela Demais Cidades Prolagos) ── */
   const totalLitros = (Object.keys(monthData) as MaqKey[]).reduce((acc, key) => {
@@ -305,29 +338,7 @@ export function CustosMaquinasPage() {
   }, 0)
 
   const totalM3 = totalLitros / 1000
-
-  function calcularCustoAgua(vM3: number): { custo: number; faixa: string; tarifa: number } {
-    if (vM3 <= 0) return { custo: 0, faixa: 'Sem consumo', tarifa: 0 }
-    if (vM3 <= 10) {
-      return { custo: 170.40, faixa: '0 a 10 m³', tarifa: 17.04 }
-    } else if (vM3 <= 15) {
-      return { custo: vM3 * 22.32, faixa: '11 a 15 m³', tarifa: 22.32 }
-    } else if (vM3 <= 25) {
-      return { custo: vM3 * 35.74, faixa: '16 a 25 m³', tarifa: 35.74 }
-    } else if (vM3 <= 35) {
-      return { custo: vM3 * 42.88, faixa: '26 a 35 m³', tarifa: 42.88 }
-    } else if (vM3 <= 45) {
-      return { custo: vM3 * 51.46, faixa: '36 a 45 m³', tarifa: 51.46 }
-    } else if (vM3 <= 55) {
-      return { custo: vM3 * 63.18, faixa: '46 a 55 m³', tarifa: 63.18 }
-    } else if (vM3 <= 65) {
-      return { custo: vM3 * 80.25, faixa: '56 a 65 m³', tarifa: 80.25 }
-    } else {
-      return { custo: vM3 * 91.26, faixa: 'Acima 65 m³', tarifa: 91.26 }
-    }
-  }
-
-  const waterCalculated = calcularCustoAgua(totalM3)
+  const waterCalculated = calcularCustoAguaProlagos(totalM3)
   const custoAguaTotal = waterCalculated.custo
 
   /* ── Cálculos por máquina ──────────────────────────────── */
@@ -353,15 +364,23 @@ export function CustosMaquinasPage() {
     const kwh_ciclo = (kwh_total !== null && ciclos > 0) ? kwh_total / ciclos : null
     const litrosVal = Math.max(0, Number(machine.litros_ciclo.replace(',', '.')) || 0)
 
-    const custo_energia_mes = kwh_total !== null ? kwh_total * kwh : 0
-    const custo_energia_ciclo = kwh_ciclo !== null ? kwh_ciclo * kwh : 0
+    // Proporcionalização justa do custo de energia
+    let custo_energia_mes = 0
+    if (kwh_total !== null && kwh_total > 0) {
+      if (totalKwhMesMedido > 0) {
+        custo_energia_mes = (custoEnergiaTotal * kwh_total) / totalKwhMesMedido
+      } else {
+        custo_energia_mes = kwh_total * tarifaKwhEfetiva
+      }
+    }
+    const custo_energia_ciclo = (kwh_ciclo !== null && ciclos > 0) ? custo_energia_mes / ciclos : null
 
     // Proporcionalização do custo de água
     const litrosMaq = litrosVal * ciclos
     const custo_agua_mes = totalLitros > 0 ? (custoAguaTotal * litrosMaq) / totalLitros : 0
     const custo_agua_ciclo = ciclos > 0 ? custo_agua_mes / ciclos : 0
 
-    const custo_total_ciclo = custo_energia_ciclo + custo_agua_ciclo
+    const custo_total_ciclo = (custo_energia_ciclo ?? 0) + custo_agua_ciclo
     const custo_total_mes = custo_energia_mes + custo_agua_mes
 
     return {
@@ -383,10 +402,11 @@ export function CustosMaquinasPage() {
     maq_789: calcular('maq_789'),
   }
 
-  const totalEnergiaMes = (resultados.maq_753?.custo_energia_mes ?? 0) + (resultados.maq_789?.custo_energia_mes ?? 0)
+  const totalEnergiaMes = custoEnergiaTotal
   const totalAguaMes = custoAguaTotal
   const totalMes = totalEnergiaMes + totalAguaMes
   const totalCiclos = (resultados.maq_753?.ciclos ?? 0) + (resultados.maq_789?.ciclos ?? 0)
+
 
 
   async function salvarResumo() {
@@ -446,7 +466,7 @@ export function CustosMaquinasPage() {
       <header>
         <h1 style={{ fontSize: 22, letterSpacing: -0.3 }}>Custos de Utilidades</h1>
         <p className="hint" style={{ marginTop: 4 }}>
-          Consumo de energia via API LG ThinQ + água por ciclo. Informe quantos ciclos foram feitos no mês para calcular a média por ciclo.
+          Consumo de energia via API LG ThinQ + água por ciclo com enquadramento <strong>Enel Trifásico Residencial (B1)</strong> e <strong>Prolagos</strong>.
         </p>
       </header>
 
@@ -455,42 +475,94 @@ export function CustosMaquinasPage() {
 
       {/* ── Tarifas e mês ─── */}
       <section className="panel">
-        <div className="panelHeader">
-          <h2 style={{ fontSize: 15 }}>Tarifas e período</h2>
-          <button className="btn btnPrimary" type="button" onClick={salvarTarifas}>
-            Salvar tarifa energia
-          </button>
-        </div>
-        <div className="panelBody">
-          <div className="row" style={{ alignItems: 'center' }}>
-            <div className="field">
-              <label htmlFor="kwh">Tarifa energia (R$/kWh)</label>
-              <input
-                id="kwh"
-                inputMode="decimal"
-                value={tarifaKwh}
-                onChange={(e) => setTarifaKwh(e.target.value)}
-                placeholder="0.85"
-              />
+        <div className="panelHeader" style={{ flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h2 style={{ fontSize: 15 }}>Enquadramento e Tarifas</h2>
+            <div className="hint" style={{ fontSize: 12 }}>
+              Regras oficiais Enel RJ (Residencial B1 Trifásico) e Prolagos Água
             </div>
-            <div className="field" style={{ minWidth: 280 }}>
-              <label>Tarifa de Água (Demais Cidades)</label>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              className="btn"
+              type="button"
+              style={{ fontSize: 12, padding: '6px 10px' }}
+              onClick={() => setMostrarTabelas(!mostrarTabelas)}
+            >
+              {mostrarTabelas ? 'Ocultar Tabelas de Alíquotas' : 'Ver Tabelas de Alíquotas e Faixas'}
+            </button>
+            <button className="btn btnPrimary" type="button" onClick={salvarTarifas}>
+              Salvar preferências
+            </button>
+          </div>
+        </div>
+        <div className="panelBody grid" style={{ gap: 14 }}>
+          <div className="row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            {/* Modo de cálculo Energia */}
+            <div className="field" style={{ minWidth: 260, flex: '1 1 260px' }}>
+              <label>Tarifa Energia — Enel Residencial Trifásico (B1)</label>
+              <div style={{
+                padding: '10px 12px',
+                background: 'var(--code-bg)',
+                borderRadius: 8,
+                fontSize: 13,
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--accent)' }}>
+                    {modoEnergia === 'enel_residencial'
+                      ? `Enel: ${energyCalculated.faixaNome}`
+                      : 'Tarifa Manual'}
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: 14 }}>
+                    R$ {fmt2(tarifaKwhEfetiva)} / kWh
+                  </span>
+                </div>
+                <div className="hint" style={{ fontSize: 11 }}>
+                  {modoEnergia === 'enel_residencial' ? (
+                    <>
+                      ICMS {energyCalculated.aliquotaIcmsTexto} (com impostos: {energyCalculated.aliquotaTotalTexto})
+                      {energyCalculated.minimoTrifasicoAplicado && ' · Mínimo trifásico 100 kWh aplicado'}
+                    </>
+                  ) : (
+                    'Modo manual personalizado ativo'
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Tarifa Prolagos */}
+            <div className="field" style={{ minWidth: 260, flex: '1 1 260px' }}>
+              <label>Tarifa de Água — Prolagos (Demais Cidades)</label>
               <div style={{ 
                 padding: '10px 12px', 
                 background: 'var(--code-bg)', 
                 borderRadius: 8, 
                 fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--text-h)',
                 border: '1px solid var(--border)',
-                minHeight: 38,
                 display: 'flex',
-                alignItems: 'center'
+                flexDirection: 'column',
+                gap: 4
               }}>
-                Prolagos: {waterCalculated.faixa} → {waterCalculated.tarifa > 0 ? `R$ ${fmt2(waterCalculated.tarifa)}/m³` : '—'}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--ok)' }}>
+                    Prolagos: {waterCalculated.faixa}
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: 14 }}>
+                    {waterCalculated.tarifa > 0 ? `R$ ${fmt2(waterCalculated.tarifa)} / m³` : '—'}
+                  </span>
+                </div>
+                <div className="hint" style={{ fontSize: 11 }}>
+                  Total apurado: {fmt2(totalM3)} m³ ({totalLitros.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L)
+                </div>
               </div>
             </div>
-            <div className="field">
+
+            {/* Mês de Referência */}
+            <div className="field" style={{ minWidth: 160 }}>
               <label htmlFor="mes">Mês de referência</label>
               <input
                 id="mes"
@@ -501,6 +573,142 @@ export function CustosMaquinasPage() {
               />
             </div>
           </div>
+
+          {/* Opções avançadas / Modo manual */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="modoEnergia"
+                checked={modoEnergia === 'enel_residencial'}
+                onChange={() => toggleModoEnergia('enel_residencial')}
+              />
+              <span><strong>Enquadramento Residencial B1 Trifásico</strong> (Automático por faixa de consumo)</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="modoEnergia"
+                checked={modoEnergia === 'manual'}
+                onChange={() => toggleModoEnergia('manual')}
+              />
+              <span>Tarifa Manual Fixa</span>
+            </label>
+            {modoEnergia === 'manual' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="hint" style={{ fontSize: 12 }}>Valor R$/kWh:</span>
+                <input
+                  id="kwh"
+                  inputMode="decimal"
+                  value={tarifaKwh}
+                  onChange={(e) => setTarifaKwh(e.target.value)}
+                  style={{ width: 90, padding: '4px 8px', fontSize: 13 }}
+                  placeholder="1.09"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Tabela detalhada de alíquotas Enel e Prolagos */}
+          {mostrarTabelas && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              {/* Tabela Enel Residencial */}
+              <div style={{ background: 'var(--code-bg)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <strong style={{ fontSize: 13, color: 'var(--accent)' }}>⚡ Tabela Enel RJ — Residencial Trifásico (B1)</strong>
+                  <span className="hint" style={{ fontSize: 11 }}>Mínimo Trifásico: 100 kWh</span>
+                </div>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--muted)' }}>
+                      <th style={{ padding: '6px 4px' }}>Faixa Mensal</th>
+                      <th style={{ padding: '6px 4px' }}>ICMS + FECOP</th>
+                      <th style={{ padding: '6px 4px' }}>PIS/COFINS</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'right' }}>Tarifa c/ Impostos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TABELA_ENEL_RESIDENCIAL.map((f) => {
+                      const ativa = modoEnergia === 'enel_residencial' && (
+                        (energyCalculated.kwhFaturado <= 50 && f.id === 'faixa_1') ||
+                        (energyCalculated.kwhFaturado > 50 && energyCalculated.kwhFaturado <= 300 && f.id === 'faixa_2') ||
+                        (energyCalculated.kwhFaturado > 300 && energyCalculated.kwhFaturado <= 450 && f.id === 'faixa_3') ||
+                        (energyCalculated.kwhFaturado > 450 && f.id === 'faixa_4')
+                      )
+                      return (
+                        <tr
+                          key={f.id}
+                          style={{
+                            borderBottom: '1px solid var(--border)',
+                            backgroundColor: ativa ? 'rgba(59, 130, 246, 0.12)' : undefined,
+                            fontWeight: ativa ? 700 : 400
+                          }}
+                        >
+                          <td style={{ padding: '6px 4px' }}>
+                            {f.faixa} {ativa && <span style={{ color: 'var(--accent)', fontSize: 10 }}>● ATIVA</span>}
+                          </td>
+                          <td style={{ padding: '6px 4px' }}>{f.aliquotaIcms === 0 ? 'Isento (0%)' : `${f.aliquotaIcms}%`}</td>
+                          <td style={{ padding: '6px 4px' }}>~{f.aliquotaPisCofins}%</td>
+                          <td style={{ padding: '6px 4px', textAlign: 'right', color: ativa ? 'var(--accent)' : 'inherit' }}>
+                            R$ {fmt2(f.tarifaComImpostos)} / kWh
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tabela Prolagos */}
+              <div style={{ background: 'var(--code-bg)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <strong style={{ fontSize: 13, color: 'var(--ok)' }}>💧 Tabela Prolagos Água (Demais Cidades)</strong>
+                  <span className="hint" style={{ fontSize: 11 }}>Mínimo: 10 m³ (R$ 170,40)</span>
+                </div>
+                <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--muted)' }}>
+                      <th style={{ padding: '6px 4px' }}>Faixa Consumo</th>
+                      <th style={{ padding: '6px 4px' }}>Regra / Observação</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'right' }}>Tarifa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TABELA_AGUA_PROLAGOS.map((f, idx) => {
+                      const ativa = (
+                        (totalM3 <= 10 && f.limiteMaxM3 === 10) ||
+                        (totalM3 > 10 && totalM3 <= 15 && f.limiteMinM3 === 11) ||
+                        (totalM3 > 15 && totalM3 <= 25 && f.limiteMinM3 === 16) ||
+                        (totalM3 > 25 && totalM3 <= 35 && f.limiteMinM3 === 26) ||
+                        (totalM3 > 35 && totalM3 <= 45 && f.limiteMinM3 === 36) ||
+                        (totalM3 > 45 && totalM3 <= 55 && f.limiteMinM3 === 46) ||
+                        (totalM3 > 55 && totalM3 <= 65 && f.limiteMinM3 === 56) ||
+                        (totalM3 > 65 && f.limiteMinM3 === 66)
+                      )
+                      return (
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: '1px solid var(--border)',
+                            backgroundColor: ativa ? 'rgba(16, 185, 129, 0.12)' : undefined,
+                            fontWeight: ativa ? 700 : 400
+                          }}
+                        >
+                          <td style={{ padding: '6px 4px' }}>
+                            {f.faixa} {ativa && <span style={{ color: 'var(--ok)', fontSize: 10 }}>● ATIVA</span>}
+                          </td>
+                          <td style={{ padding: '6px 4px' }}>{f.observacao}</td>
+                          <td style={{ padding: '6px 4px', textAlign: 'right', color: ativa ? 'var(--ok)' : 'inherit' }}>
+                            R$ {fmt2(f.tarifaPorM3)} / m³
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

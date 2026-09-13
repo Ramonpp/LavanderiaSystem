@@ -14,6 +14,8 @@ import { formatBRL } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { GraficoMeses } from '../components/GraficoMeses'
 import type { PontoMes } from '../components/GraficoMeses'
+import { calcularCustoEnergiaEnelResidencial, calcularCustoAguaProlagos } from '../lib/tarifasUtilidades'
+
 
 function lastNMonths(endYearMonth: string, n: number): string[] {
   const [y, m] = endYearMonth.split('-').map(Number)
@@ -186,18 +188,15 @@ export function DashboardPage() {
 
       setDespesasAno(somaDespesas(desps))
       
-      const tarifaKwh = Math.max(0, Number(lsGet('lav_custos_tarifaKwh', '0.85').replace(',', '.')) || 0)
+      const modoEnergia = lsGet('lav_custos_modo_energia', 'enel_residencial')
+      const tarifaKwhManual = Math.max(0, Number(lsGet('lav_custos_tarifaKwh', '1.09').replace(',', '.')) || 0)
 
-      function calcularCustoAguaDemaisCidades(vM3: number): number {
-        if (vM3 <= 0) return 0
-        if (vM3 <= 10) return 170.40
-        if (vM3 <= 15) return vM3 * 22.32
-        if (vM3 <= 25) return vM3 * 35.74
-        if (vM3 <= 35) return vM3 * 42.88
-        if (vM3 <= 45) return vM3 * 51.46
-        if (vM3 <= 55) return vM3 * 63.18
-        if (vM3 <= 65) return vM3 * 80.25
-        return vM3 * 91.26
+      function calcEnergia(kwhVal: number) {
+        if (kwhVal <= 0) return 0
+        if (modoEnergia === 'enel_residencial') {
+          return calcularCustoEnergiaEnelResidencial(kwhVal, true).custoTotal
+        }
+        return kwhVal * tarifaKwhManual
       }
 
       // Mês atual selecionado
@@ -236,8 +235,8 @@ export function DashboardPage() {
         cAguaMes = Number(dbRecord.custo_agua)
         loadedFromDb = true
       } else {
-        cEnergiaMes = totalKwhMes * tarifaKwh
-        cAguaMes = calcularCustoAguaDemaisCidades(totalLitrosMes / 1000)
+        cEnergiaMes = calcEnergia(totalKwhMes)
+        cAguaMes = calcularCustoAguaProlagos(totalLitrosMes / 1000).custo
       }
       const custoMes = cEnergiaMes + cAguaMes
 
@@ -275,8 +274,8 @@ export function DashboardPage() {
             }
           }
 
-          const custoEnergiaAnoMes = totalKwhAnoMes * tarifaKwh
-          const custoAguaAnoMes = calcularCustoAguaDemaisCidades(totalLitrosAnoMes / 1000)
+          const custoEnergiaAnoMes = calcEnergia(totalKwhAnoMes)
+          const custoAguaAnoMes = calcularCustoAguaProlagos(totalLitrosAnoMes / 1000).custo
           custoAno += (custoEnergiaAnoMes + custoAguaAnoMes)
         }
       }
