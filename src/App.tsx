@@ -14,6 +14,7 @@ import { PedidosCadastradosPage } from './pages/PedidosCadastradosPage'
 import { EmLavagemPage } from './pages/EmLavagemPage'
 import { RelatorioMensalPage } from './pages/RelatorioMensalPage'
 import { RelatorioAnualPage } from './pages/RelatorioAnualPage'
+import { RelatorioPecasPage } from './pages/RelatorioPecasPage'
 import { SimulacaoPage } from './pages/SimulacaoPage'
 import { TiposPecaPage } from './pages/TiposPecaPage'
 import { ManchasPage } from './pages/ManchasPage'
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/custos" element={<CustosMaquinasPage />} />
         <Route path="/relatorios/mensal" element={<RelatorioMensalPage />} />
         <Route path="/relatorios/anual" element={<RelatorioAnualPage />} />
+        <Route path="/relatorios/pecas" element={<RelatorioPecasPage />} />
         <Route path="/relatorios" element={<Navigate to="/relatorios/mensal" replace />} />
         <Route path="/simulacao" element={<SimulacaoPage />} />
         <Route path="/configuracoes" element={<ConfigWebhookPage />} />

@@ -505,6 +505,15 @@ export function AppShell() {
                       Relatório Mensal
                     </NavLink>
                     <NavLink
+                      to="/relatorios/pecas"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Relatório de Peças
+                    </NavLink>
+                    <NavLink
                       to="/relatorios/anual"
                       onClick={() => setIsMobileOpen(false)}
                       className={({ isActive }) =>
