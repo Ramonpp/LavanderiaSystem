@@ -221,11 +221,6 @@ export function CustosMaquinasPage() {
       active = false
     }
   }, [mes, machineUuidMap])
-
-
-
-  const kwh = Math.max(0, Number(tarifaKwh.replace(',', '.')) || 0)
-
   function handleMesChange(novoMes: string) {
     setMes(novoMes)
     setMonthData({
