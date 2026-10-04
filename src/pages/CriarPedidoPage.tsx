@@ -30,8 +30,9 @@ const PEDIDO_MINIMO: Array<{ nome: string; quantidade: string }> = [
   { nome: 'Toalha de piso', quantidade: '1' },
   { nome: 'Toalha de banho', quantidade: '2' },
   { nome: 'Toalha de rosto', quantidade: '1' },
-  { nome: 'Lencol casal', quantidade: '1' },
+  { nome: 'Lencol', quantidade: '2' },
   { nome: 'Fronha', quantidade: '2' },
+  { nome: 'Pano de prato', quantidade: '1' },
 ]
 
 function resolverTipoId(tipos: import('../types/models').TipoPeca[], nome: string): string {

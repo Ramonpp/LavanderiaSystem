@@ -205,6 +205,21 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
       return
     }
 
+    const nomeNormalizado = normalizeSearch(nome)
+    const apartamentoNormalizado = normalizeSearch(apartamento)
+    const duplicado = apartamentoNormalizado
+      ? itens.find((cliente) =>
+        cliente.id !== editandoId &&
+        normalizeSearch(cliente.nome) === nomeNormalizado &&
+        normalizeSearch(cliente.apartamento ?? '') === apartamentoNormalizado,
+      )
+      : undefined
+
+    if (duplicado) {
+      setErro(`Já existe o cliente "${duplicado.nome}" no apartamento ${duplicado.apartamento}. Abra esse cadastro para atualizar os dados, em vez de criar outro.`)
+      return
+    }
+
     if (editandoId) {
       const { error } = await updateCliente(editandoId, {
         nome: nome.trim(),
