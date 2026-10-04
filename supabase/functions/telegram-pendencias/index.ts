@@ -24,7 +24,7 @@ function formatarSecao(icone: string, titulo: string, clientes: Array<{ nome: st
     const local = [c.bloco ? `Bl. ${c.bloco}` : null, c.apartamento ? `Apto ${c.apartamento}` : null].filter(Boolean).join(' · ')
     return `• *${c.nome}*${local ? ` — ${local}` : ''}\n  ${c.pedidos.length} pedido(s) · *${brl(c.pedidos.reduce((s, p) => s + valor(p), 0))}*`
   })
-  return `${icone} *${titulo}*\n${linhas.join('\n')}\nSubtotal: *${brl(total)}*`
+  return `${icone} *${titulo}*\n${linhas.join('\n\n')}\n\nSubtotal: *${brl(total)}*`
 }
 
 Deno.serve(async (req) => {
@@ -35,6 +35,14 @@ Deno.serve(async (req) => {
   const chaveRecebida = req.headers.get('x-telegram-cron-key')
   const { data: automacao, error: erroAutomacao } = await db.from('telegram_automacao').select('chave_cron').eq('id', true).maybeSingle()
   if (erroAutomacao || !automacao || chaveRecebida !== automacao.chave_cron) return new Response('Não autorizado', { status: 401 })
+  const corpo = await req.json().catch(() => ({})) as { modo?: string }
+  const fimDeMes = corpo.modo === 'fim_mes'
+  if (fimDeMes) {
+    const agora = new Date(); const amanha = new Date(agora.getTime() + 24 * 60 * 60 * 1000)
+    const mesAtual = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', month: '2-digit' }).format(agora)
+    const mesAmanha = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', month: '2-digit' }).format(amanha)
+    if (mesAtual === mesAmanha) return Response.json({ ok: true, enviado: false, motivo: 'Não é o último dia do mês.' })
+  }
   const periodo = periodoMesPassado()
   const { data: clientes, error: erroClientes } = await db.from('cliente').select('id,nome,bloco,apartamento,plano').in('plano', ['pagou', 'mensal']).eq('ativo', true).is('deletado_em', null).order('nome')
   if (erroClientes) return Response.json({ error: erroClientes.message }, { status: 500 })
@@ -43,9 +51,15 @@ Deno.serve(async (req) => {
   if (erroPedidos) return Response.json({ error: erroPedidos.message }, { status: 500 })
   const porCliente = new Map<string, Pedido[]>(); (pedidos ?? []).forEach(p => porCliente.set(p.cliente_id, [...(porCliente.get(p.cliente_id) ?? []), p as Pedido]))
   const usouPagou = (clientes ?? []).filter(c => c.plano === 'pagou').flatMap(c => { const lista = porCliente.get(c.id) ?? []; return lista.length ? [{ ...c, pedidos: lista }] : [] })
-  const mensalistas = (clientes ?? []).filter(c => c.plano === 'mensal').flatMap(c => { const lista = (porCliente.get(c.id) ?? []).filter(p => p.data_pedido >= periodo.inicio && p.data_pedido <= periodo.fim); return lista.length ? [{ ...c, pedidos: lista }] : [] })
+  const mensalistas = (clientes ?? []).filter(c => c.plano === 'mensal').flatMap(c => {
+    const lista = porCliente.get(c.id) ?? []
+    const selecionados = fimDeMes ? lista : lista.filter(p => p.data_pedido >= periodo.inicio && p.data_pedido <= periodo.fim)
+    return selecionados.length ? [{ ...c, pedidos: selecionados }] : []
+  })
   const total = [...usouPagou, ...mensalistas].reduce((s, c) => s + c.pedidos.reduce((x, p) => x + valor(p), 0), 0)
-  const texto = `📣 *Ciclo Novo — Fechamento de sexta*\n\n${formatarSecao('🧺', 'Usou e Pagou — pendências atuais', usouPagou)}\n\n${formatarSecao('📅', `Mensalistas — ${periodo.titulo}`, mensalistas)}\n\n💰 *Total geral: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
+  const texto = fimDeMes
+    ? `📅 *Ciclo Novo — Fechamento mensal*\n\n${formatarSecao('👥', 'Mensalistas devedores', mensalistas)}\n\n💰 *Total mensalista em aberto: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
+    : `📣 *Ciclo Novo — Fechamento de sexta*\n\n${formatarSecao('🧺', 'Usou e Pagou — pendências atuais', usouPagou)}\n\n${formatarSecao('📅', `Mensalistas — ${periodo.titulo}`, mensalistas)}\n\n💰 *Total geral: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
   const resposta = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: texto.slice(0, 4096), parse_mode: 'Markdown' }) })
   if (!resposta.ok) return Response.json({ error: (await resposta.json()).description ?? 'Falha no Telegram.' }, { status: 502 })
   return Response.json({ ok: true, usouPagou: usouPagou.length, mensalistas: mensalistas.length, total })

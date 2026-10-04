@@ -32,4 +32,23 @@ select cron.schedule(
   $$
 );
 
+select cron.unschedule(jobid)
+from cron.job
+where jobname = 'telegram-mensalistas-fim-mes';
+
+select cron.schedule(
+  'telegram-mensalistas-fim-mes',
+  '0 12 28-31 * *',
+  $$
+    select net.http_post(
+      url := 'https://rdptufttwbgcckwledwx.supabase.co/functions/v1/telegram-pendencias',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-telegram-cron-key', (select chave_cron from public.telegram_automacao where id = true)
+      ),
+      body := '{"modo":"fim_mes"}'::jsonb
+    );
+  $$
+);
+
 commit;
