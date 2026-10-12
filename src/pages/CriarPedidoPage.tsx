@@ -13,6 +13,7 @@ import type { Cliente, ItemPedido, OrderStatus, PagamentoStatus, PedidoCliente, 
 import { StatusBanner } from '../components/StatusBanner'
 import { compressImage } from '../utils/image'
 import { formatBRL } from '../lib/format'
+import { supabase } from '../lib/supabase'
 
 type ItemLinha = {
   key: string
@@ -403,39 +404,37 @@ export function CriarPedidoPage() {
         const clientObj = clientes.find((c) => c.id === clienteId)
         const clientName = clientObj ? clientObj.nome : 'Cliente Desconhecido'
 
-        const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL
-        if (!webhookUrl) {
-          throw new Error('Webhook do N8N não configurado. Por favor, adicione VITE_N8N_WEBHOOK_URL no seu arquivo .env.local.')
-        }
-
-        // Criar FormData para enviar para o N8N
+        // Criar FormData para enviar para a Edge Function upload-to-drive
         const formData = new FormData()
         formData.append('clientName', clientName)
         formData.append('date', dataPedido)
         formData.append('apartamento', clientObj?.apartamento || '')
-        formData.append('bloco', clientObj?.bloco || '')
         formData.append('peso', String(peso))
         formData.append('file', compressedBlob, `pesagem_${Date.now()}.jpg`)
 
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
+        const { data: resData, error: invokeError } = await supabase.functions.invoke('upload-to-drive', {
           body: formData,
         })
 
-        if (!response.ok) {
-          throw new Error(`Erro de resposta do Webhook N8N: Status ${response.status}`)
+        if (invokeError) {
+          let msg = invokeError.message
+          try {
+            if ((invokeError as any).context) {
+              const errJson = await (invokeError as any).context.json()
+              if (errJson?.error) msg = errJson.error
+            }
+          } catch {
+            // fallback para msg original
+          }
+          throw new Error(msg)
         }
 
-        // Se o N8N retornar o ID do arquivo (opcional), salvamos no banco
-        try {
-          const resData = await response.json()
-          // Trata tanto um objeto quanto um array com um objeto que é comum no n8n
-          const firstItem = Array.isArray(resData) ? resData[0] : resData
-          if (firstItem && firstItem.fileId) {
-            uploadedFileId = firstItem.fileId
-          }
-        } catch {
-          // Ignorar se n8n responder com texto simples (ex: "Workflow started")
+        if (resData?.destination === 'supabase_storage' && resData.publicUrl) {
+          uploadedFileId = resData.publicUrl
+        } else if (resData?.fileId) {
+          uploadedFileId = resData.fileId
+        } else {
+          throw new Error('O serviço de upload não retornou a identificação da foto.')
         }
       } catch (err: any) {
         setErro(`Erro no upload da foto: ${err.message}`)
@@ -696,7 +695,9 @@ export function CriarPedidoPage() {
               {fotoDriveIdExistente && (
                 <div style={{ marginTop: 8 }}>
                   <a
-                    href={`https://drive.google.com/file/d/${fotoDriveIdExistente}/view?usp=drivesdk`}
+                    href={fotoDriveIdExistente.startsWith('http')
+                      ? fotoDriveIdExistente
+                      : `https://drive.google.com/file/d/${fotoDriveIdExistente}/view?usp=drivesdk`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn"
@@ -707,7 +708,7 @@ export function CriarPedidoPage() {
                       <polyline points="15 3 21 3 21 9" />
                       <line x1="10" y1="14" x2="21" y2="3" />
                     </svg>
-                    Ver foto atual no Google Drive
+                    Ver foto atual
                   </a>
                 </div>
               )}
@@ -889,7 +890,7 @@ export function CriarPedidoPage() {
             onClick={() => void salvarPedido()}
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
-            {enviandoFoto ? 'Enviando foto ao Google Drive...' : 'Salvar pedido'}
+            {enviandoFoto ? 'Enviando foto...' : 'Salvar pedido'}
           </button>
         </div>
       </section>

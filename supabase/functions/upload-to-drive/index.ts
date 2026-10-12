@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -17,6 +15,44 @@ interface ServiceAccountKey {
   auth_provider_x509_cert_url: string;
   client_x509_cert_url: string;
   universe_domain: string;
+}
+
+async function getOAuthAccessToken(): Promise<string | null> {
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+  const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
+
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao renovar acesso ao Google Drive: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+async function resolveGoogleAccessToken(): Promise<string> {
+  const oauthToken = await getOAuthAccessToken();
+  if (oauthToken) return oauthToken;
+
+  const serviceAccount = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
+  if (serviceAccount) return getGoogleAccessToken(serviceAccount);
+
+  throw new Error(
+    "Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN nos secrets do Supabase.",
+  );
 }
 
 // Auxiliar para gerar o token JWT do Google Service Account usando Web Crypto
@@ -156,114 +192,114 @@ async function getOrCreateFolder(
   return createData.id;
 }
 
-serve(async (req) => {
+// Sanitiza texto para usar como nome de arquivo (remove caracteres especiais)
+function sanitizeFileName(text: string): string {
+  return text.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+Deno.serve(async (req) => {
   // Tratar requisição de preflight do CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const googleCreds = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
-    const parentFolderId = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID");
-
-    if (!googleCreds || !parentFolderId) {
-      return new Response(
-        JSON.stringify({ error: "Configurações GOOGLE_SERVICE_ACCOUNT ou GOOGLE_DRIVE_PARENT_FOLDER_ID ausentes no servidor." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Processar FormData com os campos e o arquivo
     const formData = await req.formData();
     const clientName = formData.get("clientName") as string;
-    const dateStr = formData.get("date") as string; // Ex: 2026-06-20
-    const file = formData.get("file") as File;
+    const apartamento = (formData.get("apartamento") as string) || "";
+    const peso = (formData.get("peso") as string) || "0";
+    const dateStr = (formData.get("date") as string) || new Date().toISOString().split("T")[0];
+    const fileEntry = formData.get("file");
 
-    if (!clientName || !dateStr || !file) {
+    if (!clientName || !(fileEntry instanceof File)) {
       return new Response(
-        JSON.stringify({ error: "Campos obrigatórios ausentes: clientName, date ou file." }),
+        JSON.stringify({ error: "Campos obrigatórios ausentes: clientName ou file." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const file = fileEntry;
 
-    // Obter o Token de Acesso do Google
-    const accessToken = await getGoogleAccessToken(googleCreds);
-
-    // 1. Obter ou criar a pasta correspondente à data (ex: YYYY-MM-DD)
-    const dateFolderId = await getOrCreateFolder(accessToken, dateStr, parentFolderId);
-
-    // 2. Obter ou criar a pasta correspondente ao cliente dentro da pasta da data
-    const clientFolderId = await getOrCreateFolder(accessToken, clientName, dateFolderId);
-
-    // 3. Fazer o Upload do arquivo na pasta do cliente
+    // Montar o nome do arquivo padronizado: "NomeCliente_Apto123_5.2kg.jpg"
+    const partes = [sanitizeFileName(clientName)];
+    if (apartamento) partes.push(`Apto${sanitizeFileName(apartamento)}`);
+    partes.push(`${peso}kg`);
+    const fileName = `${partes.join("_")}.jpg`;
     const fileArrayBuffer = await file.arrayBuffer();
     const fileBytes = new Uint8Array(fileArrayBuffer);
-    
-    // Upload Multipart (metadados + binário do arquivo na mesma requisição)
-    const boundary = "------MultipartBoundary" + Math.random().toString(36).substring(2);
-    
+    const mimeType = file.type || "image/jpeg";
+
+    const parentFolderId = Deno.env.get("GOOGLE_DRIVE_PARENT_FOLDER_ID");
+    if (!parentFolderId) {
+      throw new Error("Configure GOOGLE_DRIVE_PARENT_FOLDER_ID nos secrets do Supabase.");
+    }
+
+    const accessToken = await resolveGoogleAccessToken();
+    const dateFolderId = await getOrCreateFolder(accessToken, dateStr, parentFolderId);
+    const clientFolderId = await getOrCreateFolder(accessToken, clientName, dateFolderId);
+
+    const boundary = "------MultipartBoundary" + crypto.randomUUID();
     const metadata = {
-      name: file.name,
+      name: fileName,
       parents: [clientFolderId],
     };
 
-    const textEncoder = new TextEncoder();
-    const parts: Uint8Array[] = [];
+        const textEncoder = new TextEncoder();
+        const parts: Uint8Array[] = [];
 
-    // Adicionar parte dos metadados
-    parts.push(textEncoder.encode(`--${boundary}\r\n`));
-    parts.push(textEncoder.encode(`Content-Type: application/json; charset=UTF-8\r\n\r\n`));
-    parts.push(textEncoder.encode(JSON.stringify(metadata) + `\r\n`));
-    
-    // Adicionar parte do arquivo
-    parts.push(textEncoder.encode(`--${boundary}\r\n`));
-    parts.push(textEncoder.encode(`Content-Type: ${file.type || "image/jpeg"}\r\n\r\n`));
-    parts.push(fileBytes);
-    parts.push(textEncoder.encode(`\r\n--${boundary}--\r\n`));
+        parts.push(textEncoder.encode(`--${boundary}\r\n`));
+        parts.push(textEncoder.encode(`Content-Type: application/json; charset=UTF-8\r\n\r\n`));
+        parts.push(textEncoder.encode(JSON.stringify(metadata) + `\r\n`));
 
-    // Somar o tamanho total de bytes
-    let totalLength = 0;
-    for (const part of parts) {
-      totalLength += part.length;
-    }
+        parts.push(textEncoder.encode(`--${boundary}\r\n`));
+        parts.push(textEncoder.encode(`Content-Type: ${mimeType}\r\n\r\n`));
+        parts.push(fileBytes);
+        parts.push(textEncoder.encode(`\r\n--${boundary}--\r\n`));
 
-    const requestBody = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      requestBody.set(part, offset);
-      offset += part.length;
-    }
+        let totalLength = 0;
+        for (const part of parts) {
+          totalLength += part.length;
+        }
 
-    const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true";
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-        "Content-Length": String(totalLength),
-      },
-      body: requestBody,
-    });
+        const requestBody = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const part of parts) {
+          requestBody.set(part, offset);
+          offset += part.length;
+        }
+
+        const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true";
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": `multipart/related; boundary=${boundary}`,
+            "Content-Length": String(totalLength),
+          },
+          body: requestBody,
+        });
 
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      throw new Error(`Erro de upload na API do Google Drive: ${errorText}`);
+      throw new Error(`Erro no upload para o Google Drive: ${await uploadResponse.text()}`);
     }
 
     const uploadData = await uploadResponse.json();
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         fileId: uploadData.id,
-        message: "Foto enviada com sucesso para o Google Drive."
+        fileName,
+        destination: "google_drive",
+        message: "Foto enviada com sucesso para o Google Drive.",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido ao processar upload." }),
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Erro desconhecido ao processar upload.",
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

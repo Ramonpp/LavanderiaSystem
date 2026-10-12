@@ -368,7 +368,9 @@ export function PedidosCadastradosPage() {
                       {p.foto_drive_id && (
                         <div style={{ marginTop: 4 }}>
                           <a
-                            href={`https://drive.google.com/file/d/${p.foto_drive_id}/view?usp=drivesdk`}
+                            href={p.foto_drive_id.startsWith('http')
+                              ? p.foto_drive_id
+                              : `https://drive.google.com/file/d/${p.foto_drive_id}/view?usp=drivesdk`}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
@@ -534,7 +536,9 @@ export function PedidosCadastradosPage() {
                     {p.foto_drive_id && (
                       <div style={{ marginTop: 4 }}>
                         <a
-                          href={`https://drive.google.com/file/d/${p.foto_drive_id}/view?usp=drivesdk`}
+                          href={p.foto_drive_id.startsWith('http')
+                            ? p.foto_drive_id
+                            : `https://drive.google.com/file/d/${p.foto_drive_id}/view?usp=drivesdk`}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
