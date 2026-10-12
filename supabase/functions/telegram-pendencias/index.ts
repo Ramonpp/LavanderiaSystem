@@ -9,6 +9,15 @@ function valor(p: Pedido) {
 }
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+const CHAT_IDS_ADICIONAIS = ['8884633897']
+
+function chatIdsDestinatarios(chatIdPrincipal: string) {
+  return [...new Set([
+    ...chatIdPrincipal.split(',').map(id => id.trim()).filter(Boolean),
+    ...CHAT_IDS_ADICIONAIS,
+  ])]
+}
+
 function periodoMesPassado() {
   const agora = new Date()
   const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).formatToParts(agora)
@@ -60,7 +69,13 @@ Deno.serve(async (req) => {
   const texto = fimDeMes
     ? `📅 *Ciclo Novo — Fechamento mensal*\n\n${formatarSecao('👥', 'Mensalistas devedores', mensalistas)}\n\n💰 *Total mensalista em aberto: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
     : `📣 *Ciclo Novo — Fechamento de sexta*\n\n${formatarSecao('🧺', 'Usou e Pagou — pendências atuais', usouPagou)}\n\n${formatarSecao('📅', `Mensalistas — ${periodo.titulo}`, mensalistas)}\n\n💰 *Total geral: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
-  const resposta = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: texto.slice(0, 4096), parse_mode: 'Markdown' }) })
-  if (!resposta.ok) return Response.json({ error: (await resposta.json()).description ?? 'Falha no Telegram.' }, { status: 502 })
+  const envios = await Promise.all(chatIdsDestinatarios(chatId).map(async destinatario => {
+    const resposta = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: destinatario, text: texto.slice(0, 4096), parse_mode: 'Markdown' }) })
+    if (resposta.ok) return { chatId: destinatario, ok: true }
+    const erro = await resposta.json().catch(() => ({}))
+    return { chatId: destinatario, ok: false, erro: erro.description ?? 'Falha no Telegram.' }
+  }))
+  const falhas = envios.filter(envio => !envio.ok)
+  if (falhas.length) return Response.json({ error: 'Falha ao enviar para um ou mais destinatários.', falhas }, { status: 502 })
   return Response.json({ ok: true, usouPagou: usouPagou.length, mensalistas: mensalistas.length, total })
 })
