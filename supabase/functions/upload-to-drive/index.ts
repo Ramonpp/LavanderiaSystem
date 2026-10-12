@@ -220,11 +220,11 @@ Deno.serve(async (req) => {
     }
     const file = fileEntry;
 
-    // Montar o nome do arquivo padronizado: "NomeCliente_Apto123_5.2kg.jpg"
+    // Nome padronizado: "Nome Cliente 123 5.2kg.jpg"
     const partes = [sanitizeFileName(clientName)];
-    if (apartamento) partes.push(`Apto${sanitizeFileName(apartamento)}`);
-    partes.push(`${peso}kg`);
-    const fileName = `${partes.join("_")}.jpg`;
+    if (apartamento) partes.push(sanitizeFileName(apartamento));
+    partes.push(`${sanitizeFileName(peso)}kg`);
+    const fileName = `${partes.join(" ")}.jpg`;
     const fileArrayBuffer = await file.arrayBuffer();
     const fileBytes = new Uint8Array(fileArrayBuffer);
     const mimeType = file.type || "image/jpeg";
@@ -236,12 +236,11 @@ Deno.serve(async (req) => {
 
     const accessToken = await resolveGoogleAccessToken();
     const dateFolderId = await getOrCreateFolder(accessToken, dateStr, parentFolderId);
-    const clientFolderId = await getOrCreateFolder(accessToken, clientName, dateFolderId);
 
     const boundary = "------MultipartBoundary" + crypto.randomUUID();
     const metadata = {
       name: fileName,
-      parents: [clientFolderId],
+      parents: [dateFolderId],
     };
 
         const textEncoder = new TextEncoder();
