@@ -15,6 +15,7 @@ import { StatusBanner } from '../components/StatusBanner'
 import { GraficoMeses } from '../components/GraficoMeses'
 import type { PontoMes } from '../components/GraficoMeses'
 import { calcularCustoEnergiaEnelResidencial, calcularCustoAguaProlagos } from '../lib/tarifasUtilidades'
+import { fetchPagamentosPorPeriodo } from '../data/financeiro'
 
 
 function lastNMonths(endYearMonth: string, n: number): string[] {
@@ -47,6 +48,7 @@ export function DashboardPage() {
   const [monthValue, setMonthValue] = useState(defaultMonth)
   const [error, setError] = useState<string | null>(null)
   const [pedidosMes, setPedidosMes] = useState<PedidoCliente[]>([])
+  const [recebidoMes, setRecebidoMes] = useState(0)
   const [, setSaveMsg] = useState<string | null>(null)
   const [maquinas, setMaquinas] = useState<any[]>([])
 
@@ -66,11 +68,15 @@ export function DashboardPage() {
     setError(null)
     setSaveMsg(null)
 
-    const { data: peds, error: e1 } = await fetchPedidosPorPeriodo({ inicioIsoDate: bounds.start, fimIsoDate: bounds.end })
+    const [{ data: peds, error: e1 }, { data: pagamentosRegistrados, error: e2 }] = await Promise.all([
+      fetchPedidosPorPeriodo({ inicioIsoDate: bounds.start, fimIsoDate: bounds.end }),
+      fetchPagamentosPorPeriodo(bounds.start, bounds.end),
+    ])
 
-    if (e1) setError(e1)
+    if (e1 || e2) setError(e1 || e2)
 
     if (peds) setPedidosMes(peds)
+    setRecebidoMes(pagamentosRegistrados.reduce((soma, pagamento) => soma + Number(pagamento.valor), 0))
   }
 
   useEffect(() => {
@@ -343,7 +349,7 @@ export function DashboardPage() {
         <div>
           <h1 style={{ fontSize: 22, letterSpacing: -0.2 }}>Dashboard</h1>
           <div className="hint">
-            Visão geral do mês: receita, lucro, ocupação das máquinas e cenário de capacidade máxima.
+            Visão geral do mês: faturamento, recebimentos, resultado estimado e capacidade das máquinas.
           </div>
         </div>
         <div className="field" style={{ minWidth: 220, flex: '0 0 auto' }}>
@@ -364,7 +370,7 @@ export function DashboardPage() {
               </div>
               <div className="panelBody grid" style={{ gap: 14 }}>
                 <div>
-                  <div className="statLabel">Receita do mês</div>
+                  <div className="statLabel">Faturamento do mês</div>
                   <div className="statVal">{formatBRL(receita)}</div>
                   <div className="hint" style={{ marginTop: 4 }}>
                     {pedidosMes.filter((p) => p.status !== 'cancelado').length} pedidos ativos
@@ -378,13 +384,17 @@ export function DashboardPage() {
                     </div>
                   </div>
                   <div style={{ flex: '1 1 160px' }}>
+                    <div className="statLabel">Recebido no mês</div>
+                    <div className="statValSm valPositive">{formatBRL(recebidoMes)}</div>
+                  </div>
+                  <div style={{ flex: '1 1 160px' }}>
                     <div className="statLabel">Despesas lançadas</div>
                     <div className="statValSm">{formatBRL(despesasValor)}</div>
                   </div>
                 </div>
                 <div className="row" style={{ alignItems: 'flex-start', paddingTop: 4, borderTop: '1px solid var(--border)' }}>
                   <div style={{ flex: '1 1 160px' }}>
-                    <div className="statLabel">Lucro líquido do mês</div>
+                    <div className="statLabel">Resultado estimado por competência</div>
                     <div
                       className={`statVal ${lucroMesSimples >= 0 ? 'valPositive' : 'valNegative'}`}
                     >

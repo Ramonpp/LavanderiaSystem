@@ -78,42 +78,20 @@ export async function insertPedidoComItens(input: {
   pedido: Omit<Pedido, 'id' | 'criado_em'>
   itens: Array<Omit<ItemPedido, 'id' | 'pedido_id' | 'criado_em'>>
 }): Promise<{ pedidoId: string | null; error: string | null }> {
-  const { data: created, error: e1 } = await supabase
-    .from('pedido')
-    .insert(input.pedido)
-    .select('id')
-    .single()
-
-  if (e1) return { pedidoId: null, error: dbErrorMessage(e1) }
-
-  const pedidoId = created?.id as string | undefined
-  if (!pedidoId) return { pedidoId: null, error: 'Não foi possível criar o pedido.' }
-
-  if (input.itens.length > 0) {
-    const { error: e2 } = await supabase.from('item_pedido').insert(
-      input.itens.map((it) => ({
-        ...it,
-        pedido_id: pedidoId,
-      })),
-    )
-    if (e2) return { pedidoId, error: dbErrorMessage(e2) }
-  }
-
-  return { pedidoId, error: null }
+  const { data, error } = await supabase.rpc('criar_pedido_com_itens', {
+    p_pedido: input.pedido,
+    p_itens: input.itens,
+  })
+  if (error) return { pedidoId: null, error: dbErrorMessage(error) }
+  return { pedidoId: typeof data === 'string' ? data : null, error: null }
 }
 
 export async function replaceItensPedido(pedidoId: string, itens: Array<Omit<ItemPedido, 'id' | 'pedido_id' | 'criado_em'>>) {
-  const { error: d } = await supabase.from('item_pedido').delete().eq('pedido_id', pedidoId)
-  if (d) return { error: dbErrorMessage(d) }
-
-  if (itens.length === 0) return { error: null as string | null }
-  const { error: i } = await supabase.from('item_pedido').insert(
-    itens.map((it) => ({
-      ...it,
-      pedido_id: pedidoId,
-    })),
-  )
-  return { error: i ? dbErrorMessage(i) : null }
+  const { error } = await supabase.rpc('substituir_itens_pedido', {
+    p_pedido_id: pedidoId,
+    p_itens: itens,
+  })
+  return { error: error ? dbErrorMessage(error) : null }
 }
 
 export async function updatePedido(

@@ -26,6 +26,14 @@ function periodoMesPassado() {
   return { inicio: inicio.toISOString().slice(0, 10), fim: fim.toISOString().slice(0, 10), titulo: inicio.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }
 }
 
+function periodoMesAtual() {
+  const agora = new Date()
+  const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).formatToParts(agora)
+  const ano = Number(partes.find(x => x.type === 'year')?.value); const mes = Number(partes.find(x => x.type === 'month')?.value)
+  const inicio = new Date(Date.UTC(ano, mes - 1, 1)); const fim = new Date(Date.UTC(ano, mes, 0))
+  return { inicio: inicio.toISOString().slice(0, 10), fim: fim.toISOString().slice(0, 10), titulo: inicio.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }
+}
+
 function formatarSecao(icone: string, titulo: string, clientes: Array<{ nome: string; bloco: string | null; apartamento: string | null; pedidos: Pedido[] }>) {
   const total = clientes.reduce((s, c) => s + c.pedidos.reduce((x, p) => x + valor(p), 0), 0)
   if (!clientes.length) return `${icone} *${titulo}*\n✅ Nenhuma pendência.`
@@ -34,6 +42,35 @@ function formatarSecao(icone: string, titulo: string, clientes: Array<{ nome: st
     return `• *${c.nome}*${local ? ` — ${local}` : ''}\n  ${c.pedidos.length} pedido(s) · *${brl(c.pedidos.reduce((s, p) => s + valor(p), 0))}*`
   })
   return `${icone} *${titulo}*\n${linhas.join('\n\n')}\n\nSubtotal: *${brl(total)}*`
+}
+
+function formatarSemPedidos(titulo: string, clientes: Array<{ nome: string; bloco: string | null; apartamento: string | null }>) {
+  if (!clientes.length) return `😴 *Clientes sem pedidos — ${titulo}*\n✅ Todos os clientes ativos fizeram pelo menos um pedido no mês.`
+  const linhas = clientes.map(c => {
+    const local = [c.bloco ? `Bl. ${c.bloco}` : null, c.apartamento ? `Apto ${c.apartamento}` : null].filter(Boolean).join(' · ')
+    return `• *${c.nome}*${local ? ` — ${local}` : ''}`
+  })
+  return `😴 *Clientes sem pedidos — ${titulo}*\n\n${linhas.join('\n')}\n\n👥 Total: *${clientes.length} cliente(s)*`
+}
+
+function dividirMensagem(texto: string, limite = 4000) {
+  const partes: string[] = []
+  let atual = ''
+  for (const linha of texto.split('\n')) {
+    const candidato = atual ? `${atual}\n${linha}` : linha
+    if (candidato.length <= limite) {
+      atual = candidato
+      continue
+    }
+    if (atual) partes.push(atual)
+    atual = linha
+    while (atual.length > limite) {
+      partes.push(atual.slice(0, limite))
+      atual = atual.slice(limite)
+    }
+  }
+  if (atual) partes.push(atual)
+  return partes
 }
 
 Deno.serve(async (req) => {
@@ -53,7 +90,7 @@ Deno.serve(async (req) => {
     if (mesAtual === mesAmanha) return Response.json({ ok: true, enviado: false, motivo: 'Não é o último dia do mês.' })
   }
   const periodo = periodoMesPassado()
-  const { data: clientes, error: erroClientes } = await db.from('cliente').select('id,nome,bloco,apartamento,plano').in('plano', ['pagou', 'mensal']).eq('ativo', true).is('deletado_em', null).order('nome')
+  const { data: clientes, error: erroClientes } = await db.from('cliente').select('id,nome,bloco,apartamento,plano').eq('ativo', true).is('deletado_em', null).order('nome')
   if (erroClientes) return Response.json({ error: erroClientes.message }, { status: 500 })
   const ids = (clientes ?? []).map(c => c.id); if (!ids.length) return Response.json({ ok: true, motivo: 'Sem clientes.' })
   const { data: pedidos, error: erroPedidos } = await db.from('pedido').select('cliente_id,data_pedido,peso_kg,preco_por_kg,preco_fixo,desconto_valor,desconto_tipo').in('cliente_id', ids).neq('pagamento_status', 'pago').neq('status', 'cancelado').is('deletado_em', null)
@@ -65,17 +102,38 @@ Deno.serve(async (req) => {
     const selecionados = fimDeMes ? lista : lista.filter(p => p.data_pedido >= periodo.inicio && p.data_pedido <= periodo.fim)
     return selecionados.length ? [{ ...c, pedidos: selecionados }] : []
   })
+  let semPedidos: Array<{ nome: string; bloco: string | null; apartamento: string | null }> = []
+  let tituloMesAtual = ''
+  if (fimDeMes) {
+    const periodoAtual = periodoMesAtual()
+    tituloMesAtual = periodoAtual.titulo
+    const { data: pedidosDoMes, error: erroPedidosDoMes } = await db
+      .from('pedido')
+      .select('cliente_id')
+      .in('cliente_id', ids)
+      .gte('data_pedido', periodoAtual.inicio)
+      .lte('data_pedido', periodoAtual.fim)
+      .neq('status', 'cancelado')
+      .is('deletado_em', null)
+    if (erroPedidosDoMes) return Response.json({ error: erroPedidosDoMes.message }, { status: 500 })
+    const clientesComPedido = new Set((pedidosDoMes ?? []).map(p => p.cliente_id))
+    semPedidos = (clientes ?? []).filter(c => !clientesComPedido.has(c.id))
+  }
   const total = [...usouPagou, ...mensalistas].reduce((s, c) => s + c.pedidos.reduce((x, p) => x + valor(p), 0), 0)
   const texto = fimDeMes
     ? `📅 *Ciclo Novo — Fechamento mensal*\n\n${formatarSecao('👥', 'Mensalistas devedores', mensalistas)}\n\n💰 *Total mensalista em aberto: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
     : `📣 *Ciclo Novo — Fechamento de sexta*\n\n${formatarSecao('🧺', 'Usou e Pagou — pendências atuais', usouPagou)}\n\n${formatarSecao('📅', `Mensalistas — ${periodo.titulo}`, mensalistas)}\n\n💰 *Total geral: ${brl(total)}*\n\nResponda /pendencias para consultar o resumo geral.`
-  const envios = await Promise.all(chatIdsDestinatarios(chatId).map(async destinatario => {
-    const resposta = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: destinatario, text: texto.slice(0, 4096), parse_mode: 'Markdown' }) })
+  const mensagens = [
+    ...dividirMensagem(texto),
+    ...(fimDeMes ? dividirMensagem(formatarSemPedidos(tituloMesAtual, semPedidos)) : []),
+  ]
+  const envios = await Promise.all(chatIdsDestinatarios(chatId).flatMap(destinatario => mensagens.map(async mensagem => {
+    const resposta = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: destinatario, text: mensagem, parse_mode: 'Markdown' }) })
     if (resposta.ok) return { chatId: destinatario, ok: true }
     const erro = await resposta.json().catch(() => ({}))
     return { chatId: destinatario, ok: false, erro: erro.description ?? 'Falha no Telegram.' }
-  }))
+  })))
   const falhas = envios.filter(envio => !envio.ok)
   if (falhas.length) return Response.json({ error: 'Falha ao enviar para um ou mais destinatários.', falhas }, { status: 502 })
-  return Response.json({ ok: true, usouPagou: usouPagou.length, mensalistas: mensalistas.length, total })
+  return Response.json({ ok: true, usouPagou: usouPagou.length, mensalistas: mensalistas.length, semPedidos: semPedidos.length, total })
 })

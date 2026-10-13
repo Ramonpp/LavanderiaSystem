@@ -138,15 +138,24 @@ export function CustosMaquinasPage() {
       const { data: dbMachines } = await fetchMaquinas()
       const mapping: Record<string, string> = {}
       const toInsert = []
+      const usados = new Set<string>()
 
       for (const m of MAQUINAS) {
         const nomeExibido = lsGet(`lav_${m.key}_apelido`, '') || m.nomeDefault
-        const found = dbMachines?.find(db => 
-          db.nome.toLowerCase() === nomeExibido.toLowerCase() || 
-          db.nome.toLowerCase() === m.nomeDefault.toLowerCase()
+        const found = dbMachines?.find(db => db.device_id === m.deviceId) ?? dbMachines?.find(db =>
+          !usados.has(db.id) && (
+            db.nome.toLowerCase() === nomeExibido.toLowerCase() ||
+            db.nome.toLowerCase() === m.nomeDefault.toLowerCase()
+          )
+        ) ?? dbMachines?.find(db =>
+          !usados.has(db.id) && db.tipo === 'lavagem' && db.nome.toLowerCase().includes('lg') && db.nome.toLowerCase().includes('vc4')
         )
         if (found) {
           mapping[m.key] = found.id
+          usados.add(found.id)
+          if (found.device_id !== m.deviceId) {
+            await supabase.from('maquina').update({ device_id: m.deviceId, capacidade_kg: 14, capacidade_secagem_kg: 8 }).eq('id', found.id)
+          }
         } else {
           toInsert.push(m)
         }
@@ -158,7 +167,9 @@ export function CustosMaquinasPage() {
           await supabase.from('maquina').insert({
             nome: nomeExibido,
             tipo: 'lavagem',
-            capacidade_kg: 12,
+            capacidade_kg: 14,
+            capacidade_secagem_kg: 8,
+            device_id: m.deviceId,
             ciclos_por_dia_util: 6,
             ativo: true
           })

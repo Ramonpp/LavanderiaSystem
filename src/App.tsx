@@ -1,27 +1,28 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { AppShell } from './app/AppShell'
 import { LoginPage } from './pages/LoginPage'
-import { ClientesPage } from './pages/ClientesPage'
-import { ConfigWebhookPage } from './pages/ConfigWebhookPage'
-import { CustosMaquinasPage } from './pages/CustosMaquinasPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { DespesasPage } from './pages/DespesasPage'
-import { MaquinasPage } from './pages/MaquinasPage'
-import { CriarPedidoPage } from './pages/CriarPedidoPage'
-import { PedidosCadastradosPage } from './pages/PedidosCadastradosPage'
-import { EmLavagemPage } from './pages/EmLavagemPage'
-import { RelatorioMensalPage } from './pages/RelatorioMensalPage'
-import { RelatorioAnualPage } from './pages/RelatorioAnualPage'
-import { RelatorioPecasPage } from './pages/RelatorioPecasPage'
-import { SimulacaoPage } from './pages/SimulacaoPage'
-import { TiposPecaPage } from './pages/TiposPecaPage'
-import { ManchasPage } from './pages/ManchasPage'
-import { PedidosMensaisPage } from './pages/PedidosMensaisPage'
-import { PedidosUsouPagouPage } from './pages/PedidosUsouPagouPage'
-import { HistoricoPedidosPage } from './pages/HistoricoPedidosPage'
-import { FluxoEmpresaPage } from './pages/FluxoEmpresaPage'
+const ClientesPage = lazy(() => import('./pages/ClientesPage').then((m) => ({ default: m.ClientesPage })))
+const ConfigWebhookPage = lazy(() => import('./pages/ConfigWebhookPage').then((m) => ({ default: m.ConfigWebhookPage })))
+const CustosMaquinasPage = lazy(() => import('./pages/CustosMaquinasPage').then((m) => ({ default: m.CustosMaquinasPage })))
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const DespesasPage = lazy(() => import('./pages/DespesasPage').then((m) => ({ default: m.DespesasPage })))
+const MaquinasPage = lazy(() => import('./pages/MaquinasPage').then((m) => ({ default: m.MaquinasPage })))
+const CriarPedidoPage = lazy(() => import('./pages/CriarPedidoPage').then((m) => ({ default: m.CriarPedidoPage })))
+const PedidosCadastradosPage = lazy(() => import('./pages/PedidosCadastradosPage').then((m) => ({ default: m.PedidosCadastradosPage })))
+const EmLavagemPage = lazy(() => import('./pages/EmLavagemPage').then((m) => ({ default: m.EmLavagemPage })))
+const RelatorioMensalPage = lazy(() => import('./pages/RelatorioMensalPage').then((m) => ({ default: m.RelatorioMensalPage })))
+const RelatorioAnualPage = lazy(() => import('./pages/RelatorioAnualPage').then((m) => ({ default: m.RelatorioAnualPage })))
+const RelatorioPecasPage = lazy(() => import('./pages/RelatorioPecasPage').then((m) => ({ default: m.RelatorioPecasPage })))
+const SimulacaoPage = lazy(() => import('./pages/SimulacaoPage').then((m) => ({ default: m.SimulacaoPage })))
+const TiposPecaPage = lazy(() => import('./pages/TiposPecaPage').then((m) => ({ default: m.TiposPecaPage })))
+const ManchasPage = lazy(() => import('./pages/ManchasPage').then((m) => ({ default: m.ManchasPage })))
+const PedidosMensaisPage = lazy(() => import('./pages/PedidosMensaisPage').then((m) => ({ default: m.PedidosMensaisPage })))
+const PedidosUsouPagouPage = lazy(() => import('./pages/PedidosUsouPagouPage').then((m) => ({ default: m.PedidosUsouPagouPage })))
+const HistoricoPedidosPage = lazy(() => import('./pages/HistoricoPedidosPage').then((m) => ({ default: m.HistoricoPedidosPage })))
+const FluxoEmpresaPage = lazy(() => import('./pages/FluxoEmpresaPage').then((m) => ({ default: m.FluxoEmpresaPage })))
+const CobrancasPage = lazy(() => import('./pages/CobrancasPage').then((m) => ({ default: m.CobrancasPage })))
 export default function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -74,6 +75,7 @@ export default function App() {
   }
 
   return (
+    <Suspense fallback={<div className="panel"><div className="panelBody hint">Carregando…</div></div>}>
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -87,6 +89,7 @@ export default function App() {
         <Route path="/pedidos/mensais" element={<PedidosMensaisPage />} />
         <Route path="/pedidos/usou-pagou" element={<PedidosUsouPagouPage />} />
         <Route path="/pedidos/historico" element={<HistoricoPedidosPage />} />
+        <Route path="/cobrancas" element={<CobrancasPage />} />
         <Route path="/pedidos" element={<Navigate to="/pedidos/lista" replace />} />
         <Route path="/pecas" element={<TiposPecaPage />} />
         <Route path="/despesas/criar" element={<DespesasPage mode="criar" />} />
@@ -105,6 +108,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   )
 }
 

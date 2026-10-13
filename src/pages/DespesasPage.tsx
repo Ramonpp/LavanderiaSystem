@@ -46,6 +46,9 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
 
   /* Não-parcelado / Edição */
   const [dataLanc, setDataLanc] = useState(() => new Date().toISOString().slice(0, 10))
+  const [vencimento, setVencimento] = useState(() => new Date().toISOString().slice(0, 10))
+  const [pago, setPago] = useState(false)
+  const [recorrente, setRecorrente] = useState(false)
   const [quantidade, setQuantidade] = useState('1')
   const [valorUnit, setValorUnit] = useState('')
 
@@ -144,6 +147,9 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
     setValorParcela('')
     setNumParcelas('12')
     setParcelado(false)
+    setVencimento(new Date().toISOString().slice(0, 10))
+    setPago(false)
+    setRecorrente(false)
   }
 
   /* ── Carregar despesa para edição ──────────────────────── */
@@ -162,6 +168,9 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               setEditandoId(data.id)
               setNome(data.categoria)
               setDataLanc(data.data)
+              setVencimento(data.vencimento ?? data.data)
+              setPago(Boolean(data.pago))
+              setRecorrente(Boolean(data.recorrente))
               setValorUnit(String(data.valor))
               setQuantidade('1')
               setDescricao(data.descricao ?? '')
@@ -204,6 +213,10 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
         categoria: nome.trim(),
         descricao: descricao.trim() || null,
         valor: totalVal,
+        vencimento: vencimento || dataLanc,
+        pago,
+        data_pagamento: pago ? new Date().toISOString().slice(0, 10) : null,
+        recorrente,
       })
       if (error) { setErro(error); return }
 
@@ -230,6 +243,10 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
         categoria: nome.trim(),
         descricao: descFinal,
         valor: total,
+        vencimento: vencimento || dataLanc,
+        pago,
+        data_pagamento: pago ? new Date().toISOString().slice(0, 10) : null,
+        recorrente,
       }])
       if (error) { setErro(error); return }
 
@@ -250,6 +267,10 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
           categoria: nome.trim(),
           descricao: `${descricao.trim() ? descricao.trim() + ' — ' : ''}Parcela ${i + 1}/${parcelasNum}`,
           valor: vp,
+          vencimento: mesAnoToIsoDay1(addMonths(mesInicio, i)),
+          pago: false,
+          data_pagamento: null,
+          recorrente,
         }),
       )
 
@@ -506,6 +527,25 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               />
             </div>
 
+            <div className="row">
+              {!parcelado ? (
+                <div className="field" style={{ maxWidth: 220 }}>
+                  <label htmlFor="vencimento">Vencimento</label>
+                  <input id="vencimento" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} />
+                </div>
+              ) : null}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer', color: 'var(--text-h)' }}>
+                <input type="checkbox" checked={recorrente} onChange={(e) => setRecorrente(e.target.checked)} style={{ width: 18, height: 18 }} />
+                Despesa recorrente
+              </label>
+              {!parcelado ? (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, cursor: 'pointer', color: 'var(--text-h)' }}>
+                  <input type="checkbox" checked={pago} onChange={(e) => setPago(e.target.checked)} style={{ width: 18, height: 18 }} />
+                  Já foi paga
+                </label>
+              ) : null}
+            </div>
+
             <div className="row" style={{ gap: 8 }}>
               {editandoId && (
                 <button className="btn" type="button" onClick={() => navigate('/despesas/lista')}>
@@ -626,6 +666,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                   <th>Data</th>
                   <th>Categoria</th>
                   <th>Descrição / Produto</th>
+                  <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Valor</th>
                   <th style={{ width: 140, textAlign: 'center' }}>Ações</th>
                 </tr>
@@ -642,6 +683,11 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                       </span>
                     </td>
                     <td className="hint">{d.descricao ?? '—'}</td>
+                    <td>
+                      <span className={`badge ${d.pago ? 'badgeGreen' : 'badgeRed'}`}>
+                        {d.pago ? 'Paga' : d.pago === false ? 'Pendente' : 'Não informado'}
+                      </span>
+                    </td>
                     <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-h)' }}>
                       {formatBRL(Number(d.valor))}
                     </td>
@@ -699,7 +745,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
                 ))}
                 {lista.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="hint" style={{ textAlign: 'center', padding: 24 }}>
+                    <td colSpan={6} className="hint" style={{ textAlign: 'center', padding: 24 }}>
                       Nenhum lançamento no período selecionado.
                     </td>
                   </tr>
@@ -708,7 +754,7 @@ export function DespesasPage({ mode }: { mode: 'criar' | 'lista' }) {
               {lista.length > 0 ? (
                 <tfoot>
                   <tr>
-                    <td colSpan={3} style={{ color: 'var(--muted)', fontSize: 12 }}>
+                    <td colSpan={4} style={{ color: 'var(--muted)', fontSize: 12 }}>
                       {lista.length} lançamento(s)
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--text-h)' }}>

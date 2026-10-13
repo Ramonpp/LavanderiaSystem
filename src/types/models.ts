@@ -19,6 +19,9 @@ export type Cliente = {
   plano: ClientePlano
   forma_pagamento: ClienteFormaPagamento
   dia_pagamento: number | null
+  whatsapp_opt_in?: boolean
+  cobranca_pausada?: boolean
+  ultima_cobranca_em?: string | null
   ativo: boolean
   deletado_em?: string | null
   criado_em: string
@@ -84,6 +87,10 @@ export type Despesa = {
   categoria: string
   descricao: string | null
   valor: number
+  vencimento?: string | null
+  pago?: boolean | null
+  data_pagamento?: string | null
+  recorrente?: boolean
   deletado_em?: string | null
   criado_em: string
 }
@@ -97,6 +104,12 @@ export type Maquina = {
   capacidade_kg: number
   minutos_por_ciclo: number | null
   ciclos_por_dia_util: number
+  capacidade_secagem_kg?: number | null
+  litros_por_ciclo?: number | null
+  energia_kwh_por_ciclo?: number | null
+  ultima_manutencao?: string | null
+  ciclos_desde_manutencao?: number
+  device_id?: string | null
   ativo: boolean
   deletado_em?: string | null
   criado_em: string
@@ -119,6 +132,28 @@ export type ConsumoMaquina = {
   mes_ano: string
   consumo_wh: number | null
   ciclos: number
+  criado_em: string
+}
+
+export type Pagamento = {
+  id: UUID
+  pedido_id: UUID
+  valor: number
+  data: string
+  forma: ClienteFormaPagamento
+  observacoes: string | null
+  registrado_por: UUID | null
+  estornado_em: string | null
+  criado_em: string
+}
+
+export type CobrancaEvento = {
+  id: UUID
+  cliente_id: UUID
+  pedido_id: UUID | null
+  canal: 'whatsapp' | 'telefone' | 'presencial' | 'outro'
+  mensagem: string | null
+  criado_por: UUID | null
   criado_em: string
 }
 

@@ -12,7 +12,11 @@ export function MaquinasPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [nome, setNome] = useState('')
   const [tipo, setTipo] = useState<MaquinaTipo>('lavagem')
-  const [capacidadeKg, setCapacidadeKg] = useState('12')
+  const [capacidadeKg, setCapacidadeKg] = useState('14')
+  const [capacidadeSecagemKg, setCapacidadeSecagemKg] = useState('')
+  const [litrosCiclo, setLitrosCiclo] = useState('')
+  const [energiaCiclo, setEnergiaCiclo] = useState('')
+  const [ultimaManutencao, setUltimaManutencao] = useState('')
   const [minutosCiclo, setMinutosCiclo] = useState('')
   const [ciclosDia, setCiclosDia] = useState('6')
   const [ativo, setAtivo] = useState(true)
@@ -32,7 +36,11 @@ export function MaquinasPage() {
     setEditandoId(null)
     setNome('')
     setTipo('lavagem')
-    setCapacidadeKg('12')
+    setCapacidadeKg('14')
+    setCapacidadeSecagemKg('')
+    setLitrosCiclo('')
+    setEnergiaCiclo('')
+    setUltimaManutencao('')
     setMinutosCiclo('')
     setCiclosDia('6')
     setAtivo(true)
@@ -44,6 +52,10 @@ export function MaquinasPage() {
     setNome(m.nome)
     setTipo(m.tipo)
     setCapacidadeKg(String(m.capacidade_kg))
+    setCapacidadeSecagemKg(m.capacidade_secagem_kg == null ? '' : String(m.capacidade_secagem_kg))
+    setLitrosCiclo(m.litros_por_ciclo == null ? '' : String(m.litros_por_ciclo))
+    setEnergiaCiclo(m.energia_kwh_por_ciclo == null ? '' : String(m.energia_kwh_por_ciclo))
+    setUltimaManutencao(m.ultima_manutencao ?? '')
     setMinutosCiclo(m.minutos_por_ciclo == null ? '' : String(m.minutos_por_ciclo))
     setCiclosDia(String(m.ciclos_por_dia_util))
     setAtivo(m.ativo)
@@ -57,6 +69,9 @@ export function MaquinasPage() {
     const capKg = Number(capacidadeKg.replace(',', '.'))
     const ciclos = Number(ciclosDia.replace(',', '.'))
     const mins = minutosCiclo.trim().length === 0 ? null : Number(minutosCiclo.replace(',', '.'))
+    const capSecagem = capacidadeSecagemKg.trim() ? Number(capacidadeSecagemKg.replace(',', '.')) : null
+    const litros = litrosCiclo.trim() ? Number(litrosCiclo.replace(',', '.')) : null
+    const energia = energiaCiclo.trim() ? Number(energiaCiclo.replace(',', '.')) : null
 
     if (!nome.trim()) {
       setErro('Nome é obrigatório.')
@@ -74,6 +89,9 @@ export function MaquinasPage() {
       setErro('Minutos por ciclo inválidos.')
       return
     }
+    if (capSecagem !== null && (!Number.isFinite(capSecagem) || capSecagem <= 0)) { setErro('Capacidade de secagem inválida.'); return }
+    if (litros !== null && (!Number.isFinite(litros) || litros < 0)) { setErro('Litros por ciclo inválidos.'); return }
+    if (energia !== null && (!Number.isFinite(energia) || energia < 0)) { setErro('Energia por ciclo inválida.'); return }
 
     if (editandoId) {
       const { error } = await updateMaquina(editandoId, {
@@ -82,6 +100,10 @@ export function MaquinasPage() {
         capacidade_kg: capKg,
         minutos_por_ciclo: mins,
         ciclos_por_dia_util: ciclos,
+        capacidade_secagem_kg: capSecagem,
+        litros_por_ciclo: litros,
+        energia_kwh_por_ciclo: energia,
+        ultima_manutencao: ultimaManutencao || null,
         ativo,
       })
       if (error) setErro(error)
@@ -96,6 +118,10 @@ export function MaquinasPage() {
         capacidade_kg: capKg,
         minutos_por_ciclo: mins,
         ciclos_por_dia_util: ciclos,
+        capacidade_secagem_kg: capSecagem,
+        litros_por_ciclo: litros,
+        energia_kwh_por_ciclo: energia,
+        ultima_manutencao: ultimaManutencao || null,
         ativo,
       })
       if (error) setErro(error)
@@ -158,6 +184,24 @@ export function MaquinasPage() {
             <div className="field">
               <label htmlFor="cap">Capacidade (kg por ciclo)</label>
               <input id="cap" inputMode="decimal" value={capacidadeKg} onChange={(e) => setCapacidadeKg(e.target.value)} />
+            </div>
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="capSecagem">Capacidade de secagem (kg, se lava e seca)</label>
+              <input id="capSecagem" inputMode="decimal" value={capacidadeSecagemKg} onChange={(e) => setCapacidadeSecagemKg(e.target.value)} placeholder="Ex.: 8" />
+            </div>
+            <div className="field">
+              <label htmlFor="litrosCiclo">Água por ciclo (litros)</label>
+              <input id="litrosCiclo" inputMode="decimal" value={litrosCiclo} onChange={(e) => setLitrosCiclo(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="energiaCiclo">Energia por ciclo (kWh)</label>
+              <input id="energiaCiclo" inputMode="decimal" value={energiaCiclo} onChange={(e) => setEnergiaCiclo(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="ultimaManutencao">Última manutenção</label>
+              <input id="ultimaManutencao" type="date" value={ultimaManutencao} onChange={(e) => setUltimaManutencao(e.target.value)} />
             </div>
           </div>
           <div className="row">

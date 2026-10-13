@@ -5,7 +5,6 @@ import { SetupBanner } from '../components/SetupBanner'
 import { checkDbHealth, type DbHealth } from '../lib/healthCheck'
 import { resolveTheme, toggleTheme, type Theme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { executarExpurgoAutomatico30Dias } from '../lib/autoPurge'
 
 /* ── SVG icons ─────────────────────────────────────────── */
 const Ico = {
@@ -148,6 +147,7 @@ const navItems = [
   { to: '/dashboard',  icon: Ico.dashboard,  label: 'Dashboard',   desc: 'Resumo do mês'          },
   { to: '/pedidos',    icon: Ico.pedidos,    label: 'Pedidos',     desc: 'Registro e controle'    },
   { to: '/clientes',   icon: Ico.clientes,   label: 'Clientes',    desc: 'Hotéis e contratos'     },
+  { to: '/cobrancas',  icon: Ico.despesas,   label: 'Cobranças',   desc: 'Saldos e recebimentos'  },
   { to: '/pecas',      icon: Ico.pecas,      label: 'Peças',       desc: 'Tipos de peça'          },
   { to: '/despesas',   icon: Ico.despesas,   label: 'Despesas',    desc: 'Lançamentos mensais'    },
   { to: '/maquinas',   icon: Ico.maquinas,   label: 'Máquinas',    desc: 'Lavagem e secagem'      },
@@ -200,7 +200,6 @@ export function AppShell() {
 
   useEffect(() => {
     checkDbHealth().then(setHealth)
-    void executarExpurgoAutomatico30Dias()
   }, [])
 
   function handleToggleCollapse() {
