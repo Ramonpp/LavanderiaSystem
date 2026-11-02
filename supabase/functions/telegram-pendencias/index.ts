@@ -5,7 +5,8 @@ type Pedido = { cliente_id: string; data_pedido: string; peso_kg: number | null;
 function valor(p: Pedido) {
   let total = p.preco_fixo ?? Number(p.peso_kg ?? 0) * Number(p.preco_por_kg ?? 0)
   const desconto = Number(p.desconto_valor ?? 0)
-  return desconto > 0 ? (p.desconto_tipo === 'percentual' ? total * (1 - desconto / 100) : Math.max(0, total - desconto)) : total
+  const valorComDesconto = desconto > 0 ? (p.desconto_tipo === 'percentual' ? total * (1 - desconto / 100) : Math.max(0, total - desconto)) : total
+  return Math.max(40, valorComDesconto)
 }
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 

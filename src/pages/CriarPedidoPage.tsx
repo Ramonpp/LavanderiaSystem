@@ -14,11 +14,13 @@ import { StatusBanner } from '../components/StatusBanner'
 import { compressImage } from '../utils/image'
 import { formatBRL } from '../lib/format'
 import { supabase } from '../lib/supabase'
+import { PRECO_MINIMO_PEDIDO } from '../domain/finance'
 
 type ItemLinha = {
   key: string
   tipo_peca_id: string
   quantidade: string
+  preco_unitario?: number
   pecas?: Array<{ id_peca: string; conferido: boolean }>
 }
 
@@ -45,13 +47,17 @@ function resolverTipoId(tipos: import('../types/models').TipoPeca[], nome: strin
 
 function gerarLinhasPadrao(tipos: import('../types/models').TipoPeca[]): ItemLinha[] {
   const linhas = PEDIDO_MINIMO
-    .map(({ nome, quantidade }) => ({
-      key: newKey(),
-      tipo_peca_id: resolverTipoId(tipos, nome),
-      quantidade,
-    }))
+    .map(({ nome, quantidade }) => {
+      const tipo_peca_id = resolverTipoId(tipos, nome)
+      return {
+        key: newKey(),
+        tipo_peca_id,
+        quantidade,
+        preco_unitario: Number(tipos.find((t) => t.id === tipo_peca_id)?.preco_unitario ?? 0),
+      }
+    })
     .filter((l) => l.tipo_peca_id !== '')
-  return linhas.length > 0 ? linhas : [{ key: newKey(), tipo_peca_id: tipos[0]?.id ?? '', quantidade: '1' }]
+  return linhas.length > 0 ? linhas : [{ key: newKey(), tipo_peca_id: tipos[0]?.id ?? '', quantidade: '1', preco_unitario: Number(tipos[0]?.preco_unitario ?? 0) }]
 }
 
 const statusOpções: OrderStatus[] = ['recebido', 'em_lavagem', 'pronto', 'entregue', 'cancelado']
@@ -142,7 +148,7 @@ export function CriarPedidoPage() {
 
   const primeiraPecaDisponível = useMemo(() => tipos[0]?.id ?? '', [tipos])
 
-  const totalBruto = useMemo(() => {
+  const totalServico = useMemo(() => {
     const peso = Number(String(pesoKg).replace(',', '.')) || 0
     if (modoPreco === 'kg') {
       const pk = Number(String(precoKg).replace(',', '.')) || 0
@@ -151,6 +157,13 @@ export function CriarPedidoPage() {
       return Number(String(precoFixo).replace(',', '.')) || 0
     }
   }, [modoPreco, pesoKg, precoKg, precoFixo])
+
+  const adicionalPecas = useMemo(() => itensLinhas.reduce((total, linha) => {
+    const quantidade = Math.max(0, Math.round(Number(String(linha.quantidade).replace(',', '.'))) || 0)
+    return total + quantidade * Number(linha.preco_unitario ?? 0)
+  }, 0), [itensLinhas])
+
+  const totalBruto = totalServico + adicionalPecas
 
   const totalComDesconto = useMemo(() => {
     const dVal = Number(String(descontoValor).replace(',', '.')) || 0
@@ -161,6 +174,7 @@ export function CriarPedidoPage() {
       return Math.max(0, totalBruto - dVal)
     }
   }, [totalBruto, descontoValor, descontoTipo])
+  const totalAPagar = Math.max(PRECO_MINIMO_PEDIDO, totalComDesconto)
   const DEFAULT_PRECO_POR_KG_48H = '15'
 
   async function reloadAll() {
@@ -234,7 +248,7 @@ export function CriarPedidoPage() {
     const defaultId = selected ? [selected.apartamento?.trim(), selected.bloco?.trim()].filter(Boolean).join(' / ') : ''
     setItensLinhas((xs) => [
       ...xs,
-      { key, tipo_peca_id: primeiraPecaDisponível, quantidade: '1', pecas: [{ id_peca: defaultId, conferido: false }] },
+      { key, tipo_peca_id: primeiraPecaDisponível, quantidade: '1', preco_unitario: Number(tipos.find((t) => t.id === primeiraPecaDisponível)?.preco_unitario ?? 0), pecas: [{ id_peca: defaultId, conferido: false }] },
     ])
     setTimeout(() => {
       const el = document.getElementById(`item-row-${key}`)
@@ -309,9 +323,10 @@ export function CriarPedidoPage() {
           key: it.id ?? newKey(),
           tipo_peca_id: it.tipo_peca_id,
           quantidade: String(it.quantidade),
+          preco_unitario: Number(it.preco_unitario ?? 0),
           pecas: it.pecas || [],
         }))
-        : [{ key: newKey(), tipo_peca_id: primeiraPecaDisponível, quantidade: '1', pecas: [] }]
+        : [{ key: newKey(), tipo_peca_id: primeiraPecaDisponível, quantidade: '1', preco_unitario: Number(tipos.find((t) => t.id === primeiraPecaDisponível)?.preco_unitario ?? 0), pecas: [] }]
     setItensLinhas(linhas)
   }
 
@@ -330,6 +345,7 @@ export function CriarPedidoPage() {
         tipo_peca_id: l.tipo_peca_id,
         quantidade: q,
         peso_linha_kg: null,
+        preco_unitario: Number(l.preco_unitario ?? 0),
         pecas: l.pecas || [],
       })
     }
@@ -453,6 +469,7 @@ export function CriarPedidoPage() {
       peso_kg: peso,
       preco_por_kg,
       preco_fixo,
+      adicional_pecas: adicionalPecas,
       desconto_valor: descVal,
       desconto_tipo: descontoTipo,
       observacoes: observacoes.trim().length === 0 ? null : observacoes.trim(),
@@ -776,12 +793,13 @@ export function CriarPedidoPage() {
                       <label>Tipo peça</label>
                       <select value={l.tipo_peca_id} onChange={(e) => {
                         const v = e.target.value
-                        setItensLinhas((xs) => xs.map((y) => (y.key === l.key ? { ...y, tipo_peca_id: v } : y)))
+                        const preco = Number(tipos.find((t) => t.id === v)?.preco_unitario ?? 0)
+                        setItensLinhas((xs) => xs.map((y) => (y.key === l.key ? { ...y, tipo_peca_id: v, preco_unitario: preco } : y)))
                       }}>
                         <option value="">Escolha</option>
                         {tipos.map((t) => (
                           <option key={t.id} value={t.id}>
-                            {t.nome}
+                            {t.nome}{Number(t.preco_unitario ?? 0) > 0 ? ` — ${formatBRL(Number(t.preco_unitario))}/un.` : ''}
                           </option>
                         ))}
                       </select>
@@ -793,6 +811,14 @@ export function CriarPedidoPage() {
                         value={l.quantidade}
                         onChange={(e) => handleQuantidadeChange(l.key, e.target.value)}
                       />
+                    </div>
+                    <div className="field" style={{ minWidth: 150 }}>
+                      <label>Preço à parte</label>
+                      <div style={{ minHeight: 42, display: 'flex', alignItems: 'center', fontWeight: 700, color: Number(l.preco_unitario ?? 0) > 0 ? 'var(--accent)' : 'var(--muted)' }}>
+                        {Number(l.preco_unitario ?? 0) > 0
+                          ? `${formatBRL(Number(l.preco_unitario))} × ${Math.max(0, Number(l.quantidade) || 0)} = ${formatBRL(Number(l.preco_unitario) * Math.max(0, Number(l.quantidade) || 0))}`
+                          : 'Incluso no preço por kg'}
+                      </div>
                     </div>
                     <div className="field" style={{ minWidth: 120, alignSelf: 'end', flex: '0 0 auto' }}>
                       <label style={{ visibility: 'hidden' }}>X</label>
@@ -867,7 +893,17 @@ export function CriarPedidoPage() {
             boxShadow: 'var(--shadow)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span style={{ color: 'var(--muted)' }}>Valor Bruto:</span>
+              <span style={{ color: 'var(--muted)' }}>Serviço por peso/preço fixo:</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-h)' }}>{formatBRL(totalServico)}</span>
+            </div>
+            {adicionalPecas > 0 ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--accent)' }}>
+                <span>Peças cobradas à parte:</span>
+                <strong>+{formatBRL(adicionalPecas)}</strong>
+              </div>
+            ) : null}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+              <span style={{ color: 'var(--muted)' }}>Valor bruto:</span>
               <span style={{ fontWeight: 600, color: 'var(--text-h)' }}>{formatBRL(totalBruto)}</span>
             </div>
             {Number(descontoValor) > 0 && (
@@ -876,10 +912,16 @@ export function CriarPedidoPage() {
                 <span>-{formatBRL(totalBruto - totalComDesconto)}</span>
               </div>
             )}
+            {totalComDesconto < PRECO_MINIMO_PEDIDO ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: 'var(--accent)' }}>
+                <span>Preço mínimo por pedido:</span>
+                <strong>{formatBRL(PRECO_MINIMO_PEDIDO)}</strong>
+              </div>
+            ) : null}
             <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700 }}>
               <span style={{ color: 'var(--text-h)' }}>Total a Pagar:</span>
-              <span style={{ color: 'var(--accent)' }}>{formatBRL(totalComDesconto)}</span>
+              <span style={{ color: 'var(--accent)' }}>{formatBRL(totalAPagar)}</span>
             </div>
           </div>
 

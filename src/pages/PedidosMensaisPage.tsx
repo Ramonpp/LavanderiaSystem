@@ -3,10 +3,11 @@ import { fetchClientes } from '../data/clientes'
 import { fetchPedidos, fetchItensPorPedidos } from '../data/pedidos'
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, PedidoCliente, ItemPedido, TipoPeca } from '../types/models'
-import { receitaPedido, receitaOriginalPedido } from '../domain/finance'
+import { pedidoComPrecoMinimo, receitaPedido, receitaOriginalPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { jsPDF } from 'jspdf'
+import { formatarItemCobranca, linhasAdicionaisCobranca } from '../domain/piecePricing'
 
 function getBase64Image(imgUrl: string): Promise<string> {
   return new Promise((resolve) => {
@@ -286,7 +287,10 @@ export function PedidosMensaisPage() {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const dataFormatada = `${dia}/${mes}/${ano.slice(-2)}`
         const valor = receitaPedido(p)
-        return `📅 ${dataFormatada}: ${p.peso_kg} kg - ${formatBRL(valor)}`
+        const adicionais = linhasAdicionaisCobranca(itensMap[p.id] || [], getPecaNome)
+        const detalheAdicional = adicionais.length > 0 ? `\n   🛏️ ${adicionais.join('\n   🛏️ ')}` : ''
+        const minimoTexto = pedidoComPrecoMinimo(p) ? ' (preço mínimo de R$ 40,00 aplicado)' : ''
+        return `📅 ${dataFormatada}: ${p.peso_kg} kg - ${formatBRL(valor)}${minimoTexto}${detalheAdicional}`
       })
       .join('\n')
 
@@ -331,10 +335,13 @@ export function PedidosMensaisPage() {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const dataFormatada = `${dia}/${mes}/${ano}`
         const valor = receitaPedido(p)
+        const avisoMinimo = pedidoComPrecoMinimo(p)
+          ? '<br><small style="color:#3b6fe8;font-weight:700">PREÇO MÍNIMO R$ 40,00</small>'
+          : ''
         
         const itens = itensMap[p.id] || []
         const pecasDetalhadas = itens
-          .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+          .map((it) => formatarItemCobranca(it, getPecaNome(it.tipo_peca_id)))
           .join(', ') || 'Sem especificações'
 
         return `
@@ -342,7 +349,7 @@ export function PedidosMensaisPage() {
             <td>${dataFormatada}</td>
             <td>${pecasDetalhadas}</td>
             <td style="text-align: right;">${Number(p.peso_kg).toLocaleString('pt-BR')} kg</td>
-            <td style="text-align: right; font-weight: 600;">${formatBRL(valor)}</td>
+            <td style="text-align: right; font-weight: 600;">${formatBRL(valor)}${avisoMinimo}</td>
           </tr>
         `
       })
@@ -596,6 +603,7 @@ export function PedidosMensaisPage() {
           <div class="total-item">
             <div class="total-label">Total Geral a Pagar</div>
             <div class="total-value" style="color: #3b6fe8;">${formatBRL(valorTotal)}</div>
+            ${pedidosCliente.some((p) => pedidoComPrecoMinimo(p)) ? '<div style="font-size:10px;color:#3b6fe8;margin-top:4px">Pedidos abaixo de R$ 40,00 cobrados pelo preço mínimo.</div>' : ''}
           </div>
         </div>
 
@@ -718,7 +726,7 @@ export function PedidosMensaisPage() {
             
             const itens = itensMap[p.id] || []
             const pecasDetalhadas = itens
-              .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+              .map((it) => formatarItemCobranca(it, getPecaNome(it.tipo_peca_id)))
               .join(', ') || 'Sem especificações'
 
             if (temAlgumDescontoGeral) {
@@ -1246,7 +1254,7 @@ export function PedidosMensaisPage() {
       ;[...pedidosCliente].reverse().forEach((p, idx) => {
         const [ano, mes, dia] = p.data_pedido.split('-')
         const valor = receitaPedido(p)
-        const pecas = (itensMap[p.id] || []).map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`).join(', ') || 'Sem especificações'
+        const pecas = (itensMap[p.id] || []).map((it) => formatarItemCobranca(it, getPecaNome(it.tipo_peca_id))).join(', ') || 'Sem especificações'
 
         ctx.font = `${mm(2.8)}px Arial, sans-serif`
         const pecasLines = wrapText(ctx, pecas, colWmm[1] - mm(4))
@@ -1267,6 +1275,13 @@ export function PedidosMensaisPage() {
         cy += rowH
       })
       cy += mm(6)
+
+      if (pedidosCliente.some((p) => pedidoComPrecoMinimo(p))) {
+        ctx.fillStyle = BLUE
+        ctx.font = `bold ${mm(2.5)}px Arial, sans-serif`
+        ctx.fillText('Preço mínimo de R$ 40,00 aplicado aos pedidos abaixo desse valor.', ml, cy)
+        cy += mm(5)
+      }
 
       // Totais
       ctx.fillStyle = '#edf2f7'; ctx.strokeStyle = '#cbd5e0'; ctx.lineWidth = mm(0.3)
@@ -1466,7 +1481,7 @@ export function PedidosMensaisPage() {
         const valor = receitaPedido(p)
         const itens = itensMap[p.id] || []
         const pecasDetalhadas = itens
-          .map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`)
+          .map((it) => formatarItemCobranca(it, getPecaNome(it.tipo_peca_id)))
           .join(', ') || 'Sem especificações'
 
         // Calcular altura necessária (pode ser multi-linha)
@@ -1514,6 +1529,14 @@ export function PedidosMensaisPage() {
       })
 
       y += 6
+
+      if (pedidosCliente.some((p) => pedidoComPrecoMinimo(p))) {
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(7)
+        pdf.setTextColor(59, 111, 232)
+        pdf.text('Preço mínimo de R$ 40,00 aplicado aos pedidos abaixo desse valor.', ML, y)
+        y += 5
+      }
 
       // ── TOTAIS ───────────────────────────────────────────
       if (y + 18 > 280) { pdf.addPage(); y = 14 }

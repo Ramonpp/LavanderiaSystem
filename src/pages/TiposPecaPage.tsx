@@ -13,6 +13,7 @@ export function TiposPecaPage() {
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [pesoRef, setPesoRef] = useState('')
+  const [precoUnitario, setPrecoUnitario] = useState('')
 
   async function recarregar() {
     setErro(null)
@@ -30,6 +31,7 @@ export function TiposPecaPage() {
     setNome('')
     setDescricao('')
     setPesoRef('')
+    setPrecoUnitario('')
     setMsg(null)
   }
 
@@ -38,6 +40,7 @@ export function TiposPecaPage() {
     setNome(tp.nome)
     setDescricao(tp.descricao ?? '')
     setPesoRef(tp.peso_referencia_kg == null ? '' : String(tp.peso_referencia_kg))
+    setPrecoUnitario(Number(tp.preco_unitario ?? 0) > 0 ? String(tp.preco_unitario) : '')
     setMsg(null)
   }
 
@@ -50,8 +53,13 @@ export function TiposPecaPage() {
     }
 
     const pesoParsed = pesoRef.trim().length === 0 ? null : Number(pesoRef.replace(',', '.'))
+    const precoParsed = precoUnitario.trim().length === 0 ? 0 : Number(precoUnitario.replace(',', '.'))
     if (pesoParsed !== null && !Number.isFinite(pesoParsed)) {
       setErro('Peso de referência inválido.')
+      return
+    }
+    if (!Number.isFinite(precoParsed) || precoParsed < 0) {
+      setErro('Preço unitário inválido.')
       return
     }
 
@@ -60,6 +68,7 @@ export function TiposPecaPage() {
         nome: nome.trim(),
         descricao: descricao.trim() || null,
         peso_referencia_kg: pesoParsed,
+        preco_unitario: precoParsed,
       })
       if (error) setErro(error)
       else {
@@ -71,6 +80,7 @@ export function TiposPecaPage() {
         nome: nome.trim(),
         descricao: descricao.trim() || null,
         peso_referencia_kg: pesoParsed,
+        preco_unitario: precoParsed,
       })
       if (error) setErro(error)
       else {
@@ -129,6 +139,10 @@ export function TiposPecaPage() {
               <label htmlFor="pesoRef">Peso referência (kg, opcional)</label>
               <input id="pesoRef" inputMode="decimal" value={pesoRef} onChange={(e) => setPesoRef(e.target.value)} />
             </div>
+            <div className="field">
+              <label htmlFor="precoUnitario">Preço à parte por unidade (R$)</label>
+              <input id="precoUnitario" inputMode="decimal" value={precoUnitario} onChange={(e) => setPrecoUnitario(e.target.value)} placeholder="0,00" />
+            </div>
           </div>
           <div className="field" style={{ minWidth: '100%' }}>
             <label htmlFor="desc">Descrição</label>
@@ -163,6 +177,7 @@ export function TiposPecaPage() {
                 <tr>
                   <th>Nome</th>
                   <th>Peso ref.</th>
+                  <th>Preço à parte</th>
                   <th>Descrição</th>
                   <th style={{ width: 140, textAlign: 'center' }}>Ações</th>
                 </tr>
@@ -172,6 +187,9 @@ export function TiposPecaPage() {
                   <tr key={tp.id}>
                     <td style={{ fontWeight: 650 }}>{tp.nome}</td>
                     <td>{tp.peso_referencia_kg == null ? '—' : Number(tp.peso_referencia_kg).toLocaleString('pt-BR')}</td>
+                    <td style={{ fontWeight: Number(tp.preco_unitario ?? 0) > 0 ? 700 : 400 }}>
+                      {Number(tp.preco_unitario ?? 0) > 0 ? Number(tp.preco_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Incluso no kg'}
+                    </td>
                     <td className="hint">{tp.descricao ?? '—'}</td>
                     <td>
                       <div className="row" style={{ gap: 8, justifyContent: 'center', alignItems: 'center' }}>
@@ -217,7 +235,7 @@ export function TiposPecaPage() {
                 ))}
                 {itens.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="hint">
+                    <td colSpan={5} className="hint">
                       Nenhum tipo cadastrado.
                     </td>
                   </tr>
@@ -236,6 +254,11 @@ export function TiposPecaPage() {
                     {tp.peso_referencia_kg != null && (
                       <div className="hint" style={{ fontSize: 11, marginTop: 2 }}>
                         Peso ref: {Number(tp.peso_referencia_kg).toLocaleString('pt-BR')} kg
+                      </div>
+                    )}
+                    {Number(tp.preco_unitario ?? 0) > 0 && (
+                      <div style={{ color: 'var(--accent)', fontWeight: 700, marginTop: 4 }}>
+                        À parte: {Number(tp.preco_unitario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por unidade
                       </div>
                     )}
                   </div>

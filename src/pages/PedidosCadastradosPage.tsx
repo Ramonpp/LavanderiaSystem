@@ -9,10 +9,11 @@ import {
 import { fetchClientes } from '../data/clientes'
 import { fetchTiposPeca } from '../data/tiposPeca'
 import type { Cliente, OrderStatus, PagamentoStatus, PedidoCliente, TipoPeca, ItemPedido } from '../types/models'
-import { receitaPedido } from '../domain/finance'
+import { pedidoComPrecoMinimo, receitaPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { enviarCobrancaWebhook } from '../data/webhook'
+import { linhasAdicionaisCobranca, subtotalAdicionalItem } from '../domain/piecePricing'
 
 const statusOpções: OrderStatus[] = ['recebido', 'em_lavagem', 'pronto', 'entregue', 'cancelado']
 const pagamentoOpcoes: Array<{ value: PagamentoStatus; label: string }> = [
@@ -211,12 +212,20 @@ export function PedidosCadastradosPage() {
 
       const [ano, mes, dia] = p.data_pedido.split('-')
       const dataFormatada = `${dia}/${mes}/${ano}`
+      const nomeTipo = (tipoId: string) => tipos.find((t) => t.id === tipoId)?.nome ?? 'Peça'
+      const adicionais = linhasAdicionaisCobranca(itens, nomeTipo)
+      const textoAdicionais = adicionais.length > 0
+        ? `\n🛏️ *Peças cobradas à parte:*\n${adicionais.map((linha) => `• ${linha}`).join('\n')}\n`
+        : ''
 
       const texto = `Olá ${primeiroNome}, tudo bem?\n\n` +
         `Seu enxoval já foi coletado, tratado com todo carinho e está em processo de entrega.\n` +
         `Segue a imagem da comanda com a quantidade de itens, peso total e valor do serviço.\n\n` +
         `🧺 *Peso total:* ${pesoStr}\n` +
-        `💰 *Valor:* ${formatBRL(valor)}\n\n` +
+        textoAdicionais +
+        `💰 *Valor:* ${formatBRL(valor)}\n` +
+        (pedidoComPrecoMinimo(p) ? `ℹ️ *Preço mínimo de R$ 40,00 aplicado.*\n` : '') +
+        `\n` +
         `Estamos enviando a chave pix na mensagem abaixo.  \n` +
         `Caso prefira outra forma de pagamento, é só nos informar.\n` +
         `Qualquer dúvida, estamos à disposição!\n\n` +
@@ -242,6 +251,8 @@ export function PedidosCadastradosPage() {
         itens: itens.map((it) => ({
           nome: tipos.find((t) => t.id === it.tipo_peca_id)?.nome ?? 'Peça',
           quantidade: it.quantidade,
+          preco_unitario: Number(it.preco_unitario ?? 0),
+          subtotal_adicional: subtotalAdicionalItem(it),
         })),
         texto,
       })

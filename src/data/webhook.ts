@@ -17,7 +17,7 @@ export type WebhookCobrancaPayload = {
     pagamento_status: string
     valor: number
   }
-  itens: Array<{ nome: string; quantidade: number }>
+  itens: Array<{ nome: string; quantidade: number; preco_unitario?: number; subtotal_adicional?: number }>
   texto: string
 }
 

@@ -33,6 +33,7 @@ export type TipoPeca = {
   nome: string
   descricao: string | null
   peso_referencia_kg: number | null
+  preco_unitario?: number | null
   deletado_em?: string | null
   criado_em: string
 }
@@ -47,6 +48,7 @@ export type Pedido = {
   peso_kg: number
   preco_por_kg: number | null
   preco_fixo: number | null
+  adicional_pecas?: number
   desconto_valor?: number | null
   desconto_tipo?: 'percentual' | 'fixo' | null
   observacoes: string | null
@@ -77,6 +79,7 @@ export type ItemPedido = {
   tipo_peca_id: UUID
   quantidade: number
   peso_linha_kg: number | null
+  preco_unitario?: number
   pecas?: ItemPedidoPeca[] | null
   criado_em: string
 }

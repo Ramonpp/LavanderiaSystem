@@ -6,6 +6,7 @@ import type { Cliente, PedidoCliente, ItemPedido, TipoPeca } from '../types/mode
 import { receitaPedido } from '../domain/finance'
 import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
+import { formatarItemCobranca } from '../domain/piecePricing'
 
 export function HistoricoPedidosPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -186,7 +187,7 @@ export function HistoricoPedidosPage() {
         const dataFmt = `${dia}/${mes}/${ano}`
         const valor = receitaPedido(p)
         const itens = itensMapFiltrado[p.id] || []
-        const pecas = itens.map((it) => `${it.quantidade}x ${getPecaNome(it.tipo_peca_id)}`).join(', ') || '—'
+        const pecas = itens.map((it) => formatarItemCobranca(it, getPecaNome(it.tipo_peca_id))).join(', ') || '—'
         return `
           <tr>
             <td>${dataFmt}</td>

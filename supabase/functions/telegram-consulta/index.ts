@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const normalizar = (texto: string) => texto.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-function valor(p: any) { let v = p.preco_fixo ?? Number(p.peso_kg ?? 0) * Number(p.preco_por_kg ?? 0); const d = Number(p.desconto_valor ?? 0); return d > 0 ? (p.desconto_tipo === 'percentual' ? v * (1 - d / 100) : Math.max(0, v - d)) : v }
+function valor(p: any) { let v = p.preco_fixo ?? Number(p.peso_kg ?? 0) * Number(p.preco_por_kg ?? 0); const d = Number(p.desconto_valor ?? 0); const total = d > 0 ? (p.desconto_tipo === 'percentual' ? v * (1 - d / 100) : Math.max(0, v - d)) : v; return Math.max(40, total) }
 
 const CHAT_IDS_ADICIONAIS = ['8884633897']
 

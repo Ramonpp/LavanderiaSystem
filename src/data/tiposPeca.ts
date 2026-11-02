@@ -36,6 +36,7 @@ export async function deleteTipoPeca(id: string): Promise<{ error: string | null
 }
 
 const CATALOGO_PADRAO: Omit<TipoPeca, 'id' | 'criado_em'>[] = [
+  { nome: 'Travesseiro',            descricao: 'Travesseiro completo — cobrança por unidade', peso_referencia_kg: null, preco_unitario: 20 },
   { nome: 'Toalha de banho',        descricao: 'Toalha de banho adulto',          peso_referencia_kg: 0.40 },
   { nome: 'Toalha de rosto',        descricao: 'Toalha de rosto / lavabo',         peso_referencia_kg: 0.15 },
   { nome: 'Toalha de piso',         descricao: 'Tapete/toalha de piso de banheiro', peso_referencia_kg: 0.35 },
