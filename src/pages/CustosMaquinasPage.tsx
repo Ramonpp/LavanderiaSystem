@@ -8,6 +8,7 @@ import { monthBoundsLocal } from '../lib/dates'
 import type { ResumoMensal } from '../types/models'
 import { supabase } from '../lib/supabase'
 import { fetchMaquinas } from '../data/maquinas'
+import { LG_MACHINES as MAQUINAS, type LgMachineKey as MaqKey } from '../domain/lgMachines'
 import {
   TABELA_ENEL_RESIDENCIAL,
   calcularCustoEnergiaEnelResidencial,
@@ -17,22 +18,6 @@ import {
 
 
 
-
-/* ── Máquinas fixas ────────────────────────────────────────── */
-const MAQUINAS = [
-  {
-    key: 'maq_753',
-    nomeDefault: 'Lavadora 753',
-    deviceId: 'a62b1df203c4a7188e7880433c9cebfb407c428b5a5a8e0af9dd0f696bee44c1',
-  },
-  {
-    key: 'maq_789',
-    nomeDefault: 'Lavadora 789',
-    deviceId: '2d6ec2ccc498b22ed9690f16cec2b0d93a0743abb5c3c2c594ecd6bcc1779181',
-  },
-] as const
-
-type MaqKey = typeof MAQUINAS[number]['key']
 
 type MachineData = {
   apelido: string
@@ -66,6 +51,18 @@ function loadMonthData(key: MaqKey, mes: string): MonthData {
   }
 }
 
+function loadAllMachineData(): Record<MaqKey, MachineData> {
+  return Object.fromEntries(MAQUINAS.map((m) => [m.key, loadMachineData(m.key)])) as Record<MaqKey, MachineData>
+}
+
+function loadAllMonthData(mes: string): Record<MaqKey, MonthData> {
+  return Object.fromEntries(MAQUINAS.map((m) => [m.key, loadMonthData(m.key, mes)])) as Record<MaqKey, MonthData>
+}
+
+function createSearchingState(): Record<MaqKey, boolean> {
+  return Object.fromEntries(MAQUINAS.map((m) => [m.key, false])) as Record<MaqKey, boolean>
+}
+
 function saveMachineData(key: MaqKey, data: MachineData) {
   lsSet(`lav_${key}_apelido`, data.apelido)
   lsSet(`lav_${key}_litros`, data.litros_ciclo)
@@ -97,20 +94,11 @@ export function CustosMaquinasPage() {
   )
   const [mostrarTabelas, setMostrarTabelas] = useState(false)
 
-  const [machineData, setMachineData] = useState<Record<MaqKey, MachineData>>(() => ({
-    maq_753: loadMachineData('maq_753'),
-    maq_789: loadMachineData('maq_789'),
-  }))
+  const [machineData, setMachineData] = useState<Record<MaqKey, MachineData>>(loadAllMachineData)
 
-  const [monthData, setMonthData] = useState<Record<MaqKey, MonthData>>(() => ({
-    maq_753: loadMonthData('maq_753', currentMonth()),
-    maq_789: loadMonthData('maq_789', currentMonth()),
-  }))
+  const [monthData, setMonthData] = useState<Record<MaqKey, MonthData>>(() => loadAllMonthData(currentMonth()))
 
-  const [buscando, setBuscando] = useState<Record<MaqKey, boolean>>({
-    maq_753: false,
-    maq_789: false,
-  })
+  const [buscando, setBuscando] = useState<Record<MaqKey, boolean>>(createSearchingState)
 
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -153,8 +141,16 @@ export function CustosMaquinasPage() {
         if (found) {
           mapping[m.key] = found.id
           usados.add(found.id)
-          if (found.device_id !== m.deviceId) {
-            await supabase.from('maquina').update({ device_id: m.deviceId, capacidade_kg: 14, capacidade_secagem_kg: 8 }).eq('id', found.id)
+          if (
+            found.device_id !== m.deviceId ||
+            Number(found.capacidade_kg) !== m.capacidadeKg ||
+            (found.capacidade_secagem_kg == null ? null : Number(found.capacidade_secagem_kg)) !== m.capacidadeSecagemKg
+          ) {
+            await supabase.from('maquina').update({
+              device_id: m.deviceId,
+              capacidade_kg: m.capacidadeKg,
+              capacidade_secagem_kg: m.capacidadeSecagemKg,
+            }).eq('id', found.id)
           }
         } else {
           toInsert.push(m)
@@ -167,8 +163,8 @@ export function CustosMaquinasPage() {
           await supabase.from('maquina').insert({
             nome: nomeExibido,
             tipo: 'lavagem',
-            capacidade_kg: 14,
-            capacidade_secagem_kg: 8,
+            capacidade_kg: m.capacidadeKg,
+            capacidade_secagem_kg: m.capacidadeSecagemKg,
             device_id: m.deviceId,
             ciclos_por_dia_util: 6,
             ativo: true
@@ -177,8 +173,8 @@ export function CustosMaquinasPage() {
         const { data: dbMachinesRefetched } = await fetchMaquinas()
         for (const m of MAQUINAS) {
           const nomeExibido = lsGet(`lav_${m.key}_apelido`, '') || m.nomeDefault
-          const found = dbMachinesRefetched?.find(db => 
-            db.nome.toLowerCase() === nomeExibido.toLowerCase() || 
+          const found = dbMachinesRefetched?.find(db => db.device_id === m.deviceId) ?? dbMachinesRefetched?.find(db =>
+            db.nome.toLowerCase() === nomeExibido.toLowerCase() ||
             db.nome.toLowerCase() === m.nomeDefault.toLowerCase()
           )
           if (found) {
@@ -234,10 +230,7 @@ export function CustosMaquinasPage() {
   }, [mes, machineUuidMap])
   function handleMesChange(novoMes: string) {
     setMes(novoMes)
-    setMonthData({
-      maq_753: loadMonthData('maq_753', novoMes),
-      maq_789: loadMonthData('maq_789', novoMes),
-    })
+    setMonthData(loadAllMonthData(novoMes))
   }
 
   function updateMachine(key: MaqKey, field: keyof MachineData, value: string) {
@@ -403,15 +396,14 @@ export function CustosMaquinasPage() {
     }
   }
 
-  const resultados: Record<MaqKey, Resultado> = {
-    maq_753: calcular('maq_753'),
-    maq_789: calcular('maq_789'),
-  }
+  const resultados = Object.fromEntries(
+    MAQUINAS.map((m) => [m.key, calcular(m.key)]),
+  ) as Record<MaqKey, Resultado>
 
   const totalEnergiaMes = custoEnergiaTotal
   const totalAguaMes = custoAguaTotal
   const totalMes = totalEnergiaMes + totalAguaMes
-  const totalCiclos = (resultados.maq_753?.ciclos ?? 0) + (resultados.maq_789?.ciclos ?? 0)
+  const totalCiclos = MAQUINAS.reduce((total, m) => total + (resultados[m.key]?.ciclos ?? 0), 0)
 
 
 
@@ -985,8 +977,15 @@ export function CustosMaquinasPage() {
                   <div className="statValSm" style={{ color: 'var(--accent)' }}>{formatBRL(displayEnergia)}</div>
                   {totalMes > 0 && (
                     <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
-                      {machineData.maq_753.apelido || 'Lavadora 753'}: {resultados.maq_753?.kwh_total !== null ? `${fmt2(resultados.maq_753.kwh_total)} kWh` : '—'}<br />
-                      {machineData.maq_789.apelido || 'Lavadora 789'}: {resultados.maq_789?.kwh_total !== null ? `${fmt2(resultados.maq_789.kwh_total)} kWh` : '—'}
+                      {MAQUINAS.map((m, index) => {
+                        const kwh = resultados[m.key]?.kwh_total
+                        return (
+                          <span key={m.key}>
+                            {machineData[m.key].apelido || m.nomeDefault}: {kwh !== null && kwh !== undefined ? `${fmt2(kwh)} kWh` : '—'}
+                            {index < MAQUINAS.length - 1 ? <br /> : null}
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

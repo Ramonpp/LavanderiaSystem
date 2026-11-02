@@ -16,6 +16,7 @@ import { GraficoMeses } from '../components/GraficoMeses'
 import type { PontoMes } from '../components/GraficoMeses'
 import { calcularCustoEnergiaEnelResidencial, calcularCustoAguaProlagos } from '../lib/tarifasUtilidades'
 import { fetchPagamentosPorPeriodo } from '../data/financeiro'
+import { LG_MACHINES, type LgMachineKey } from '../domain/lgMachines'
 
 
 function lastNMonths(endYearMonth: string, n: number): string[] {
@@ -41,6 +42,10 @@ function lsGet(key: string, fallback: string) {
 
 function lsSet(key: string, value: string) {
   try { localStorage.setItem(key, value) } catch {}
+}
+
+function emptyMachineEnergy(): Record<LgMachineKey, number> {
+  return Object.fromEntries(LG_MACHINES.map((m) => [m.key, 0])) as Record<LgMachineKey, number>
 }
 
 
@@ -100,8 +105,7 @@ export function DashboardPage() {
   
   const [custoEnergiaMes, setCustoEnergiaMes] = useState(0)
   const [custoAguaMes, setCustoAguaMes] = useState(0)
-  const [kwhMaq753, setKwhMaq753] = useState(0)
-  const [kwhMaq789, setKwhMaq789] = useState(0)
+  const [kwhPorMaquina, setKwhPorMaquina] = useState<Record<LgMachineKey, number>>(emptyMachineEnergy)
   const [isConsumoLoadedFromDb, setIsConsumoLoadedFromDb] = useState(false)
 
   useEffect(() => {
@@ -161,11 +165,9 @@ export function DashboardPage() {
       if (dbConsumos && dbMachines) {
         const uuidToKey: Record<string, string> = {}
         for (const m of dbMachines) {
-          if (m.nome.toLowerCase().includes('753')) {
-            uuidToKey[m.id] = 'maq_753'
-          } else if (m.nome.toLowerCase().includes('789')) {
-            uuidToKey[m.id] = 'maq_789'
-          }
+          const config = LG_MACHINES.find((lg) => lg.deviceId === m.device_id)
+            ?? LG_MACHINES.find((lg) => m.nome.toLowerCase().includes(lg.codigo))
+          if (config) uuidToKey[m.id] = config.key
         }
         for (const c of dbConsumos) {
           const key = uuidToKey[c.maquina_id]
@@ -208,10 +210,10 @@ export function DashboardPage() {
       // Mês atual selecionado
       let totalKwhMes = 0
       let totalLitrosMes = 0
-      let k1 = 0
-      let k2 = 0
+      const kwhAtual = emptyMachineEnergy()
 
-      for (const maq of ['maq_753', 'maq_789']) {
+      for (const maquina of LG_MACHINES) {
+        const maq = maquina.key
         const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
         const whMesStr = lsGet(`lav_${maq}_wh_${monthValue}`, '')
         const ciclosMesStr = lsGet(`lav_${maq}_ciclos_${monthValue}`, '')
@@ -221,8 +223,7 @@ export function DashboardPage() {
           kwhTotal = Number(whMesStr) / 1000
           totalKwhMes += kwhTotal
         }
-        if (maq === 'maq_753') k1 = kwhTotal
-        else k2 = kwhTotal
+        kwhAtual[maq] = kwhTotal
 
         if (ciclosMesStr !== '') {
           const ciclos = Math.max(0, Number(ciclosMesStr) || 0)
@@ -246,8 +247,7 @@ export function DashboardPage() {
       }
       const custoMes = cEnergiaMes + cAguaMes
 
-      setKwhMaq753(k1)
-      setKwhMaq789(k2)
+      setKwhPorMaquina(kwhAtual)
       setCustoEnergiaMes(cEnergiaMes)
       setCustoAguaMes(cAguaMes)
       setConsumoMesValor(custoMes)
@@ -266,7 +266,8 @@ export function DashboardPage() {
           let totalKwhAnoMes = 0
           let totalLitrosAnoMes = 0
 
-          for (const maq of ['maq_753', 'maq_789']) {
+          for (const maquina of LG_MACHINES) {
+            const maq = maquina.key
             const litros = Math.max(0, Number(lsGet(`lav_${maq}_litros`, '80').replace(',', '.')) || 0)
             const whAnoStr = lsGet(`lav_${maq}_wh_${mesAno}`, '')
             const ciclosAnoStr = lsGet(`lav_${maq}_ciclos_${mesAno}`, '')
@@ -515,8 +516,12 @@ export function DashboardPage() {
                   <div className="statLabel">Energia (Luz)</div>
                   <div className="statValSm" style={{ color: 'var(--accent)', fontWeight: 700 }}>{formatBRL(custoEnergiaMes)}</div>
                   <div className="hint" style={{ fontSize: 11, marginTop: 4 }}>
-                    {lsGet('lav_maq_753_apelido', '') || 'Lavadora 753'}: {kwhMaq753.toFixed(2)} kWh<br />
-                    {lsGet('lav_maq_789_apelido', '') || 'Lavadora 789'}: {kwhMaq789.toFixed(2)} kWh
+                    {LG_MACHINES.map((m, index) => (
+                      <span key={m.key}>
+                        {lsGet(`lav_${m.key}_apelido`, '') || m.nomeDefault}: {kwhPorMaquina[m.key].toFixed(2)} kWh
+                        {index < LG_MACHINES.length - 1 ? <br /> : null}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <div>
