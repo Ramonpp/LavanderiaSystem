@@ -22,17 +22,21 @@ function localCliente(pedido: PedidoCliente) {
   ].filter(Boolean).join(' · ')
 }
 
-function mensagemLote(pedidos: PedidoCliente[], dataSelecionada: string) {
+function mensagemLote(pedidos: PedidoCliente[]) {
   const grupos = new Map<string, PedidoCliente[]>()
   pedidos.forEach((pedido) => {
     const condominio = pedido.cliente?.condominio?.trim() || 'Sem condomínio cadastrado'
     grupos.set(condominio, [...(grupos.get(condominio) ?? []), pedido])
   })
   const lista = [...grupos.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([condominio, itens]) => {
-    const clientes = itens.map((pedido) => `• ${pedido.cliente?.nome ?? 'Cliente'} — ${localCliente(pedido) || 'sem bloco/apartamento'}${pedido.data_pedido !== dataSelecionada ? ` — pedido ${dataBR(pedido.data_pedido)}` : ''}`).join('\n')
+    const clientes = itens.map((pedido) => [
+      pedido.cliente?.nome ?? 'Cliente',
+      pedido.cliente?.apartamento,
+      pedido.cliente?.bloco,
+    ].filter(Boolean).join(' ')).join('\n')
     return `🏢 *${condominio}*\n${clientes}`
   }).join('\n\n')
-  return `🚚 *Expedição Ciclo Novo — ${dataBR(dataSelecionada)}*\n\n${lista}\n\n📸 Foto geral da expedição anexada.`
+  return `🚚 *Entrega ${dataBR(dataLocalHoje())}*\n\n${lista}\n\nRecolhido - ${pedidos.length}`
 }
 
 export function ExpedicaoPage() {
@@ -116,7 +120,7 @@ export function ExpedicaoPage() {
     setMsg(null)
     try {
       const arquivo = await salvarFotoGeral()
-      const texto = mensagemLote(pedidosSelecionados, dataSelecionada)
+      const texto = mensagemLote(pedidosSelecionados)
       const dados = { title: 'Expedição Ciclo Novo', text: texto, files: [arquivo] }
       if (navigator.share && (!navigator.canShare || navigator.canShare(dados))) {
         await navigator.share(dados)
@@ -179,7 +183,7 @@ export function ExpedicaoPage() {
             <div className="field">
               <label>Prévia da mensagem geral</label>
               <div style={{ whiteSpace: 'pre-wrap', border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg)', lineHeight: 1.5 }}>
-                {mensagemLote(pedidosSelecionados, dataSelecionada)}
+                {mensagemLote(pedidosSelecionados)}
               </div>
             </div>
           ) : null}
