@@ -1,58 +1,75 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchPedidosExpedicao, updatePedido } from '../data/pedidos'
+import { fetchPedidosExpedicao } from '../data/pedidos'
 import { supabase } from '../lib/supabase'
 import { compressImage } from '../utils/image'
 import { StatusBanner } from '../components/StatusBanner'
 import type { PedidoCliente } from '../types/models'
 
-function telefoneWhatsapp(valor?: string | null) {
-  const numeros = (valor ?? '').replace(/\D/g, '')
-  if (!numeros) return ''
-  return numeros.startsWith('55') ? numeros : `55${numeros}`
+function dataLocalHoje() {
+  const partes = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+  const valor = (tipo: string) => partes.find((parte) => parte.type === tipo)?.value ?? ''
+  return `${valor('year')}-${valor('month')}-${valor('day')}`
+}
+
+function dataBR(valor: string) {
+  return new Date(`${valor}T12:00:00`).toLocaleDateString('pt-BR')
 }
 
 function localCliente(pedido: PedidoCliente) {
-  const cliente = pedido.cliente
   return [
-    cliente?.condominio,
-    cliente?.bloco ? `Bloco ${cliente.bloco}` : null,
-    cliente?.apartamento ? `Apto ${cliente.apartamento}` : null,
+    pedido.cliente?.bloco ? `Bloco ${pedido.cliente.bloco}` : null,
+    pedido.cliente?.apartamento ? `Apto ${pedido.cliente.apartamento}` : null,
   ].filter(Boolean).join(' · ')
 }
 
-function mensagemEntrega(pedido: PedidoCliente) {
-  const cliente = pedido.cliente
-  const local = localCliente(pedido)
-  return `Olá, ${cliente?.nome ?? 'cliente'}! Seu pedido da Ciclo Novo está pronto para entrega.${local ? `\n📍 ${local}` : ''}\n📦 Peso: ${Number(pedido.peso_kg).toLocaleString('pt-BR')} kg\n\nSegue a foto da expedição. Por favor, confirme o recebimento. Obrigado!`
-}
-
-function linkFoto(valor?: string | null) {
-  if (!valor) return null
-  return valor.startsWith('http') ? valor : `https://drive.google.com/file/d/${valor}/view?usp=drivesdk`
+function mensagemLote(pedidos: PedidoCliente[], dataSelecionada: string) {
+  const grupos = new Map<string, PedidoCliente[]>()
+  pedidos.forEach((pedido) => {
+    const condominio = pedido.cliente?.condominio?.trim() || 'Sem condomínio cadastrado'
+    grupos.set(condominio, [...(grupos.get(condominio) ?? []), pedido])
+  })
+  const lista = [...grupos.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR')).map(([condominio, itens]) => {
+    const clientes = itens.map((pedido) => `• ${pedido.cliente?.nome ?? 'Cliente'} — ${localCliente(pedido) || 'sem bloco/apartamento'}${pedido.data_pedido !== dataSelecionada ? ` — pedido ${dataBR(pedido.data_pedido)}` : ''}`).join('\n')
+    return `🏢 *${condominio}*\n${clientes}`
+  }).join('\n\n')
+  return `🚚 *Expedição Ciclo Novo — ${dataBR(dataSelecionada)}*\n\n${lista}\n\n📸 Foto geral da expedição anexada.`
 }
 
 export function ExpedicaoPage() {
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
-  const [fotos, setFotos] = useState<Record<string, File | undefined>>({})
-  const [processando, setProcessando] = useState<string | null>(null)
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [dataSelecionada, setDataSelecionada] = useState(dataLocalHoje)
+  const [foto, setFoto] = useState<File | null>(null)
+  const [processando, setProcessando] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  function selecionarPedidosDaData(data: string, lista = pedidos) {
+    setDataSelecionada(data)
+    setSelecionados(new Set(lista.filter((pedido) => pedido.data_pedido === data).map((pedido) => pedido.id)))
+  }
 
   async function carregar() {
     setLoading(true)
     setErro(null)
     const { data, error } = await fetchPedidosExpedicao()
     if (error) setErro(error)
-    else setPedidos(data)
+    else {
+      setPedidos(data)
+      selecionarPedidosDaData(dataSelecionada, data)
+    }
     setLoading(false)
   }
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void carregar() }, 0)
     return () => window.clearTimeout(timer)
+    // carregar faz apenas a carga inicial desta fila.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const pedidosSelecionados = useMemo(() => pedidos.filter((pedido) => selecionados.has(pedido.id)), [pedidos, selecionados])
   const grupos = useMemo(() => {
     const mapa = new Map<string, PedidoCliente[]>()
     pedidos.forEach((pedido) => {
@@ -62,116 +79,135 @@ export function ExpedicaoPage() {
     return [...mapa.entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
   }, [pedidos])
 
-  async function salvarFoto(pedido: PedidoCliente) {
-    const original = fotos[pedido.id]
-    if (!original) throw new Error('Selecione a foto da entrega antes de compartilhar.')
-    const blob = await compressImage(original)
-    const arquivo = new File([blob], `entrega-${pedido.id}.jpg`, { type: 'image/jpeg' })
+  function alternarPedido(id: string) {
+    setSelecionados((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(id)) proximo.delete(id)
+      else proximo.add(id)
+      return proximo
+    })
+  }
+
+  async function salvarFotoGeral() {
+    if (!foto) throw new Error('Selecione a foto geral da expedição.')
+    if (!pedidosSelecionados.length) throw new Error('Selecione ao menos um pedido para expedir.')
+    const blob = await compressImage(foto)
+    const arquivo = new File([blob], `expedicao-${dataSelecionada}.jpg`, { type: 'image/jpeg' })
+    const pesoTotal = pedidosSelecionados.reduce((soma, pedido) => soma + Number(pedido.peso_kg), 0)
     const form = new FormData()
-    form.append('clientName', `Entrega - ${pedido.cliente?.nome ?? 'Cliente'}`)
-    form.append('date', new Date().toISOString().slice(0, 10))
-    form.append('apartamento', [pedido.cliente?.bloco, pedido.cliente?.apartamento].filter(Boolean).join('-'))
-    form.append('peso', String(pedido.peso_kg))
+    form.append('clientName', 'Expedição geral')
+    form.append('date', dataSelecionada)
+    form.append('apartamento', `${pedidosSelecionados.length} entregas`)
+    form.append('peso', String(pesoTotal))
     form.append('file', arquivo, arquivo.name)
     const { data, error } = await supabase.functions.invoke('upload-to-drive', { body: form })
     if (error) throw new Error(error.message)
-    const id = data?.publicUrl ?? data?.fileId
-    if (!id) throw new Error('O upload não retornou a identificação da foto.')
-    const { error: erroPedido } = await updatePedido(pedido.id, { foto_entrega_drive_id: id })
-    if (erroPedido) throw new Error(erroPedido)
-    setPedidos((atuais) => atuais.map((item) => item.id === pedido.id ? { ...item, foto_entrega_drive_id: id } : item))
+    const idFoto = data?.publicUrl ?? data?.fileId
+    if (!idFoto) throw new Error('O upload não retornou a identificação da foto.')
+    const { error: erroAtualizacao } = await supabase.from('pedido').update({ foto_entrega_drive_id: idFoto }).in('id', pedidosSelecionados.map((pedido) => pedido.id))
+    if (erroAtualizacao) throw new Error(erroAtualizacao.message)
+    setPedidos((atuais) => atuais.map((pedido) => selecionados.has(pedido.id) ? { ...pedido, foto_entrega_drive_id: idFoto } : pedido))
     return arquivo
   }
 
-  async function compartilhar(pedido: PedidoCliente) {
-    setProcessando(pedido.id)
+  async function compartilharLote() {
+    setProcessando(true)
     setErro(null)
     setMsg(null)
     try {
-      const arquivo = await salvarFoto(pedido)
-      const texto = mensagemEntrega(pedido)
-      const dados = { title: 'Entrega Ciclo Novo', text: texto, files: [arquivo] }
+      const arquivo = await salvarFotoGeral()
+      const texto = mensagemLote(pedidosSelecionados, dataSelecionada)
+      const dados = { title: 'Expedição Ciclo Novo', text: texto, files: [arquivo] }
       if (navigator.share && (!navigator.canShare || navigator.canShare(dados))) {
         await navigator.share(dados)
-        await updatePedido(pedido.id, { entrega_mensagem_enviada_em: new Date().toISOString() })
-        setMsg(`Foto e mensagem de ${pedido.cliente?.nome ?? 'cliente'} prontas no compartilhamento.`)
+        await supabase.from('pedido').update({ entrega_mensagem_enviada_em: new Date().toISOString() }).in('id', pedidosSelecionados.map((pedido) => pedido.id))
+        setMsg('Foto geral e mensagem do lote prontas no compartilhamento. Escolha o WhatsApp para enviar.')
       } else {
         await navigator.clipboard?.writeText(texto)
-        const telefone = telefoneWhatsapp(pedido.cliente?.telefone)
-        window.open(`https://wa.me/${telefone}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer')
-        setMsg('Foto salva e mensagem aberta no WhatsApp. Anexe a foto selecionada antes de enviar.')
+        window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer')
+        setMsg('Foto salva e mensagem aberta no WhatsApp. Anexe a foto geral selecionada antes de enviar.')
       }
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') setMsg('Compartilhamento cancelado; a foto permaneceu salva.')
+      if (e instanceof DOMException && e.name === 'AbortError') setMsg('Compartilhamento cancelado; a foto geral permaneceu salva.')
       else setErro(e instanceof Error ? e.message : String(e))
     } finally {
-      setProcessando(null)
+      setProcessando(false)
     }
   }
 
-  async function marcarEntregue(pedido: PedidoCliente) {
-    if (!pedido.foto_entrega_drive_id) {
-      setErro('Salve e compartilhe a foto antes de marcar como entregue.')
-      return
-    }
-    setProcessando(pedido.id)
-    const { error } = await updatePedido(pedido.id, { status: 'entregue', entregue_em: new Date().toISOString() })
-    setProcessando(null)
-    if (error) setErro(error)
+  async function marcarLoteEntregue() {
+    if (!pedidosSelecionados.length) return setErro('Selecione ao menos um pedido.')
+    if (pedidosSelecionados.some((pedido) => !pedido.foto_entrega_drive_id)) return setErro('Compartilhe e salve a foto geral antes de concluir a expedição.')
+    setProcessando(true)
+    const ids = pedidosSelecionados.map((pedido) => pedido.id)
+    const { error } = await supabase.from('pedido').update({ status: 'entregue', entregue_em: new Date().toISOString() }).in('id', ids)
+    setProcessando(false)
+    if (error) setErro(error.message)
     else {
-      setPedidos((atuais) => atuais.filter((item) => item.id !== pedido.id))
-      setMsg(`Entrega de ${pedido.cliente?.nome ?? 'cliente'} concluída.`)
+      setPedidos((atuais) => atuais.filter((pedido) => !selecionados.has(pedido.id)))
+      setSelecionados(new Set())
+      setFoto(null)
+      setMsg(`${ids.length} pedido(s) marcados como entregues.`)
     }
   }
 
   return (
     <div className="grid" style={{ gap: 14 }}>
-      <header className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: 22 }}>Expedição</h1>
-          <div className="hint">Pedidos prontos, separados por condomínio. Fotografe, compartilhe no WhatsApp e confirme a entrega.</div>
-        </div>
-        <button className="btn" type="button" onClick={() => void carregar()}>Atualizar</button>
+      <header>
+        <h1 style={{ fontSize: 22 }}>🚚 Expedição</h1>
+        <div className="hint">Escolha a data, revise os pedidos, tire uma foto geral e compartilhe uma única mensagem.</div>
       </header>
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}
+
+      <section className="panel">
+        <div className="panelBody grid" style={{ gap: 12 }}>
+          <div className="row" style={{ alignItems: 'end' }}>
+            <div className="field" style={{ maxWidth: 240 }}>
+              <label htmlFor="data-expedicao">Data dos pedidos</label>
+              <input id="data-expedicao" type="date" value={dataSelecionada} onChange={(e) => selecionarPedidosDaData(e.target.value)} />
+            </div>
+            <button className="btn" type="button" onClick={() => selecionarPedidosDaData(dataSelecionada)}>Selecionar pedidos desta data</button>
+            <strong>{pedidosSelecionados.length} selecionado(s)</strong>
+          </div>
+          <div className="field">
+            <label htmlFor="foto-expedicao">Foto geral da entrega</label>
+            <input id="foto-expedicao" type="file" accept="image/*" capture="environment" onChange={(e) => setFoto(e.target.files?.[0] ?? null)} />
+            {foto ? <span className="hint">Selecionada: {foto.name}</span> : null}
+          </div>
+          {pedidosSelecionados.length ? (
+            <div className="field">
+              <label>Prévia da mensagem geral</label>
+              <div style={{ whiteSpace: 'pre-wrap', border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg)', lineHeight: 1.5 }}>
+                {mensagemLote(pedidosSelecionados, dataSelecionada)}
+              </div>
+            </div>
+          ) : null}
+          <div className="row">
+            <button className="btn btnSuccess" type="button" disabled={!foto || !pedidosSelecionados.length || processando} onClick={() => void compartilharLote()}>{processando ? 'Preparando…' : 'Compartilhar 1 foto + mensagem geral'}</button>
+            <button className="btn btnPrimary" type="button" disabled={!pedidosSelecionados.length || processando} onClick={() => void marcarLoteEntregue()}>Marcar selecionados como entregues</button>
+            <button className="btn" type="button" onClick={() => void carregar()}>Atualizar</button>
+          </div>
+        </div>
+      </section>
+
       {loading ? <section className="panel"><div className="panelBody hint">Carregando expedição…</div></section> : null}
       {!loading && grupos.length === 0 ? <section className="panel"><div className="panelBody hint">Nenhum pedido aguardando expedição.</div></section> : null}
       {grupos.map(([condominio, itens]) => (
         <section className="panel" key={condominio}>
-          <div className="panelHeader">
-            <div><h2 style={{ fontSize: 18 }}>🏢 {condominio}</h2><div className="hint">{itens.length} entrega(s)</div></div>
-          </div>
-          <div className="panelBody grid" style={{ gap: 12 }}>
-            {itens.map((pedido) => {
-              const fotoUrl = linkFoto(pedido.foto_entrega_drive_id)
-              const telefone = telefoneWhatsapp(pedido.cliente?.telefone)
-              return (
-                <article key={pedido.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14 }}>
-                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <strong style={{ color: 'var(--text-h)', fontSize: 16 }}>{pedido.cliente?.nome ?? 'Cliente não encontrado'}</strong>
-                      <div style={{ fontWeight: 700, marginTop: 4 }}>{localCliente(pedido) || 'Bloco e apartamento não cadastrados'}</div>
-                      <div className="hint">{Number(pedido.peso_kg).toLocaleString('pt-BR')} kg · pedido de {new Date(`${pedido.data_pedido}T12:00:00`).toLocaleDateString('pt-BR')}</div>
-                    </div>
-                    {!telefone ? <span className="badge badgeYellow">Sem telefone</span> : null}
-                  </div>
-                  <div className="field" style={{ marginTop: 12 }}>
-                    <label htmlFor={`foto-${pedido.id}`}>Foto da entrega</label>
-                    <input id={`foto-${pedido.id}`} type="file" accept="image/*" capture="environment" onChange={(e) => setFotos((atuais) => ({ ...atuais, [pedido.id]: e.target.files?.[0] }))} />
-                    {fotos[pedido.id] ? <span className="hint">Selecionada: {fotos[pedido.id]?.name}</span> : null}
-                  </div>
-                  <div className="row" style={{ marginTop: 12 }}>
-                    <button className="btn btnSuccess" type="button" disabled={!fotos[pedido.id] || processando === pedido.id} onClick={() => void compartilhar(pedido)}>
-                      {processando === pedido.id ? 'Preparando…' : 'Compartilhar foto + mensagem'}
-                    </button>
-                    {fotoUrl ? <a className="btn" href={fotoUrl} target="_blank" rel="noreferrer">Ver foto salva</a> : null}
-                    <button className="btn btnPrimary" type="button" disabled={!pedido.foto_entrega_drive_id || processando === pedido.id} onClick={() => void marcarEntregue(pedido)}>Marcar como entregue</button>
-                  </div>
-                  {!telefone ? <div className="hint" style={{ marginTop: 8 }}>Cadastre o telefone do cliente para abrir o WhatsApp diretamente.</div> : null}
-                </article>
-              )
-            })}
+          <div className="panelHeader"><div><h2 style={{ fontSize: 18 }}>🏢 {condominio}</h2><div className="hint">{itens.length} pedido(s)</div></div></div>
+          <div className="panelBody grid" style={{ gap: 8 }}>
+            {itens.map((pedido) => (
+              <label key={pedido.id} style={{ display: 'flex', alignItems: 'center', gap: 12, border: selecionados.has(pedido.id) ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius: 12, padding: 12, cursor: 'pointer', background: selecionados.has(pedido.id) ? 'var(--accent-bg)' : 'transparent' }}>
+                <input type="checkbox" checked={selecionados.has(pedido.id)} onChange={() => alternarPedido(pedido.id)} style={{ width: 20, height: 20 }} />
+                <span style={{ flex: 1 }}>
+                  <strong style={{ display: 'block', color: 'var(--text-h)' }}>{pedido.cliente?.nome ?? 'Cliente não encontrado'}</strong>
+                  <span>{localCliente(pedido) || 'Bloco e apartamento não cadastrados'}</span>
+                  <span className="hint" style={{ display: 'block' }}>Pedido: {dataBR(pedido.data_pedido)} · {Number(pedido.peso_kg).toLocaleString('pt-BR')} kg</span>
+                </span>
+                {pedido.data_pedido === dataSelecionada ? <span className="badge badgeGreen">Data escolhida</span> : null}
+              </label>
+            ))}
           </div>
         </section>
       ))}

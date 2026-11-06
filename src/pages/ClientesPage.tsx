@@ -22,6 +22,8 @@ const FORMA_OPCOES: Array<{ value: ClienteFormaPagamento; label: string }> = [
   { value: 'outro', label: 'Outro' },
 ]
 
+const CONDOMINIOS_PADRAO = ['Praia dos Anjos', 'Beach Tower', 'Golden Lake'] as const
+
 export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -100,6 +102,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
   const [email, setEmail] = useState('')
   const [endereco, setEndereco] = useState('')
   const [condominio, setCondominio] = useState('')
+  const [condominioPersonalizado, setCondominioPersonalizado] = useState(false)
   const [bloco, setBloco] = useState('')
   const [apartamento, setApartamento] = useState('')
   const [plano, setPlano] = useState<ClientePlano>('pagou')
@@ -166,6 +169,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
     setEmail('')
     setEndereco('')
     setCondominio('')
+    setCondominioPersonalizado(false)
     setBloco('')
     setApartamento('')
     setPlano('pagou')
@@ -188,6 +192,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
     setEmail(c.email ?? '')
     setEndereco(c.endereco ?? '')
     setCondominio(c.condominio ?? '')
+    setCondominioPersonalizado(Boolean(c.condominio && !CONDOMINIOS_PADRAO.includes(c.condominio as typeof CONDOMINIOS_PADRAO[number])))
     setBloco(c.bloco ?? '')
     setApartamento(c.apartamento ?? '')
     setPlano(c.plano ?? 'pagou')
@@ -303,7 +308,22 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
             <div className="row">
               <div className="field">
                 <label htmlFor="cond">Condomínio</label>
-                <input id="cond" value={condominio} onChange={(e) => setCondominio(e.target.value)} />
+                <select id="cond" value={condominioPersonalizado ? '__outro__' : condominio} onChange={(e) => {
+                  if (e.target.value === '__outro__') {
+                    setCondominioPersonalizado(true)
+                    setCondominio('')
+                  } else {
+                    setCondominioPersonalizado(false)
+                    setCondominio(e.target.value)
+                  }
+                }}>
+                  <option value="">Selecione o condomínio</option>
+                  {CONDOMINIOS_PADRAO.map((nomeCondominio) => <option key={nomeCondominio} value={nomeCondominio}>{nomeCondominio}</option>)}
+                  <option value="__outro__">Adicionar outro…</option>
+                </select>
+                {condominioPersonalizado ? (
+                  <input aria-label="Nome do novo condomínio" value={condominio} onChange={(e) => setCondominio(e.target.value)} placeholder="Digite o nome do condomínio" style={{ marginTop: 8 }} autoFocus />
+                ) : null}
               </div>
               <div className="field">
                 <label htmlFor="apto">Apartamento</label>
