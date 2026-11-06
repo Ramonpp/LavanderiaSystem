@@ -36,7 +36,7 @@ function mensagemLote(pedidos: PedidoCliente[]) {
     ].filter(Boolean).join(' ')).join('\n')
     return `🏢 *${condominio}*\n${clientes}`
   }).join('\n\n')
-  return `🚚 *Entrega ${dataBR(dataLocalHoje())}*\n\n${lista}\n\nRecolhido - ${pedidos.length}`
+  return `🚚 *Entrega ${dataBR(dataLocalHoje())}*\n\n${lista}\n\nEntregue - ${pedidos.length}\nRecolhido - X`
 }
 
 export function ExpedicaoPage() {

@@ -155,6 +155,7 @@ const Ico = {
 const navItems = [
   { to: '/dashboard',  icon: Ico.dashboard,  label: 'Dashboard',   desc: 'Resumo do mês'          },
   { to: '/pedidos',    icon: Ico.pedidos,    label: 'Pedidos',     desc: 'Registro e controle'    },
+  { to: '/pedidos/expedicao', icon: Ico.expedicao, label: 'Expedição', desc: 'Separação e entrega' },
   { to: '/clientes',   icon: Ico.clientes,   label: 'Clientes',    desc: 'Hotéis e contratos'     },
   { to: '/cobrancas',  icon: Ico.despesas,   label: 'Cobranças',   desc: 'Saldos e recebimentos'  },
   { to: '/pecas',      icon: Ico.pecas,      label: 'Peças',       desc: 'Tipos de peça'          },
@@ -187,13 +188,13 @@ export function AppShell() {
   })
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(resolveTheme)
-  const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos'))
+  const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos') && !location.pathname.startsWith('/pedidos/expedicao'))
   const [isDespesasOpen, setIsDespesasOpen] = useState(() => location.pathname.startsWith('/despesas'))
   const [isClientesOpen, setIsClientesOpen] = useState(() => location.pathname.startsWith('/clientes'))
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(() => location.pathname.startsWith('/relatorios'))
 
   useEffect(() => {
-    if (location.pathname.startsWith('/pedidos')) {
+    if (location.pathname.startsWith('/pedidos') && !location.pathname.startsWith('/pedidos/expedicao')) {
       setIsPedidosOpen(true)
     }
     if (location.pathname.startsWith('/despesas')) {
@@ -310,15 +311,6 @@ export function AppShell() {
                       }
                     >
                       Em lavagem
-                    </NavLink>
-                    <NavLink
-                      to="/pedidos/expedicao"
-                      onClick={() => setIsMobileOpen(false)}
-                      className={({ isActive }) =>
-                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
-                      }
-                    >
-                      Expedição
                     </NavLink>
                     <NavLink
                       to="/pedidos/lista"
