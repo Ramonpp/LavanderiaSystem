@@ -8,6 +8,7 @@ import { formatBRL, normalizeSearch } from '../lib/format'
 import { StatusBanner } from '../components/StatusBanner'
 import { jsPDF } from 'jspdf'
 import { formatarItemCobranca, linhasAdicionaisCobranca } from '../domain/piecePricing'
+import { exportReportWindow } from '../utils/exportReport'
 
 function getBase64Image(imgUrl: string): Promise<string> {
   return new Promise((resolve) => {
@@ -397,7 +398,6 @@ export function PedidosUsouPagouPage() {
       <head>
         <meta charset="UTF-8">
         <title>Pendência - ${c.nome} ${c.apartamento ? `Apto ${c.apartamento}` : ''} ${c.bloco ? `Bloco ${c.bloco}` : ''}</title>
-        ${isPng ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>' : ''}
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -655,27 +655,21 @@ export function PedidosUsouPagouPage() {
 
         <p class="footer-note">Ciclo Novo Lavanderia · Higiene, Carinho e Sustentabilidade para suas Roupas</p>
 
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              ${isPng 
-                ? `
-                html2canvas(document.body).then(function(canvas) {
-                  var link = document.createElement('a');
-                  link.download = 'cobranca-${c.nome.replace(/\s+/g, '-')}.png';
-                  link.href = canvas.toDataURL();
-                  link.click();
-                  window.close();
-                });
-                ` 
-                : 'window.print();'
-              }
-            }, 500);
-          }
-        </script>
       </body>
       </html>
     `)
+    printWindow.addEventListener('load', () => {
+      window.setTimeout(() => {
+        void exportReportWindow(
+          printWindow,
+          `cobranca-${c.nome.replace(/\s+/g, '-')}`,
+          isPng ? 'png' : 'pdf',
+        ).catch((err: unknown) => {
+          setErro(`Erro ao gerar relatório: ${err instanceof Error ? err.message : String(err)}`)
+          printWindow.close()
+        })
+      }, 500)
+    }, { once: true })
     printWindow.document.close()
   }
 

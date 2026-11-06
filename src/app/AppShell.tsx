@@ -161,9 +161,7 @@ const navItems = [
   { to: '/pecas',      icon: Ico.pecas,      label: 'Peças',       desc: 'Tipos de peça'          },
   { to: '/despesas',   icon: Ico.despesas,   label: 'Despesas',    desc: 'Lançamentos mensais'    },
   { to: '/maquinas',   icon: Ico.maquinas,   label: 'Máquinas',    desc: 'Lavagem e secagem'      },
-  { to: '/custos',     icon: Ico.custos,     label: 'Custos',      desc: 'Custo por ciclo'        },
   { to: '/relatorios', icon: Ico.relatorios, label: 'Relatórios',  desc: 'Fechamento mensal'      },
-  { to: '/simulacao',  icon: Ico.simulacao,  label: 'Simulação',   desc: 'Teste de ganhos'        },
   { to: '/manchas',    icon: Ico.manchas,    label: 'Manchas',     desc: 'Guia de tratamento'     },
   { to: '/fluxo-empresa', icon: Ico.fluxo,   label: 'Organograma',   desc: 'Fluxo operacional'     },
   { to: '/configuracoes', icon: Ico.config,  label: 'Config',      desc: 'Webhook e integrações'  },
@@ -191,6 +189,7 @@ export function AppShell() {
   const [isPedidosOpen, setIsPedidosOpen] = useState(() => location.pathname.startsWith('/pedidos') && !location.pathname.startsWith('/pedidos/expedicao'))
   const [isDespesasOpen, setIsDespesasOpen] = useState(() => location.pathname.startsWith('/despesas'))
   const [isClientesOpen, setIsClientesOpen] = useState(() => location.pathname.startsWith('/clientes'))
+  const [isMaquinasOpen, setIsMaquinasOpen] = useState(() => ['/maquinas', '/custos', '/simulacao'].some((rota) => location.pathname.startsWith(rota)))
   const [isRelatoriosOpen, setIsRelatoriosOpen] = useState(() => location.pathname.startsWith('/relatorios'))
 
   useEffect(() => {
@@ -202,6 +201,9 @@ export function AppShell() {
     }
     if (location.pathname.startsWith('/clientes')) {
       setIsClientesOpen(true)
+    }
+    if (['/maquinas', '/custos', '/simulacao'].some((rota) => location.pathname.startsWith(rota))) {
+      setIsMaquinasOpen(true)
     }
     if (location.pathname.startsWith('/relatorios')) {
       setIsRelatoriosOpen(true)
@@ -470,6 +472,52 @@ export function AppShell() {
             }
 
             const isRelatorios = item.to === '/relatorios'
+
+            const isMaquinas = item.to === '/maquinas'
+
+            if (isMaquinas) {
+              return (
+                <div key={item.to} className={styles.navGroup}>
+                  <div
+                    title={isCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false)
+                        setIsMaquinasOpen(true)
+                      } else {
+                        setIsMaquinasOpen(!isMaquinasOpen)
+                      }
+                    }}
+                    className={styles.navItem}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className={styles.navIcon} aria-hidden="true">{item.icon}</span>
+                    <span className={styles.navLabel}>
+                      <span className={styles.navItemTitle}>{item.label}</span>
+                      <span className={styles.navItemDesc}>{item.desc}</span>
+                    </span>
+                    {!isCollapsed && (
+                      <span className={`${styles.chevron} ${isMaquinasOpen ? styles.chevronOpen : ''}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  <div className={`${styles.subMenu} ${isMaquinasOpen ? styles.subMenuOpen : styles.subMenuClosed}`}>
+                    <NavLink to="/maquinas" onClick={() => setIsMobileOpen(false)} className={({ isActive }) => isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem}>
+                      Controle de máquinas
+                    </NavLink>
+                    <NavLink to="/custos" onClick={() => setIsMobileOpen(false)} className={({ isActive }) => isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem}>
+                      Custos
+                    </NavLink>
+                    <NavLink to="/simulacao" onClick={() => setIsMobileOpen(false)} className={({ isActive }) => isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem}>
+                      Simulação
+                    </NavLink>
+                  </div>
+                </div>
+              )
+            }
 
             if (isRelatorios) {
               return (
