@@ -303,6 +303,15 @@ export function AppShell() {
                       Em lavagem
                     </NavLink>
                     <NavLink
+                      to="/pedidos/expedicao"
+                      onClick={() => setIsMobileOpen(false)}
+                      className={({ isActive }) =>
+                        isActive ? `${styles.subNavItem} ${styles.subActive}` : styles.subNavItem
+                      }
+                    >
+                      Expedição
+                    </NavLink>
+                    <NavLink
                       to="/pedidos/lista"
                       onClick={() => setIsMobileOpen(false)}
                       className={({ isActive }) =>

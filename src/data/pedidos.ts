@@ -9,12 +9,12 @@ async function hydratePedidosComCliente(pedidos: Pedido[]): Promise<{
   const ids = [...new Set(pedidos.map((p) => p.cliente_id))].filter(Boolean)
   if (ids.length === 0) return { data: pedidos.map((p) => ({ ...p, cliente: null })), error: null }
 
-  const { data: clientes, error } = await supabase.from('cliente').select('id, nome, condominio, bloco, apartamento, plano').in('id', ids)
+  const { data: clientes, error } = await supabase.from('cliente').select('id, nome, condominio, bloco, apartamento, telefone, plano').in('id', ids)
   if (error) return { data: [], error: dbErrorMessage(error) }
 
-  const map = new Map<string, { nome: string; condominio: string | null; bloco: string | null; apartamento: string | null; plano: any }>()
+  const map = new Map<string, { nome: string; condominio: string | null; bloco: string | null; apartamento: string | null; telefone: string | null; plano: any }>()
   ;(clientes ?? []).forEach((c: any) =>
-    map.set(c.id, { nome: c.nome, condominio: c.condominio, bloco: c.bloco, apartamento: c.apartamento, plano: c.plano })
+    map.set(c.id, { nome: c.nome, condominio: c.condominio, bloco: c.bloco, apartamento: c.apartamento, telefone: c.telefone, plano: c.plano })
   )
 
   return {
@@ -134,6 +134,31 @@ export async function fetchPedidosEmLavagem(): Promise<{ data: PedidoCliente[]; 
       .select('*')
       .eq('status', 'em_lavagem')
       .order('data_pedido', { ascending: false })
+    data = res.data
+    error = res.error
+  }
+
+  if (error) return { data: [], error: dbErrorMessage(error) }
+  return hydratePedidosComCliente((data ?? []) as Pedido[])
+}
+
+export async function fetchPedidosExpedicao(): Promise<{ data: PedidoCliente[]; error: string | null }> {
+  let { data, error } = await supabase
+    .from('pedido')
+    .select('*')
+    .is('deletado_em', null)
+    .eq('status', 'pronto')
+    .not('expedicao_em', 'is', null)
+    .order('data_prevista_entrega', { ascending: true, nullsFirst: false })
+    .order('data_pedido', { ascending: true })
+
+  if (error) {
+    const res = await supabase
+      .from('pedido')
+      .select('*')
+      .eq('status', 'pronto')
+      .not('expedicao_em', 'is', null)
+      .order('data_pedido', { ascending: true })
     data = res.data
     error = res.error
   }

@@ -229,7 +229,10 @@ export function EmLavagemPage() {
   async function handleFinalizarPedido(pedidoId: string) {
     setErro(null)
     setMsg(null)
-    const { error } = await updatePedido(pedidoId, { status: 'pronto' as OrderStatus })
+    const { error } = await updatePedido(pedidoId, {
+      status: 'pronto' as OrderStatus,
+      expedicao_em: new Date().toISOString(),
+    })
     if (error) {
       setErro(`Erro ao finalizar pedido: ${error}`)
     } else {
@@ -366,7 +369,7 @@ export function EmLavagemPage() {
                           alignItems: 'center',
                           gap: 4
                         }}>
-                          ✓ Concluído
+                          ✓ Pronto para expedição
                         </span>
                       )}
                     </h2>
@@ -401,7 +404,7 @@ export function EmLavagemPage() {
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      Marcar como concluído
+                      Enviar para expedição
                     </button>
                   </div>
                 </div>

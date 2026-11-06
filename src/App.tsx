@@ -12,6 +12,7 @@ const MaquinasPage = lazy(() => import('./pages/MaquinasPage').then((m) => ({ de
 const CriarPedidoPage = lazy(() => import('./pages/CriarPedidoPage').then((m) => ({ default: m.CriarPedidoPage })))
 const PedidosCadastradosPage = lazy(() => import('./pages/PedidosCadastradosPage').then((m) => ({ default: m.PedidosCadastradosPage })))
 const EmLavagemPage = lazy(() => import('./pages/EmLavagemPage').then((m) => ({ default: m.EmLavagemPage })))
+const ExpedicaoPage = lazy(() => import('./pages/ExpedicaoPage').then((m) => ({ default: m.ExpedicaoPage })))
 const RelatorioMensalPage = lazy(() => import('./pages/RelatorioMensalPage').then((m) => ({ default: m.RelatorioMensalPage })))
 const RelatorioAnualPage = lazy(() => import('./pages/RelatorioAnualPage').then((m) => ({ default: m.RelatorioAnualPage })))
 const RelatorioPecasPage = lazy(() => import('./pages/RelatorioPecasPage').then((m) => ({ default: m.RelatorioPecasPage })))
@@ -86,6 +87,7 @@ export default function App() {
         <Route path="/pedidos/criar" element={<CriarPedidoPage />} />
         <Route path="/pedidos/lista" element={<PedidosCadastradosPage />} />
         <Route path="/pedidos/em-lavagem" element={<EmLavagemPage />} />
+        <Route path="/pedidos/expedicao" element={<ExpedicaoPage />} />
         <Route path="/pedidos/mensais" element={<PedidosMensaisPage />} />
         <Route path="/pedidos/usou-pagou" element={<PedidosUsouPagouPage />} />
         <Route path="/pedidos/historico" element={<HistoricoPedidosPage />} />

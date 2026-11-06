@@ -16,6 +16,9 @@ type ClienteCobranca = {
   id: string
   nome: string
   telefone: string | null
+  condominio: string | null
+  bloco: string | null
+  apartamento: string | null
   forma_pagamento: ClienteFormaPagamento
   whatsapp_opt_in: boolean
   cobranca_pausada: boolean
@@ -64,7 +67,7 @@ export function CobrancasPage() {
       fetchPagamentos(pendentes.map((p) => p.id)),
       supabase
         .from('cliente')
-        .select('id,nome,telefone,forma_pagamento,whatsapp_opt_in,cobranca_pausada,ultima_cobranca_em')
+        .select('id,nome,telefone,condominio,bloco,apartamento,forma_pagamento,whatsapp_opt_in,cobranca_pausada,ultima_cobranca_em')
         .in('id', [...new Set(pendentes.map((p) => p.cliente_id))]),
     ])
     if (pagamentosError) setErro(pagamentosError)
@@ -75,6 +78,9 @@ export function CobrancasPage() {
       id: c.id,
       nome: c.nome,
       telefone: c.telefone,
+      condominio: c.condominio,
+      bloco: c.bloco,
+      apartamento: c.apartamento,
       forma_pagamento: c.forma_pagamento,
       whatsapp_opt_in: Boolean(c.whatsapp_opt_in),
       cobranca_pausada: Boolean(c.cobranca_pausada),
@@ -107,7 +113,8 @@ export function CobrancasPage() {
 
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
     return [...grupos.values()]
-      .filter((c) => !termo || c.nome.toLocaleLowerCase('pt-BR').includes(termo) || (c.telefone ?? '').includes(termo))
+      .filter((c) => !termo || [c.nome, c.telefone, c.condominio, c.bloco, c.apartamento]
+        .some((valor) => (valor ?? '').toLocaleLowerCase('pt-BR').includes(termo)))
       .sort((a, b) => b.total - a.total)
   }, [busca, clientesInfo, pagamentos, pedidos])
 
@@ -117,7 +124,8 @@ export function CobrancasPage() {
     const itens = cliente.pedidos
       .map((p) => `pedido de ${dataBR(p.data_pedido)}: ${formatBRL(p.saldo)}`)
       .join('; ')
-    return `Olá, ${cliente.nome}. Tudo bem? Identificamos ${itens}. O saldo em aberto é ${formatBRL(cliente.total)}. Se já realizou o pagamento, por favor desconsidere e nos envie o comprovante. Obrigado!`
+    const local = [cliente.condominio, cliente.bloco ? `Bloco ${cliente.bloco}` : null, cliente.apartamento ? `Apto ${cliente.apartamento}` : null].filter(Boolean).join(' · ')
+    return `Olá, ${cliente.nome}. Tudo bem?${local ? ` Referente a ${local}.` : ''} Identificamos ${itens}. O saldo em aberto é ${formatBRL(cliente.total)}. Se já realizou o pagamento, por favor desconsidere e nos envie o comprovante. Obrigado!`
   }
 
   function abrirPagamento(cliente: ClienteCobranca, pedidoId: string, saldo: number) {
@@ -193,7 +201,7 @@ export function CobrancasPage() {
           </div>
           <div className="field" style={{ marginLeft: 'auto', maxWidth: 360 }}>
             <label htmlFor="busca-cobranca">Buscar cliente</label>
-            <input id="busca-cobranca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome ou telefone" />
+            <input id="busca-cobranca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome, condomínio, bloco ou apartamento" />
           </div>
         </div>
       </section>
@@ -207,6 +215,9 @@ export function CobrancasPage() {
             <div className="panelHeader" style={{ alignItems: 'flex-start' }}>
               <div>
                 <h2 style={{ fontSize: 17 }}>{cliente.nome}</h2>
+                <div style={{ color: 'var(--text-h)', fontWeight: 600, marginTop: 3 }}>
+                  {[cliente.condominio, cliente.bloco ? `Bloco ${cliente.bloco}` : null, cliente.apartamento ? `Apto ${cliente.apartamento}` : null].filter(Boolean).join(' · ') || 'Localização não cadastrada'}
+                </div>
                 <div className="hint">{cliente.telefone || 'Telefone não cadastrado'} · {cliente.pedidos.length} pedido(s)</div>
               </div>
               <strong style={{ color: 'var(--danger)', fontSize: 18 }}>{formatBRL(cliente.total)}</strong>

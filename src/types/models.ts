@@ -53,6 +53,10 @@ export type Pedido = {
   desconto_tipo?: 'percentual' | 'fixo' | null
   observacoes: string | null
   foto_drive_id?: string | null
+  foto_entrega_drive_id?: string | null
+  expedicao_em?: string | null
+  entrega_mensagem_enviada_em?: string | null
+  entregue_em?: string | null
   deletado_em?: string | null
   criado_em: string
 }
@@ -64,6 +68,7 @@ export type PedidoCliente = Pedido & {
     condominio: string | null
     bloco: string | null
     apartamento: string | null
+    telefone?: string | null
     plano?: ClientePlano | null
   } | null
 }

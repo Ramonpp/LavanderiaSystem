@@ -80,6 +80,9 @@ verify_jwt = false
 [functions.telegram-pendencias]
 verify_jwt = false
 
+[functions.lg-sincronizar]
+verify_jwt = false
+
 # Uncomment to reject non-secure connections to the database.
 # [db.ssl_enforcement]
 # enabled = true
