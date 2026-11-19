@@ -6,6 +6,31 @@ import { StatusBanner } from '../components/StatusBanner'
 import { normalizeSearch } from '../lib/format'
 import { supabase } from '../lib/supabase'
 
+type Ordenacao = 'recentes' | 'antigos' | 'proximo' | 'entrega' | 'cliente'
+
+const FUSO_BRASIL = 'America/Sao_Paulo'
+
+function formatarDataBrasil(data: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: FUSO_BRASIL,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${data}T12:00:00-03:00`))
+}
+
+function formatarDataHoraBrasil(dataHora: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: FUSO_BRASIL,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(dataHora))
+}
+
 export function EmLavagemPage() {
   const [pedidos, setPedidos] = useState<PedidoCliente[]>([])
   const [itensMap, setItensMap] = useState<Record<string, ItemPedido[]>>({})
@@ -14,7 +39,9 @@ export function EmLavagemPage() {
   const [erro, setErro] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
-  const [ordenacao, setOrdenacao] = useState<'padrao' | 'proximo' | 'antigos'>('padrao')
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('recentes')
+  const [tiposSelecionados, setTiposSelecionados] = useState<Set<string>>(new Set())
+  const nomesTiposPorId = useMemo(() => new Map(tipos.map((tipo) => [tipo.id, tipo.nome])), [tipos])
 
   // Carrega todos os dados necessários
   async function loadData() {
@@ -57,15 +84,15 @@ export function EmLavagemPage() {
       } else {
         setItensMap({})
       }
-    } catch (err: any) {
-      setErro(`Erro ao carregar dados: ${err.message}`)
+    } catch (err: unknown) {
+      setErro(`Erro ao carregar dados: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    void loadData()
+    const timer = window.setTimeout(() => { void loadData() }, 0)
 
     const channel = supabase
       .channel('em_lavagem_changes')
@@ -88,7 +115,7 @@ export function EmLavagemPage() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'pedido' },
         (payload) => {
-          const newPedido = payload.new as any
+          const newPedido = payload.new as Pick<PedidoCliente, 'id' | 'status'>
           if (newPedido.status === 'pronto') {
             setPedidos((prev) => prev.filter((p) => p.id !== newPedido.id))
             setItensMap((prev) => {
@@ -102,13 +129,18 @@ export function EmLavagemPage() {
       .subscribe()
 
     return () => {
+      window.clearTimeout(timer)
       supabase.removeChannel(channel)
     }
   }, [])
 
-  // Resolve o nome do tipo de peça
-  function getPecaNome(tipoPecaId: string): string {
-    return tipos.find((t) => t.id === tipoPecaId)?.nome || 'Peça desconhecida'
+  function alternarFiltroTipo(tipoId: string) {
+    setTiposSelecionados((atuais) => {
+      const proximos = new Set(atuais)
+      if (proximos.has(tipoId)) proximos.delete(tipoId)
+      else proximos.add(tipoId)
+      return proximos
+    })
   }
 
   // Formata o cabeçalho do cliente
@@ -161,6 +193,7 @@ export function EmLavagemPage() {
 
         const orderItems = itensMap[p.id] || []
         const matchPeca = orderItems.some((item) => {
+          if (normalizeSearch(nomesTiposPorId.get(item.tipo_peca_id) || 'Peça desconhecida').includes(termo)) return true
           const pecasList = item.pecas || []
           return pecasList.some((peca) => normalizeSearch(peca.id_peca || '').includes(termo))
         })
@@ -168,6 +201,12 @@ export function EmLavagemPage() {
 
         return false
       })
+    }
+
+    if (tiposSelecionados.size > 0) {
+      filtrados = filtrados.filter((pedido) =>
+        (itensMap[pedido.id] || []).some((item) => tiposSelecionados.has(item.tipo_peca_id)),
+      )
     }
 
     if (ordenacao === 'proximo') {
@@ -180,12 +219,26 @@ export function EmLavagemPage() {
       })
     } else if (ordenacao === 'antigos') {
       filtrados = [...filtrados].sort((a, b) => {
-        return (a.data_pedido || '').localeCompare(b.data_pedido || '')
+        return new Date(a.criado_em).getTime() - new Date(b.criado_em).getTime()
       })
+    } else if (ordenacao === 'recentes') {
+      filtrados = [...filtrados].sort((a, b) => {
+        return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+      })
+    } else if (ordenacao === 'entrega') {
+      filtrados = [...filtrados].sort((a, b) => {
+        const dataA = a.data_prevista_entrega || '9999-12-31'
+        const dataB = b.data_prevista_entrega || '9999-12-31'
+        return dataA.localeCompare(dataB)
+      })
+    } else if (ordenacao === 'cliente') {
+      filtrados = [...filtrados].sort((a, b) =>
+        (a.cliente?.nome || '').localeCompare(b.cliente?.nome || '', 'pt-BR'),
+      )
     }
 
     return filtrados
-  }, [pedidos, busca, itensMap, ordenacao, statusConferenciaPedidos])
+  }, [pedidos, busca, itensMap, ordenacao, statusConferenciaPedidos, tiposSelecionados, nomesTiposPorId])
 
   // Alterna o estado 'conferido' de uma peça específica
   async function handleTogglePeca(pedidoId: string, itemId: string, pecaIndex: number) {
@@ -283,16 +336,17 @@ export function EmLavagemPage() {
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}
 
-      {/* Busca */}
-      {(pedidos.length > 0 || busca) && (
-        <div className="row" style={{ gap: 12, alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 4 }}>
+      {/* Busca, filtros e ordenação */}
+      {(pedidos.length > 0 || busca || tiposSelecionados.size > 0) && (
+        <section className="panel" style={{ padding: 14 }}>
+          <div className="row" style={{ gap: 12, alignItems: 'end', justifyContent: 'space-between' }}>
           <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: '1 1 auto' }}>
             <div className="field" style={{ minWidth: 240, flex: '1 1 auto' }}>
-              <label htmlFor="busca-cliente" style={{ marginBottom: 4 }}>Buscar Cliente</label>
+              <label htmlFor="busca-cliente" style={{ marginBottom: 4 }}>Buscar cliente ou peça</label>
               <input
                 id="busca-cliente"
                 type="text"
-                placeholder="Digite o nome do cliente, condomínio, ap..."
+                placeholder="Cliente, condomínio, apartamento ou peça..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
@@ -303,19 +357,63 @@ export function EmLavagemPage() {
               <select
                 id="ordenacao"
                 value={ordenacao}
-                onChange={(e) => setOrdenacao(e.target.value as any)}
+                onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
                 style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
               >
-                <option value="padrao">Mais recente</option>
+                <option value="recentes">Mais recentes</option>
                 <option value="antigos">Mais antigos</option>
+                <option value="entrega">Entrega mais próxima</option>
                 <option value="proximo">Mais próximo de acabar</option>
+                <option value="cliente">Cliente (A–Z)</option>
               </select>
             </div>
           </div>
           <div className="hint" style={{ fontWeight: 600 }}>
             {pedidosFiltrados.length} {pedidosFiltrados.length === 1 ? 'pedido em lavagem' : 'pedidos em lavagem'}
           </div>
-        </div>
+          </div>
+
+          {tipos.length > 0 ? (
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12 }}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <strong style={{ fontSize: 13, color: 'var(--text-h)' }}>Filtrar por peças</strong>
+                {tiposSelecionados.size > 0 ? (
+                  <button className="btn" type="button" onClick={() => setTiposSelecionados(new Set())} style={{ padding: '5px 10px', fontSize: 12 }}>
+                    Mostrar todas
+                  </button>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {tipos.map((tipo) => {
+                  const selecionado = tiposSelecionados.has(tipo.id)
+                  return (
+                    <button
+                      key={tipo.id}
+                      type="button"
+                      aria-pressed={selecionado}
+                      onClick={() => alternarFiltroTipo(tipo.id)}
+                      style={{
+                        padding: '7px 11px',
+                        borderRadius: 999,
+                        border: selecionado ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        background: selecionado ? 'var(--accent-bg)' : 'var(--bg)',
+                        color: selecionado ? 'var(--accent)' : 'var(--text)',
+                        fontSize: 12,
+                        fontWeight: selecionado ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {selecionado ? '✓ ' : ''}{tipo.nome}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="hint" style={{ marginTop: 8, fontSize: 11 }}>
+                Você pode selecionar mais de uma peça. Os pedidos mostrarão somente os tipos marcados.
+              </div>
+            </div>
+          ) : null}
+        </section>
       )}
 
       {pedidosFiltrados.length === 0 ? (
@@ -323,14 +421,17 @@ export function EmLavagemPage() {
           <div style={{ fontSize: 48, marginBottom: 12 }}>🧺</div>
           <h3 style={{ fontSize: 18, color: 'var(--text-h)', marginBottom: 6 }}>Nenhum pedido em lavagem</h3>
           <p style={{ color: 'var(--muted)', fontSize: 14, margin: 0 }}>
-            {busca ? 'Nenhum pedido encontrado com este termo.' : 'Todos os enxovais já foram conferidos ou não há novos pedidos cadastrados.'}
+            {busca || tiposSelecionados.size > 0 ? 'Nenhum pedido encontrado com os filtros selecionados.' : 'Todos os enxovais já foram conferidos ou não há novos pedidos cadastrados.'}
           </p>
         </div>
       ) : (
         <div className="grid" style={{ gap: 16 }}>
           {pedidosFiltrados.map((p) => {
             const conf = statusConferenciaPedidos[p.id] || { total: 0, conferidas: 0, finalizado: false }
-            const listItens = itensMap[p.id] || []
+            const todosItens = itensMap[p.id] || []
+            const listItens = tiposSelecionados.size > 0
+              ? todosItens.filter((item) => tiposSelecionados.has(item.tipo_peca_id))
+              : todosItens
 
             return (
               <article
@@ -375,7 +476,10 @@ export function EmLavagemPage() {
                     </h2>
                     <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
                       <span className="hint" style={{ fontSize: 12 }}>
-                        Data: <strong>{new Date(`${p.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}</strong>
+                        Data: <strong>{formatarDataBrasil(p.data_pedido)}</strong>
+                      </span>
+                      <span className="hint" style={{ fontSize: 12 }}>
+                        Hora BR: <strong>{formatarDataHoraBrasil(p.criado_em)}</strong>
                       </span>
                       <span className="hint" style={{ fontSize: 12 }}>
                         Peso: <strong>{Number(p.peso_kg).toLocaleString('pt-BR')} kg</strong>
@@ -428,7 +532,7 @@ export function EmLavagemPage() {
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
                             <span style={{ fontWeight: 600, color: 'var(--text-h)', fontSize: 14 }}>
-                              {getPecaNome(item.tipo_peca_id)}
+                              {nomesTiposPorId.get(item.tipo_peca_id) || 'Peça desconhecida'}
                             </span>
                             <span className="hint" style={{ fontSize: 12, fontWeight: 500 }}>
                               Qtd: {item.quantidade}

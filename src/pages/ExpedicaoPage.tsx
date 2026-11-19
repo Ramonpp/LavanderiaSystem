@@ -141,8 +141,8 @@ export function ExpedicaoPage() {
 
   async function marcarLoteEntregue() {
     if (!pedidosSelecionados.length) return setErro('Selecione ao menos um pedido.')
-    if (pedidosSelecionados.some((pedido) => !pedido.foto_entrega_drive_id)) return setErro('Compartilhe e salve a foto geral antes de concluir a expedição.')
     setProcessando(true)
+    setErro(null)
     const ids = pedidosSelecionados.map((pedido) => pedido.id)
     const { error } = await supabase.from('pedido').update({ status: 'entregue', entregue_em: new Date().toISOString() }).in('id', ids)
     setProcessando(false)
@@ -159,7 +159,7 @@ export function ExpedicaoPage() {
     <div className="grid" style={{ gap: 14 }}>
       <header>
         <h1 style={{ fontSize: 22 }}>🚚 Expedição</h1>
-        <div className="hint">Escolha a data, revise os pedidos, tire uma foto geral e compartilhe uma única mensagem.</div>
+        <div className="hint">Escolha a data e revise os pedidos. A foto e o compartilhamento são opcionais.</div>
       </header>
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
       {msg ? <StatusBanner kind="success" message={msg} /> : null}

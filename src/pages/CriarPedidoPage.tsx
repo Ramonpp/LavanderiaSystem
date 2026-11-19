@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   fetchItensPorPedidos,
@@ -22,6 +22,80 @@ type ItemLinha = {
   quantidade: string
   preco_unitario?: number
   pecas?: Array<{ id_peca: string; conferido: boolean }>
+}
+
+type PricingMode = 'kg' | 'fixo'
+
+type RascunhoPedido = {
+  clienteId: string
+  dataPedido: string
+  dataPrev: string
+  status: OrderStatus
+  pagamentoStatus: PagamentoStatus
+  pesoKg: string
+  modoPreco: PricingMode
+  precoKg: string
+  precoFixo: string
+  observacoes: string
+  descontoValor: string
+  descontoTipo: 'percentual' | 'fixo'
+  itensLinhas: ItemLinha[]
+  atualizadoEm: string
+}
+
+const RASCUNHO_PEDIDO_KEY = 'lavanderia:novo-pedido:rascunho:v1'
+const RASCUNHO_FOTO_DB = 'lavanderia-rascunhos'
+const RASCUNHO_FOTO_STORE = 'arquivos'
+const RASCUNHO_FOTO_KEY = 'novo-pedido-foto'
+
+function carregarRascunho(): RascunhoPedido | null {
+  try {
+    const salvo = localStorage.getItem(RASCUNHO_PEDIDO_KEY)
+    return salvo ? JSON.parse(salvo) as RascunhoPedido : null
+  } catch {
+    return null
+  }
+}
+
+function abrirBancoRascunhos(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(RASCUNHO_FOTO_DB, 1)
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(RASCUNHO_FOTO_STORE)) {
+        request.result.createObjectStore(RASCUNHO_FOTO_STORE)
+      }
+    }
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function salvarFotoRascunho(file: File | null) {
+  if (!('indexedDB' in window)) return
+  const db = await abrirBancoRascunhos()
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(RASCUNHO_FOTO_STORE, 'readwrite')
+    const store = transaction.objectStore(RASCUNHO_FOTO_STORE)
+    if (file) store.put(file, RASCUNHO_FOTO_KEY)
+    else store.delete(RASCUNHO_FOTO_KEY)
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(transaction.error)
+  })
+  db.close()
+}
+
+async function carregarFotoRascunho(): Promise<File | null> {
+  if (!('indexedDB' in window)) return null
+  const db = await abrirBancoRascunhos()
+  const file = await new Promise<File | null>((resolve, reject) => {
+    const request = db.transaction(RASCUNHO_FOTO_STORE, 'readonly')
+      .objectStore(RASCUNHO_FOTO_STORE)
+      .get(RASCUNHO_FOTO_KEY)
+    request.onsuccess = () => resolve(request.result instanceof File ? request.result : null)
+    request.onerror = () => reject(request.error)
+  })
+  db.close()
+  return file
 }
 
 function newKey() {
@@ -70,6 +144,9 @@ const pagamentoOpcoes: { value: PagamentoStatus; label: string }[] = [
 export function CriarPedidoPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [rascunhoInicial] = useState(() => new URLSearchParams(location.search).has('edit') ? null : carregarRascunho())
+  const ignorarProximoSalvamentoRef = useRef(false)
+  const primeiraAtualizacaoDataRef = useRef(true)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tipos, setTipos] = useState<TipoPeca[]>([])
   const [erro, setErro] = useState<string | null>(null)
@@ -77,29 +154,59 @@ export function CriarPedidoPage() {
 
   const [editandoId, setEditandoId] = useState<string | null>(null)
 
-  const [clienteId, setClienteId] = useState('')
-  const [dataPedido, setDataPedido] = useState(() => new Date().toISOString().slice(0, 10))
-  const [dataPrev, setDataPrev] = useState('')
-  const [status, setStatus] = useState<OrderStatus>('em_lavagem')
-  const [pagamentoStatus, setPagamentoStatus] = useState<PagamentoStatus>('devendo')
-  const [pesoKg, setPesoKg] = useState('')
+  const [clienteId, setClienteId] = useState(rascunhoInicial?.clienteId ?? '')
+  const [dataPedido, setDataPedido] = useState(() => rascunhoInicial?.dataPedido ?? new Date().toISOString().slice(0, 10))
+  const [dataPrev, setDataPrev] = useState(rascunhoInicial?.dataPrev ?? '')
+  const [status, setStatus] = useState<OrderStatus>(rascunhoInicial?.status ?? 'em_lavagem')
+  const [pagamentoStatus, setPagamentoStatus] = useState<PagamentoStatus>(rascunhoInicial?.pagamentoStatus ?? 'devendo')
+  const [pesoKg, setPesoKg] = useState(rascunhoInicial?.pesoKg ?? '')
 
-  type PricingMode = 'kg' | 'fixo'
-  const [modoPreco, setModoPreco] = useState<PricingMode>('kg')
-  const [precoKg, setPrecoKg] = useState('15')
-  const [precoFixo, setPrecoFixo] = useState('')
+  const [modoPreco, setModoPreco] = useState<PricingMode>(rascunhoInicial?.modoPreco ?? 'kg')
+  const [precoKg, setPrecoKg] = useState(rascunhoInicial?.precoKg ?? '15')
+  const [precoFixo, setPrecoFixo] = useState(rascunhoInicial?.precoFixo ?? '')
 
-  const [observacoes, setObservacoes] = useState('')
-  const [descontoValor, setDescontoValor] = useState('0')
-  const [descontoTipo, setDescontoTipo] = useState<'percentual' | 'fixo'>('fixo')
+  const [observacoes, setObservacoes] = useState(rascunhoInicial?.observacoes ?? '')
+  const [descontoValor, setDescontoValor] = useState(rascunhoInicial?.descontoValor ?? '0')
+  const [descontoTipo, setDescontoTipo] = useState<'percentual' | 'fixo'>(rascunhoInicial?.descontoTipo ?? 'fixo')
 
-  const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>([])
+  const [itensLinhas, setItensLinhas] = useState<ItemLinha[]>(rascunhoInicial?.itensLinhas ?? [])
 
   const [fotoFile, setFotoFile] = useState<File | null>(null)
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
   const [enviandoFoto, setEnviandoFoto] = useState(false)
   const [fotoDriveIdExistente, setFotoDriveIdExistente] = useState<string | null>(null)
   const [prevClienteId, setPrevClienteId] = useState('')
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).has('edit')) return
+    if (!rascunhoInicial) return
+    let ativo = true
+    void carregarFotoRascunho().then((file) => {
+      if (!ativo || !file) return
+      setFotoFile(file)
+      setFotoPreview(URL.createObjectURL(file))
+    }).catch(() => undefined)
+    return () => { ativo = false }
+  }, [location.search, rascunhoInicial])
+
+  useEffect(() => {
+    if (editandoId || new URLSearchParams(location.search).has('edit')) return
+    if (ignorarProximoSalvamentoRef.current) {
+      ignorarProximoSalvamentoRef.current = false
+      return
+    }
+    const rascunho: RascunhoPedido = {
+      clienteId, dataPedido, dataPrev, status, pagamentoStatus, pesoKg,
+      modoPreco, precoKg, precoFixo, observacoes, descontoValor, descontoTipo,
+      itensLinhas,
+      atualizadoEm: new Date().toISOString(),
+    }
+    try {
+      localStorage.setItem(RASCUNHO_PEDIDO_KEY, JSON.stringify(rascunho))
+    } catch {
+      // O preenchimento continua funcionando mesmo se o armazenamento estiver indisponível.
+    }
+  }, [clienteId, dataPedido, dataPrev, status, pagamentoStatus, pesoKg, modoPreco, precoKg, precoFixo, observacoes, descontoValor, descontoTipo, itensLinhas, editandoId, location.search])
 
   useEffect(() => {
     if (!clienteId || clientes.length === 0) return
@@ -175,8 +282,6 @@ export function CriarPedidoPage() {
     }
   }, [totalBruto, descontoValor, descontoTipo])
   const totalAPagar = Math.max(PRECO_MINIMO_PEDIDO, totalComDesconto)
-  const DEFAULT_PRECO_POR_KG_48H = '15'
-
   async function reloadAll() {
     setErro(null)
     const [peds, cls, tp] = await Promise.all([
@@ -214,14 +319,16 @@ export function CriarPedidoPage() {
     void reloadAll()
   }, [])
 
-  useEffect(() => {
-    if (editandoId) return
-    setModoPreco('kg')
-    setPrecoKg(DEFAULT_PRECO_POR_KG_48H)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editandoId])
-
   function limparForm() {
+    ignorarProximoSalvamentoRef.current = true
+    if (!editandoId) {
+      try {
+        localStorage.removeItem(RASCUNHO_PEDIDO_KEY)
+      } catch {
+        // O formulário ainda pode ser limpo se o armazenamento estiver indisponível.
+      }
+      void salvarFotoRascunho(null).catch(() => undefined)
+    }
     setEditandoId(null)
     const d = new Date().toISOString().slice(0, 10)
     setDataPedido(d)
@@ -238,6 +345,7 @@ export function CriarPedidoPage() {
     setItensLinhas(gerarLinhasPadrao(tipos))
     setMsg(null)
     setFotoFile(null)
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview)
     setFotoPreview(null)
     setFotoDriveIdExistente(null)
   }
@@ -361,9 +469,13 @@ export function CriarPedidoPage() {
 
   useEffect(() => {
     if (editandoId) return
+    if (primeiraAtualizacaoDataRef.current) {
+      primeiraAtualizacaoDataRef.current = false
+      if (rascunhoInicial) return
+    }
     if (dataPedido) setDataPrev(addDaysIso(dataPedido, 2))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataPedido, editandoId])
+  }, [dataPedido, editandoId, rascunhoInicial])
   async function salvarPedido() {
     setErro(null)
     setMsg(null)
@@ -534,6 +646,9 @@ export function CriarPedidoPage() {
         <div className="hint">
           Padrão sugerido: <strong>R$ 15/kg</strong> com entrega em <strong>48h</strong>. Ajuste por pedido quando necessário.
         </div>
+        <div className="hint" style={{ marginTop: 4, color: 'var(--accent)' }}>
+          {rascunhoInicial ? 'Rascunho recuperado e salvo automaticamente neste aparelho.' : 'Seu preenchimento é salvo automaticamente neste aparelho.'}
+        </div>
       </header>
 
       {erro ? <StatusBanner kind="error" message={erro} /> : null}
@@ -556,6 +671,79 @@ export function CriarPedidoPage() {
           </div>
         </div>
         <div className="panelBody grid" style={{ gap: 12, paddingTop: 0 }}>
+          <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
+            <div className="field" style={{ flex: '1 1 300px' }}>
+              <label htmlFor="foto">Foto da Pesagem {fotoDriveIdExistente ? '(Já existe foto no Drive)' : '(Opcional)'}</label>
+              <input
+                id="foto"
+                type="file"
+                accept="image/*"
+                disabled={enviandoFoto}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    if (fotoPreview) URL.revokeObjectURL(fotoPreview)
+                    setFotoFile(file)
+                    setFotoPreview(URL.createObjectURL(file))
+                    if (!editandoId) void salvarFotoRascunho(file).catch(() => undefined)
+                  }
+                }}
+              />
+              {fotoDriveIdExistente && (
+                <div style={{ marginTop: 8 }}>
+                  <a
+                    href={fotoDriveIdExistente.startsWith('http')
+                      ? fotoDriveIdExistente
+                      : `https://drive.google.com/file/d/${fotoDriveIdExistente}/view?usp=drivesdk`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn"
+                    style={{ fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                    Ver foto atual
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {fotoPreview && (
+              <div className="field" style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <label>Pré-visualização da Pesagem</label>
+                <div style={{ position: 'relative', marginTop: 8 }}>
+                  <img
+                    src={fotoPreview}
+                    alt="Preview da pesagem"
+                    style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 8, border: '1px solid var(--border)' }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remover foto selecionada"
+                    onClick={() => {
+                      URL.revokeObjectURL(fotoPreview)
+                      setFotoFile(null)
+                      setFotoPreview(null)
+                      if (!editandoId) void salvarFotoRascunho(null).catch(() => undefined)
+                    }}
+                    style={{
+                      position: 'absolute', top: -8, right: -8,
+                      background: 'var(--danger)', color: 'white', border: 'none',
+                      borderRadius: '50%', width: 24, height: 24, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: 'var(--shadow)', fontWeight: 'bold'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="row">
             <div className="field">
               <label htmlFor="cli">Cliente</label>
@@ -691,74 +879,6 @@ export function CriarPedidoPage() {
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
-            <div className="field" style={{ flex: '1 1 300px' }}>
-              <label htmlFor="foto">Foto da Pesagem {fotoDriveIdExistente ? '(Já existe foto no Drive)' : '(Opcional)'}</label>
-              <input
-                id="foto"
-                type="file"
-                accept="image/*"
-                disabled={enviandoFoto}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    setFotoFile(file)
-                    setFotoPreview(URL.createObjectURL(file))
-                  }
-                }}
-              />
-              {fotoDriveIdExistente && (
-                <div style={{ marginTop: 8 }}>
-                  <a
-                    href={fotoDriveIdExistente.startsWith('http')
-                      ? fotoDriveIdExistente
-                      : `https://drive.google.com/file/d/${fotoDriveIdExistente}/view?usp=drivesdk`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn"
-                    style={{ fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                    Ver foto atual
-                  </a>
-                </div>
-              )}
-            </div>
-
-            {fotoPreview && (
-              <div className="field" style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <label>Pré-visualização da Pesagem</label>
-                <div style={{ position: 'relative', marginTop: 8 }}>
-                  <img
-                    src={fotoPreview}
-                    alt="Preview da pesagem"
-                    style={{ maxWidth: '100%', maxHeight: 150, borderRadius: 8, border: '1px solid var(--border)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFotoFile(null)
-                      setFotoPreview(null)
-                    }}
-                    style={{
-                      position: 'absolute', top: -8, right: -8,
-                      background: 'var(--danger)', color: 'white', border: 'none',
-                      borderRadius: '50%', width: 24, height: 24, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: 'var(--shadow)', fontWeight: 'bold'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           <section className="panel" style={{ boxShadow: 'none' }}>
