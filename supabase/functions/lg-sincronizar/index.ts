@@ -141,6 +141,7 @@ async function sincronizarEstado(db: ReturnType<typeof createClient>, maquina: M
 
 async function sincronizarConsumo(
   db: ReturnType<typeof createClient>, maquina: Maquina, inicioInformado?: string, fimInformado?: string,
+  mesAnoInformado?: string,
 ) {
   try {
     const consultaMensal = Boolean(inicioInformado && /^\d{6}$/.test(inicioInformado))
@@ -157,7 +158,9 @@ async function sincronizarConsumo(
       const valor = Number(item.useAmount ?? item.energyUsage ?? 0)
       return soma + (Number.isFinite(valor) ? valor : 0)
     }, 0)
-    const mesAno = `${inicio.slice(0, 4)}-${inicio.slice(4, 6)}`
+    const mesAno = mesAnoInformado && /^\d{4}-\d{2}$/.test(mesAnoInformado)
+      ? mesAnoInformado
+      : `${inicio.slice(0, 4)}-${inicio.slice(4, 6)}`
 
     if (!consultaMensal) {
       const linhas = lista.flatMap((item: Record<string, unknown>) => {
@@ -202,7 +205,7 @@ Deno.serve(async (req) => {
   if (!await autorizado(req, db)) return Response.json({ error: 'Não autorizado.' }, { status: 401, headers: corsHeaders })
 
   const corpo = await req.json().catch(() => ({})) as {
-    modo?: 'estado' | 'consumo'; device_id?: string; start_date?: string; end_date?: string
+    modo?: 'estado' | 'consumo'; device_id?: string; start_date?: string; end_date?: string; mes_ano?: string
   }
   const modo = corpo.modo ?? 'estado'
   let consulta = db.from('maquina').select('id,nome,device_id').eq('ativo', true).not('device_id', 'is', null)
@@ -212,7 +215,7 @@ Deno.serve(async (req) => {
   const maquinas = (data ?? []) as Maquina[]
 
   const resultados = await Promise.all(maquinas.map(maquina => modo === 'consumo'
-    ? sincronizarConsumo(db, maquina, corpo.start_date, corpo.end_date)
+    ? sincronizarConsumo(db, maquina, corpo.start_date, corpo.end_date, corpo.mes_ano)
     : sincronizarEstado(db, maquina)))
   const falhas = resultados.filter(item => 'erro' in item)
   return Response.json({ ok: falhas.length === 0, modo, maquinas: resultados }, {

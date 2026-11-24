@@ -745,6 +745,13 @@ export function CriarPedidoPage() {
           </div>
 
           <div className="row">
+            <div className="field" style={{ maxWidth: 300 }}>
+              <label htmlFor="peso">Peso total (kg)</label>
+              <input id="peso" inputMode="decimal" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="row">
             <div className="field">
               <label htmlFor="cli">Cliente</label>
               <select id="cli" value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
@@ -787,10 +794,6 @@ export function CriarPedidoPage() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="field">
-              <label htmlFor="peso">Peso total (kg)</label>
-              <input id="peso" inputMode="decimal" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} />
             </div>
             <div className="field" style={{ alignSelf: 'end' }}>
               <label>Forma de cobrança</label>

@@ -22,7 +22,25 @@ const FORMA_OPCOES: Array<{ value: ClienteFormaPagamento; label: string }> = [
   { value: 'outro', label: 'Outro' },
 ]
 
-const CONDOMINIOS_PADRAO = ['Praia dos Anjos', 'Beach Tower', 'Golden Lake'] as const
+const CONDOMINIOS_PADRAO = ['Praia dos Anjos', 'Beach Tower', 'Golden Lake', 'SAND'] as const
+
+function padronizarCondominio(valor: string | null | undefined, bloco?: string | null): string {
+  const original = valor?.trim() ?? ''
+  const normalizado = normalizeSearch(original).replace(/[^a-z0-9]/g, '')
+  const nomesPadrao: Record<string, typeof CONDOMINIOS_PADRAO[number]> = {
+    praiadosanjos: 'Praia dos Anjos',
+    beachtower: 'Beach Tower',
+    golden: 'Golden Lake',
+    goldenlake: 'Golden Lake',
+    sand: 'SAND',
+    sandbeach: 'SAND',
+  }
+  if (nomesPadrao[normalizado]) return nomesPadrao[normalizado]
+  if (original) return original
+
+  const numeroBloco = bloco?.match(/\d+/)?.[0]
+  return numeroBloco && Number(numeroBloco) > 4 ? 'Golden Lake' : ''
+}
 
 export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
   const navigate = useNavigate()
@@ -191,8 +209,9 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
     setTelefone(c.telefone ?? '')
     setEmail(c.email ?? '')
     setEndereco(c.endereco ?? '')
-    setCondominio(c.condominio ?? '')
-    setCondominioPersonalizado(Boolean(c.condominio && !CONDOMINIOS_PADRAO.includes(c.condominio as typeof CONDOMINIOS_PADRAO[number])))
+    const condominioPadronizado = padronizarCondominio(c.condominio, c.bloco)
+    setCondominio(condominioPadronizado)
+    setCondominioPersonalizado(Boolean(condominioPadronizado && !CONDOMINIOS_PADRAO.includes(condominioPadronizado as typeof CONDOMINIOS_PADRAO[number])))
     setBloco(c.bloco ?? '')
     setApartamento(c.apartamento ?? '')
     setPlano(c.plano ?? 'pagou')
@@ -225,6 +244,8 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
       return
     }
 
+    const condominioPadronizado = padronizarCondominio(condominio, bloco)
+
     if (editandoId) {
       const { error } = await updateCliente(editandoId, {
         nome: nome.trim(),
@@ -232,7 +253,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
         telefone: telefone.trim() || null,
         email: email.trim() || null,
         endereco: endereco.trim() || null,
-        condominio: condominio.trim() || null,
+        condominio: condominioPadronizado || null,
         bloco: bloco.trim() || null,
         apartamento: apartamento.trim() || null,
         plano,
@@ -250,7 +271,7 @@ export function ClientesPage({ mode = 'lista' }: { mode?: 'criar' | 'lista' }) {
         telefone: telefone.trim() || null,
         email: email.trim() || null,
         endereco: endereco.trim() || null,
-        condominio: condominio.trim() || null,
+        condominio: condominioPadronizado || null,
         bloco: bloco.trim() || null,
         apartamento: apartamento.trim() || null,
         plano,

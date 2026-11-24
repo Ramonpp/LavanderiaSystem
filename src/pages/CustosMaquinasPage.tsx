@@ -4,7 +4,7 @@ import { StatusBanner } from '../components/StatusBanner'
 import { formatBRL } from '../lib/format'
 import { upsertResumoMensal, fetchResumoPorMes } from '../data/resumo_mensal'
 import { fetchPedidosPorPeriodo } from '../data/pedidos'
-import { monthBoundsLocal } from '../lib/dates'
+import { formatIsoDateBR, monthBoundsLocal, utilityBillingPeriods } from '../lib/dates'
 import type { ResumoMensal } from '../types/models'
 import { supabase } from '../lib/supabase'
 import { fetchMaquinas } from '../data/maquinas'
@@ -33,7 +33,7 @@ function lsGet(key: string, fallback: string) {
   try { return localStorage.getItem(key) ?? fallback } catch { return fallback }
 }
 function lsSet(key: string, value: string) {
-  try { localStorage.setItem(key, value) } catch {}
+  try { localStorage.setItem(key, value) } catch { /* armazenamento local pode estar indisponível */ }
 }
 
 function loadMachineData(key: MaqKey): MachineData {
@@ -87,6 +87,8 @@ function currentMonth() {
 /* ── Componente ────────────────────────────────────────────── */
 export function CustosMaquinasPage() {
   const [mes, setMes] = useState(currentMonth)
+  const [anoReferencia, mesReferencia] = mes.split('-').map(Number)
+  const periodos = utilityBillingPeriods(anoReferencia, mesReferencia)
 
   const [tarifaKwh, setTarifaKwh] = useState(() => lsGet('lav_custos_tarifaKwh', '1.09'))
   const [modoEnergia, setModoEnergia] = useState<'enel_residencial' | 'manual'>(
@@ -278,8 +280,9 @@ export function CustosMaquinasPage() {
     setErro(null)
     setMsg(null)
     try {
-      const yyyyMm = mes.replace('-', '')
-      const res = await fetchLgEnergyUsage(deviceId, yyyyMm, yyyyMm)
+      const inicioEnergia = periodos.energia.inicio.replaceAll('-', '')
+      const fimEnergia = periodos.energia.fim.replaceAll('-', '')
+      const res = await fetchLgEnergyUsage(deviceId, inicioEnergia, fimEnergia, mes)
       if (res.error) {
         setErro(res.error)
       } else if (res.energy_wh !== undefined) {
@@ -572,6 +575,28 @@ export function CustosMaquinasPage() {
             </div>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 10 }}>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--code-bg)' }}>
+              <strong style={{ color: 'var(--ok)', fontSize: 13 }}>💧 Período da água</strong>
+              <div style={{ marginTop: 4, fontWeight: 700 }}>
+                {formatIsoDateBR(periodos.agua.inicio)} a {formatIsoDateBR(periodos.agua.fim)}
+              </div>
+              <div className="hint" style={{ fontSize: 11, marginTop: 3 }}>
+                Leituras no dia 08; quando cair no fim de semana, passa para o próximo dia útil.
+                {periodos.agua.inicioAjustado || periodos.agua.fimAjustado ? ' Este ciclo teve ajuste automático.' : ''}
+              </div>
+            </div>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--code-bg)' }}>
+              <strong style={{ color: 'var(--accent)', fontSize: 13 }}>⚡ Período da luz</strong>
+              <div style={{ marginTop: 4, fontWeight: 700 }}>
+                {formatIsoDateBR(periodos.energia.inicio)} a {formatIsoDateBR(periodos.energia.fim)}
+              </div>
+              <div className="hint" style={{ fontSize: 11, marginTop: 3 }}>
+                Fechamento mensal no dia 15.
+              </div>
+            </div>
+          </div>
+
           {/* Opções avançadas / Modo manual */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
@@ -796,7 +821,7 @@ export function CustosMaquinasPage() {
 
                   {/* Ciclos manuais */}
                   <div className="field">
-                    <label>Ciclos em {mesLabel || mes}</label>
+                    <label>Ciclos da água ({formatIsoDateBR(periodos.agua.inicio).slice(0, 5)} a {formatIsoDateBR(periodos.agua.fim).slice(0, 5)})</label>
                     <input
                       inputMode="numeric"
                       value={month.ciclos}
@@ -826,7 +851,7 @@ export function CustosMaquinasPage() {
                     padding: '10px 12px',
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-                      Consumo LG — {mesLabel}
+                      Consumo LG — luz de {formatIsoDateBR(periodos.energia.inicio).slice(0, 5)} a {formatIsoDateBR(periodos.energia.fim).slice(0, 5)}
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-h)' }}>
                       {fmt2(month.consumo_wh / 1000)} kWh
@@ -893,7 +918,7 @@ export function CustosMaquinasPage() {
                       borderRadius: 8,
                       padding: '10px 12px',
                     }}>
-                      <div className="hint" style={{ fontSize: 11, marginBottom: 6 }}>Composição mensal</div>
+                      <div className="hint" style={{ fontSize: 11, marginBottom: 6 }}>Composição do período</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span className="hint" style={{ fontSize: 12 }}>Energia</span>
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-h)' }}>{formatBRL(r.custo_energia_mes)}</span>
