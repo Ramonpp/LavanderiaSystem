@@ -292,9 +292,11 @@ export function ProjecaoDemandaPage() {
             <thead><tr><th>Data</th><th>Dia</th><th>Calendário</th><th>Pedidos</th><th>Lavado</th></tr></thead>
             <tbody>{analise.topHistorico.map((dia) => (
               <tr key={dia.data}>
-                <td><strong>{formatarData(dia.data)}</strong></td><td>{DIAS_SEMANA[dia.diaSemana]}</td>
-                <td><span className={`${styles.badge} ${badgeClass(dia.contextoTipo)}`}>{descricaoCalendario(dia)}</span></td>
-                <td>{dia.pedidos}</td><td><strong>{arredondar(dia.kg)} kg</strong></td>
+                <td data-label="Data"><strong>{formatarData(dia.data)}</strong></td>
+                <td data-label="Dia">{DIAS_SEMANA[dia.diaSemana]}</td>
+                <td data-label="Calendário" className={styles.calendarCell}><span className={`${styles.badge} ${badgeClass(dia.contextoTipo)}`}>{descricaoCalendario(dia)}</span></td>
+                <td data-label="Pedidos">{dia.pedidos}</td>
+                <td data-label="Lavado"><strong>{arredondar(dia.kg)} kg</strong></td>
               </tr>
             ))}</tbody>
           </table>
@@ -308,10 +310,13 @@ export function ProjecaoDemandaPage() {
             <thead><tr><th>Data</th><th>Dia</th><th>Calendário</th><th>Nível</th><th>Kg previstos</th><th>Pedidos</th><th>Confiança</th></tr></thead>
             <tbody>{analise.previsoes.map((dia) => (
               <tr key={dia.data} className={dia.nivel === 'Alta' ? styles.highRow : undefined}>
-                <td><strong>{formatarData(dia.data)}</strong></td><td>{DIAS_SEMANA[dia.diaSemana]}</td>
-                <td><span className={`${styles.badge} ${badgeClass(dia.contextoTipo)}`}>{descricaoCalendario(dia)}</span></td>
-                <td><span className={`${styles.level} ${styles[`level${dia.nivel}`]}`}>{dia.nivel}</span></td>
-                <td><strong>{arredondar(dia.kgPrevisto)} kg</strong></td><td>~{arredondar(dia.pedidosPrevistos, 0)}</td><td>{dia.confianca}</td>
+                <td data-label="Data"><strong>{formatarData(dia.data)}</strong></td>
+                <td data-label="Dia">{DIAS_SEMANA[dia.diaSemana]}</td>
+                <td data-label="Calendário" className={styles.calendarCell}><span className={`${styles.badge} ${badgeClass(dia.contextoTipo)}`}>{descricaoCalendario(dia)}</span></td>
+                <td data-label="Nível"><span className={`${styles.level} ${styles[`level${dia.nivel}`]}`}>{dia.nivel}</span></td>
+                <td data-label="Kg previstos"><strong>{arredondar(dia.kgPrevisto)} kg</strong></td>
+                <td data-label="Pedidos">~{arredondar(dia.pedidosPrevistos, 0)}</td>
+                <td data-label="Confiança">{dia.confianca}</td>
               </tr>
             ))}</tbody>
           </table>

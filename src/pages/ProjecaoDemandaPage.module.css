@@ -1,4 +1,4 @@
-.page { display: flex; flex-direction: column; gap: 18px; padding-bottom: 28px; }
+.page { display: flex; flex-direction: column; gap: 18px; padding-bottom: 28px; min-width: 0; width: 100%; overflow-wrap: anywhere; }
 .header { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .header h1 { margin: 4px 0 4px; font-size: clamp(25px, 4vw, 36px); letter-spacing: -1px; }
 .header p, .panelTitle p { margin: 0; color: var(--muted); font-size: 13px; }
@@ -49,4 +49,71 @@
 .muted { color: var(--muted); }
 .footnote { color: var(--muted); font-size: 10px; line-height: 1.5; }
 @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gridTwo { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .header { align-items: stretch; flex-direction: column; } .horizon select { width: 100%; } .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpis article { padding: 12px; } .kpis strong { font-size: 15px; } .panel { padding: 12px; } .weekRow { grid-template-columns: 55px minmax(60px, 1fr) 52px; } .weekRow small { display: none; } .futureCards article { grid-template-columns: 25px minmax(0, 1fr) auto; } }
+@media (max-width: 600px) {
+  .page { gap: 14px; }
+  .header { align-items: stretch; flex-direction: column; gap: 14px; }
+  .header p, .panelTitle p { line-height: 1.5; font-size: 14px; }
+  .horizon { font-size: 13px; }
+  .horizon select { width: 100%; min-height: 44px; font-size: 16px; }
+  .notice { padding: 12px; font-size: 13px; }
+  .notice > div { margin-top: 8px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kpis article { padding: 12px; }
+  .kpis article:first-child { grid-column: 1 / -1; }
+  .kpis span { font-size: 11px; }
+  .kpis strong { font-size: 19px; line-height: 1.35; }
+  .kpis small { font-size: 12px; line-height: 1.4; }
+  .panel { padding: 12px; }
+  .panelTitle h2 { font-size: 18px; }
+  .weekList { gap: 14px; }
+  .weekRow { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 14px; }
+  .weekName { grid-column: 1; grid-row: 1; }
+  .weekRow strong { grid-column: 2; grid-row: 1; }
+  .barTrack { grid-column: 1 / -1; grid-row: 2; height: 9px; }
+  .weekRow small { grid-column: 1 / -1; font-size: 12px; text-align: left; }
+  .futureCards { gap: 10px; }
+  .futureCards article { grid-template-columns: 24px minmax(0, 1fr); align-items: start; padding: 12px; }
+  .futureCards article strong { font-size: 14px; line-height: 1.4; }
+  .futureCards article small { font-size: 12px; white-space: normal; overflow: visible; line-height: 1.5; }
+  .futureCards .forecastValue { grid-column: 2; text-align: left; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+  .forecastValue strong { font-size: 18px !important; }
+  .tableWrap { max-height: none; overflow: visible; border: 0; }
+  .tableWrap table, .tableWrap tbody { display: block; width: 100%; min-width: 0; }
+  .tableWrap thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .tableWrap tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .tableWrap tr:last-child { margin-bottom: 0; }
+  .tableWrap td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .tableWrap td::before { content: attr(data-label); color: var(--muted); font-size: 12px; }
+  .tableWrap .calendarCell { grid-column: 1 / -1; }
+  .badge, .level { max-width: 100%; box-sizing: border-box; white-space: normal; overflow: visible; font-size: 12px; line-height: 1.5; border-radius: 8px; }
+  .footnote { font-size: 12px; }
+}
+
+@media (max-width: 360px) {
+  .kpis { grid-template-columns: minmax(0, 1fr); }
+}
