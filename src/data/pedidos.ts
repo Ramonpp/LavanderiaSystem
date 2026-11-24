@@ -40,6 +40,30 @@ export async function fetchPedidos(): Promise<{ data: PedidoCliente[]; error: st
   return hydratePedidosComCliente((data ?? []) as Pedido[])
 }
 
+export type PedidoProjecao = Pick<Pedido, 'data_pedido' | 'peso_kg' | 'status'>
+
+export async function fetchPedidosParaProjecao(): Promise<{ data: PedidoProjecao[]; error: string | null }> {
+  const pagina = 1000
+  const todos: PedidoProjecao[] = []
+
+  for (let inicio = 0; ; inicio += pagina) {
+    const { data, error } = await supabase
+      .from('pedido')
+      .select('data_pedido,peso_kg,status')
+      .is('deletado_em', null)
+      .neq('status', 'cancelado')
+      .order('data_pedido', { ascending: true })
+      .range(inicio, inicio + pagina - 1)
+
+    if (error) return { data: [], error: dbErrorMessage(error) }
+    const lote = (data ?? []) as PedidoProjecao[]
+    todos.push(...lote)
+    if (lote.length < pagina) break
+  }
+
+  return { data: todos, error: null }
+}
+
 export async function fetchPedidosPorPeriodo(params: {
   inicioIsoDate: string
   fimIsoDate: string

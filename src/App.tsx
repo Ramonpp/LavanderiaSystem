@@ -24,6 +24,7 @@ const PedidosUsouPagouPage = lazy(() => import('./pages/PedidosUsouPagouPage').t
 const HistoricoPedidosPage = lazy(() => import('./pages/HistoricoPedidosPage').then((m) => ({ default: m.HistoricoPedidosPage })))
 const FluxoEmpresaPage = lazy(() => import('./pages/FluxoEmpresaPage').then((m) => ({ default: m.FluxoEmpresaPage })))
 const CobrancasPage = lazy(() => import('./pages/CobrancasPage').then((m) => ({ default: m.CobrancasPage })))
+const ProjecaoDemandaPage = lazy(() => import('./pages/ProjecaoDemandaPage').then((m) => ({ default: m.ProjecaoDemandaPage })))
 export default function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="/relatorios/anual" element={<RelatorioAnualPage />} />
         <Route path="/relatorios/pecas" element={<RelatorioPecasPage />} />
         <Route path="/relatorios" element={<Navigate to="/relatorios/mensal" replace />} />
+        <Route path="/projecao-demanda" element={<ProjecaoDemandaPage />} />
         <Route path="/simulacao" element={<SimulacaoPage />} />
         <Route path="/configuracoes" element={<ConfigWebhookPage />} />
         <Route path="/manchas" element={<ManchasPage />} />

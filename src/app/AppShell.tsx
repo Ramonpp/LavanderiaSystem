@@ -162,6 +162,7 @@ const navItems = [
   { to: '/despesas',   icon: Ico.despesas,   label: 'Despesas',    desc: 'Lançamentos mensais'    },
   { to: '/maquinas',   icon: Ico.maquinas,   label: 'Máquinas',    desc: 'Lavagem e secagem'      },
   { to: '/relatorios', icon: Ico.relatorios, label: 'Relatórios',  desc: 'Fechamento mensal'      },
+  { to: '/projecao-demanda', icon: Ico.simulacao, label: 'Projeção', desc: 'Previsão de demanda' },
   { to: '/manchas',    icon: Ico.manchas,    label: 'Manchas',     desc: 'Guia de tratamento'     },
   { to: '/fluxo-empresa', icon: Ico.fluxo,   label: 'Organograma',   desc: 'Fluxo operacional'     },
   { to: '/configuracoes', icon: Ico.config,  label: 'Config',      desc: 'Webhook e integrações'  },

@@ -1,0 +1,52 @@
+.page { display: flex; flex-direction: column; gap: 18px; padding-bottom: 28px; }
+.header { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.header h1 { margin: 4px 0 4px; font-size: clamp(25px, 4vw, 36px); letter-spacing: -1px; }
+.header p, .panelTitle p { margin: 0; color: var(--muted); font-size: 13px; }
+.eyebrow { color: var(--accent); font-weight: 800; font-size: 10px; letter-spacing: 1.4px; }
+.horizon { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.horizon select { min-width: 140px; padding: 9px 32px 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--fg); }
+.notice { padding: 12px 15px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius: 11px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); color: var(--muted); font-size: 12px; line-height: 1.55; }
+.notice strong { color: var(--fg); }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpis article { display: flex; flex-direction: column; gap: 6px; padding: 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); min-width: 0; }
+.kpis span { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
+.kpis strong { font-size: 18px; line-height: 1.15; }
+.kpis small { color: var(--muted); font-size: 10px; }
+.positive { color: var(--ok) !important; text-transform: capitalize; }
+.negative { color: var(--warning) !important; text-transform: capitalize; }
+.gridTwo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.panel { padding: 17px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); min-width: 0; }
+.panelTitle { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+.panelTitle h2 { margin: 0 0 3px; font-size: 16px; }
+.weekList { display: grid; gap: 11px; }
+.weekRow { display: grid; grid-template-columns: 64px minmax(80px, 1fr) 57px 92px; align-items: center; gap: 9px; font-size: 11px; }
+.weekName { text-transform: capitalize; font-weight: 700; }
+.barTrack { height: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.barFill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #8b5cf6)); }
+.weekRow strong { text-align: right; }
+.weekRow small { color: var(--muted); text-align: right; }
+.futureCards { display: grid; gap: 7px; }
+.futureCards article { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px; border-radius: 9px; background: var(--surface-2); }
+.futureCards article > div { min-width: 0; display: grid; gap: 2px; }
+.futureCards article strong { font-size: 11px; }
+.futureCards article small { color: var(--muted); font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 800; font-size: 11px; }
+.forecastValue { text-align: right; }
+.forecastValue strong { color: var(--accent); font-size: 13px !important; }
+.tableWrap { overflow: auto; max-height: 570px; border: 1px solid var(--border); border-radius: 10px; }
+.tableWrap table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.tableWrap th { position: sticky; top: 0; z-index: 1; padding: 9px 10px; background: var(--surface-2); color: var(--muted); text-align: left; font-size: 9px; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
+.tableWrap td { padding: 9px 10px; border-top: 1px solid var(--border); white-space: nowrap; }
+.highRow { background: color-mix(in srgb, var(--warning) 5%, transparent); }
+.badge, .level { display: inline-flex; align-items: center; max-width: 260px; padding: 3px 7px; border-radius: 99px; overflow: hidden; text-overflow: ellipsis; font-size: 9px; font-weight: 700; }
+.badgeHoliday { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+.badgeOptional { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.badgeAfter { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+.badgeNear { background: var(--surface-2); color: var(--muted); }
+.levelAlta { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.levelMédia { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
+.levelBaixa { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.muted { color: var(--muted); }
+.footnote { color: var(--muted); font-size: 10px; line-height: 1.5; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gridTwo { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .header { align-items: stretch; flex-direction: column; } .horizon select { width: 100%; } .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpis article { padding: 12px; } .kpis strong { font-size: 15px; } .panel { padding: 12px; } .weekRow { grid-template-columns: 55px minmax(60px, 1fr) 52px; } .weekRow small { display: none; } .futureCards article { grid-template-columns: 25px minmax(0, 1fr) auto; } }
